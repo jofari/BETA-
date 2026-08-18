@@ -1,0 +1,13 @@
+# Donnees : jetables, jamais versionnees (invariant n° 7)
+data/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Secrets
+.env
