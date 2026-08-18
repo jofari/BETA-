@@ -3,9 +3,9 @@
 Un endroit où l'on teste **plusieurs** hypothèses de trading sur les mêmes données, avec
 l'outillage statistique qui les tue quand elles ne valent rien.
 
-**État au 2026-08-18 : le lake de données seulement.** Le reste (moteur de backtest,
-batterie statistique, dashboard, MCP) est conçu mais non codé — périmètre volontairement
-réduit, décidé par Jonas.
+**État au 2026-08-18** : les données (marché et stratégie), le protocole expérimental et le
+dashboard. Le **moteur de backtest** et le **serveur MCP** sont conçus mais non codés —
+périmètre volontairement fermé par Jonas, en attente de son feu vert.
 
 ---
 
@@ -57,12 +57,14 @@ lake identique.
 ## Lire des données
 
 ```python
-from beta import data
+from beta.lake import lecture, strategie
 
-df = data.load("BTC", "4h")                                   # tout l'historique
-df = data.load("ETH", "1h", debut="2023-01-01", fin="2024-01-01")
-df = data.load("SOL", "15m")                                  # dérivé du 5m, exact
-data.catalogue()                                              # ce que contient le lake
+df = lecture.load("BTC", "4h")                                # tout l'historique
+df = lecture.load("ETH", "1h", debut="2023-01-01", fin="2024-01-01")
+df = lecture.load("SOL", "15m")                               # dérivé du 5m, exact
+lecture.catalogue()                                           # ce que contient le lake
+
+trades = strategie.lire("trades", train_seulement=True)       # hold-out exclu
 ```
 
 C'est le **seul** point d'entrée. Plus aucun chemin de fichier OHLCV n'est écrit à la main
