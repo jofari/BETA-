@@ -252,6 +252,25 @@ def test_timeframe_non_derivable_refuse(lake_isole):
 
 # --- telechargement : la commande, sans reseau ----------------------------------------
 
+def test_chemin_de_depot_sans_niveau_exchange():
+    """`--datadir` designe deja le dossier de l'exchange : pas de `binance/` en plus.
+
+    Se tromper ici est invisible — le telechargement REUSSIT, la conversion ne trouve rien,
+    et le lake reste silencieusement incomplet.
+    """
+    chemin = config.chemin_feather_brut("LINK_USDT_USDT", "4h")
+    assert chemin.parent.name == config.TRADING_MODE
+    assert chemin.parent.parent == config.BRUT
+    assert config.EXCHANGE not in chemin.parts
+
+
+def test_preparer_dossiers_cree_les_sous_dossiers_freqtrade(lake_isole):
+    """Deux telechargements simultanes creent sinon `logs/` en meme temps -> WinError 183."""
+    config.preparer_dossiers()
+    for nom in config.USERDIR_SOUS_DOSSIERS:
+        assert (config.USERDIR / nom).is_dir()
+
+
 def test_commande_de_telechargement_sans_erase():
     """`--erase` detruirait une reprise partielle : il ne doit jamais apparaitre."""
     from beta import download

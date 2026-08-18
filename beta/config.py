@@ -50,9 +50,20 @@ def chemin_feather_arit(slug: str, timeframe: str) -> pathlib.Path:
 
 
 def chemin_feather_brut(slug: str, timeframe: str) -> pathlib.Path:
-    return BRUT / EXCHANGE / TRADING_MODE / f"{slug}-{timeframe}-{TRADING_MODE}.feather"
+    # `--datadir` designe DEJA le dossier de l'exchange : freqtrade y depose directement
+    # `futures/`, sans re-creer un niveau `binance/`. Verifie sur le telechargement du 18/08.
+    return BRUT / TRADING_MODE / f"{slug}-{timeframe}-{TRADING_MODE}.feather"
+
+
+# Sous-dossiers que freqtrade cree lui-meme au demarrage. On les cree AVANT de lancer quoi
+# que ce soit : deux processus simultanes les creent sinon en meme temps, et le perdant sort
+# sur FileExistsError (WinError 183). Constate le 18/08 sur LINK et XRP en parallele.
+USERDIR_SOUS_DOSSIERS = ("logs", "data", "strategies", "notebooks", "plot",
+                         "hyperopts", "hyperopt_results", "backtest_results")
 
 
 def preparer_dossiers() -> None:
     for dossier in (DATA, LAKE, BRUT, USERDIR):
         dossier.mkdir(parents=True, exist_ok=True)
+    for nom in USERDIR_SOUS_DOSSIERS:
+        (USERDIR / nom).mkdir(parents=True, exist_ok=True)

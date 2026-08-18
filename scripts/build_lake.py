@@ -21,6 +21,13 @@ sys.path.insert(0, str(RACINE))
 
 from beta import config, data, download, lake, univers  # noqa: E402
 
+# La console Windows est en cp1252 : un message d'erreur de freqtrade contenant un accent
+# (ou un caractere de remplacement) fait planter le script SUR SON PROPRE RAPPORT D'ERREUR,
+# ce qui masque la panne d'origine. Constate le 18/08.
+for flux in (sys.stdout, sys.stderr):
+    if hasattr(flux, "reconfigure"):
+        flux.reconfigure(encoding="utf-8", errors="replace")
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(name)-14s %(message)s")
 log = logging.getLogger("build_lake")
 
