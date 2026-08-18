@@ -19,7 +19,8 @@ import sys
 RACINE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RACINE))
 
-from beta import config, data, download, lake, univers  # noqa: E402
+from beta import config  # noqa: E402
+from beta.lake import catalogue, construction, lecture, telechargement, univers  # noqa: E402
 
 # La console Windows est en cp1252 : un message d'erreur de freqtrade contenant un accent
 # (ou un caractere de remplacement) fait planter le script SUR SON PROPRE RAPPORT D'ERREUR,
@@ -33,7 +34,7 @@ log = logging.getLogger("build_lake")
 
 
 def _afficher_etat() -> int:
-    etat = lake.etat()
+    etat = catalogue.etat()
     if etat.empty:
         print("lake vide — lancer scripts/build_lake.py")
         return 1
@@ -64,7 +65,7 @@ def main() -> int:
     if args.etat:
         return _afficher_etat()
     if args.purge:
-        lake.purger()
+        catalogue.purger()
         log.info("lake purge")
     config.preparer_dossiers()
 
@@ -74,15 +75,15 @@ def main() -> int:
     for paire in univers.a_importer():
         for timeframe in univers.TIMEFRAMES:
             try:
-                lake.importer_depuis_arit(paire, timeframe)
-            except lake.LakeError as exc:
+                construction.importer_depuis_arit(paire, timeframe)
+            except construction.LakeError as exc:
                 echecs.append(f"{paire.base} {timeframe} (import ARIT) : {exc}")
                 log.error("%s %s : %s", paire.base, timeframe, exc)
 
     # 2. Les paires nouvelles : telechargement parallele, puis conversion.
     manquantes = univers.a_telecharger()
     if manquantes and not args.sans_telechargement:
-        resultats = download.telecharger(manquantes)
+        resultats = telechargement.telecharger(manquantes)
         for base, etat in resultats.items():
             if etat != "ok":
                 echecs.append(f"{base} (telechargement) : {etat}")
@@ -99,8 +100,8 @@ def main() -> int:
                                   f"telechargement")
                 continue
             try:
-                lake.integrer_telechargement(paire, timeframe)
-            except lake.LakeError as exc:
+                construction.integrer_telechargement(paire, timeframe)
+            except construction.LakeError as exc:
                 echecs.append(f"{paire.base} {timeframe} (conversion) : {exc}")
                 log.error("%s %s : %s", paire.base, timeframe, exc)
 
@@ -113,9 +114,9 @@ def main() -> int:
         return 1
     # Verification de bout en bout : le lake doit etre LISIBLE, pas seulement ecrit.
     try:
-        apercu = data.load(univers.PAIRES[0].base, "4h")
+        apercu = lecture.load(univers.PAIRES[0].base, "4h")
         print(f"\nlecture verifiee : {univers.PAIRES[0].base} 4h -> {len(apercu)} bougies")
-    except data.DataError as exc:
+    except lecture.DataError as exc:
         print(f"\nlake ecrit mais illisible : {exc}")
         return 1
     return code

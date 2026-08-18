@@ -19,7 +19,8 @@ import logging
 import duckdb
 import pandas as pd
 
-from beta import config, univers
+from beta import config
+from beta.lake import univers
 
 log = logging.getLogger("beta.data")
 
@@ -125,5 +126,5 @@ def _avertir_si_suspect(paire: univers.Paire, timeframe: str) -> None:
 
 def catalogue() -> pd.DataFrame:
     """Ce que contient le lake. A lire avant de lancer quoi que ce soit dessus."""
-    from beta import lake
-    return lake.etat()
+    from beta.lake import catalogue
+    return catalogue.etat()

@@ -23,7 +23,8 @@ import subprocess
 import sys
 import time
 
-from beta import config, univers
+from beta import config
+from beta.lake import univers
 
 log = logging.getLogger("beta.download")
 
