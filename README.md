@@ -11,6 +11,35 @@ réduit, décidé par Jonas.
 
 ## Démarrage
 
+**Double-cliquer `BETA.cmd`.** Le navigateur s'ouvre sur `http://127.0.0.1:7474`.
+
+En ligne de commande :
+
+| Commande | Effet |
+|---|---|
+| `python beta.py serve` | le dashboard |
+| `python beta.py lake` | construit ou actualise le lake OHLCV |
+| `python beta.py strategie` | importe les données de stratégie depuis ARIT |
+| `python beta.py etat` | le catalogue, dans le terminal |
+| `python beta.py doctor` | ce qui est en place et ce qui manque |
+
+## Le dashboard
+
+Trois onglets, port **7474** (ALPHA occupe 7373) :
+
+- **Stratégie** — le R moyen affiché **à côté de son MDE**, avec un bandeau qui dit en clair
+  quand l'écart est sous le seuil de détection. Courbe d'équity en R cumulés, distribution
+  des R, ventilation par sens / paire / stratégie, raisons de **sortie** et raisons de
+  **rejet**. Le hold-out est exclu par défaut ; l'inclure affiche un avertissement permanent.
+- **Données** — les séries du lake, leur couverture réelle, et la **borne commune** : un run
+  multi-paires ne peut pas aller plus loin que la série qui s'arrête le plus tôt.
+- **Protocole** — le compteur d'essais cumulés et le registre d'expériences.
+
+Zéro dépendance front, zéro CDN : les graphiques sont dessinés au canvas. Même palette
+qu'ALPHA, accent vert au lieu de bleu pour distinguer les deux onglets d'un coup d'œil.
+
+## Reconstruire les données
+
 ```powershell
 cd C:\Users\jofar\BETA
 & C:\Users\jofar\venvs\arit\Scripts\python.exe scripts\build_lake.py
@@ -73,13 +102,19 @@ avertissement. C'est l'invariant n° 3 du projet.
 ## Architecture
 
 ```
-beta/univers.py   les 6 paires et les timeframes — source de vérité unique
 beta/config.py    le SEUL endroit où un chemin de données est écrit
-beta/download.py  freqtrade download-data, un processus par paire, en parallèle
-beta/lake.py      feather → parquet + audit des trous + catalogue
-beta/data.py      l'API de lecture (filtrage poussé dans DuckDB, resampling à la volée)
-scripts/build_lake.py   le point d'entrée unique
+beta/lake/        univers · telechargement · construction · catalogue · lecture · strategie
+beta/protocole/   experiences (le verrou) · holdout        <- dont tout dépend
+beta/stats/       descriptif — ne voit que des séries de R, jamais une stratégie
+beta/moteur/      (vide — attend un feu vert)
+beta/rapport/     serveur + web/ (le dashboard)
+scripts/build_lake.py        construit le lake OHLCV
+scripts/import_strategie.py  importe les données de stratégie
+beta.py · BETA.cmd           les points d'entrée
 ```
+
+`protocole/` est **sous** le moteur, pas à côté : un run sans préenregistrement ne pourra
+pas exister, et ça se verra dans les imports.
 
 Flux : `ARIT (lecture seule) ─┐`
        `freqtrade download ───┴→ feather → lake.convertir → parquet + catalogue → data.load`
@@ -90,7 +125,7 @@ Flux : `ARIT (lecture seule) ─┐`
 & C:\Users\jofar\venvs\arit\Scripts\python.exe -m pytest -q
 ```
 
-24 tests. Ils protègent en priorité la **détection des trous** et la convention
+68 tests. Ils protègent en priorité la **détection des trous** et la convention
 d'horodatage du resampling (une bougie porte l'heure de son **ouverture** — s'y tromper
 décale la série et fabrique du look-ahead en silence).
 
