@@ -51,13 +51,18 @@ def test_table_neutralise_les_nan():
     assert serveur._table(df) == [{"a": 1.0, "b": "x"}, {"a": None, "b": None}]
 
 
-# `/api/run` exige un identifiant : on lui passe celui d'un run enregistre, ou on saute.
+# Deux routes exigent un parametre. On le leur fournit, ou on saute la route : la tester
+# sans son parametre ne verifierait que le message d'erreur, pas la serialisation.
 def _params(route: str) -> dict | None:
-    if route != "/api/run":
-        return {}
-    from beta.rapport import runs
-    liste = runs.liste()
-    return {"id": [liste[0]["run_id"]]} if liste else None
+    if route == "/api/run":
+        from beta.rapport import runs
+        liste = runs.liste()
+        return {"id": [liste[0]["run_id"]]} if liste else None
+    if route == "/api/candidate":
+        from beta.moteur import registre
+        modules = sorted(registre.toutes())
+        return {"module": [modules[0]]} if modules else None
+    return {}
 
 
 @pytest.mark.parametrize("route", list(serveur.ROUTES))
@@ -65,7 +70,7 @@ def test_chaque_route_produit_du_json_strict(route):
     """`json.dumps` accepte NaN par defaut ; le navigateur, non. On teste le texte produit."""
     params = _params(route)
     if params is None:
-        pytest.skip(f"{route} demande un run enregistre")
+        pytest.skip(f"{route} demande un objet qui n'existe pas encore")
     texte = json.dumps(serveur.ROUTES[route](params), ensure_ascii=False)
     assert "NaN" not in texte
     assert "Infinity" not in texte

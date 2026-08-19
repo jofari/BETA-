@@ -32,6 +32,10 @@ log = logging.getLogger("beta.protocole")
 
 REGISTRE = config.RACINE / "EXPERIMENTS.jsonl"
 
+# Le journal des mesures effectivement lancees. A la racine comme le registre :
+# `data/` est jetable, et un compteur qu'un nettoyage remet a zero ment.
+JOURNAL_RUNS = config.RACINE / "RUNS.jsonl"
+
 # Dette consommee avant l'ouverture du registre : ~40 politiques comparees sur les memes
 # 123 episodes cote ARIT (research/pistes_2026-07-31/RAPPORT.md §1.3). Aucune p-value
 # calculee sur cette periode n'est interpretable telle quelle.
@@ -101,6 +105,46 @@ def exiger(id_exp: str, chemin: pathlib.Path | None = None) -> dict:
 def compteur(chemin: pathlib.Path | None = None) -> int:
     """Le nombre d'essais cumules, dette initiale comprise. Jamais remis a zero."""
     return ESSAIS_INITIAUX + len({e["id"] for e in _lignes(chemin) if "id" in e})
+
+
+def enregistrer_run(run_id: str, id_experience: str, candidate: str, empreinte: str,
+                    issue: str = "", chemin: pathlib.Path | None = None) -> None:
+    """Journalise une mesure REELLEMENT effectuee. Append-only, hors de `data/`.
+
+    Pourquoi ce journal existe depuis le 19/08, alors que `compteur()` semblait suffire :
+    le compteur compte les HYPOTHESES preenregistrees, pas les mesures. Tant qu'il y avait
+    une candidate par hypothese, les deux nombres etaient egaux. L'atelier casse cette
+    egalite — dix candidates sous la meme hypothese R7, c'est dix tests et un seul point de
+    compteur. L'ecart est exactement la quantite de p-hacking qu'un banc rapide rend
+    possible sans qu'elle se voie.
+
+    Ce journal MESURE l'ecart ; il ne change encore aucun seuil. Faire porter N par les runs
+    plutot que par les hypotheses durcirait retroactivement tous les verdicts deja rendus :
+    c'est un arbitrage de Jonas, inscrit dans `DECISIONS.md`, pas une correction a glisser
+    dans un commit.
+
+    Il vit a la RACINE, pas dans `data/` : `data/` est jetable (invariant n° 7), et un
+    compteur qu'un nettoyage remet a zero est un compteur qui ment.
+    """
+    chemin = chemin or JOURNAL_RUNS
+    entree = {"run_id": run_id, "experience": id_experience, "candidate": candidate,
+              "empreinte": empreinte, "issue": issue,
+              "date": datetime.now(UTC).isoformat()}
+    try:
+        _ajouter(entree, chemin)
+    except ProtocoleError as exc:
+        # Un journal qui ne s'ecrit pas ne doit pas faire perdre une mesure qui, elle, a
+        # tourne. On le dit fort, on ne tue pas le run.
+        log.warning("run %s non journalise : %s", run_id, exc)
+
+
+def runs_journalises(chemin: pathlib.Path | None = None) -> list[dict]:
+    return _lignes(chemin or JOURNAL_RUNS)
+
+
+def compteur_runs(chemin: pathlib.Path | None = None) -> int:
+    """Le nombre de mesures distinctes reellement effectuees. A comparer a `compteur()`."""
+    return len({e["run_id"] for e in runs_journalises(chemin) if e.get("run_id")})
 
 
 def preenregistrer(id_exp: str, hypothese: str, metrique_primaire: str,

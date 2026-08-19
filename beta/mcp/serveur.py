@@ -191,12 +191,16 @@ def _deposer(module: str, code: str, ecraser: bool = False, **_) -> dict:
         "required": ["module"]})
 def _backtest(module: str, paires: list | None = None, timeframe: str = "4h",
               n_chemins_synthetiques: int = 100, **options) -> dict:
+    from beta.lake import univers
     from beta.moteur import pipeline, registre
     from beta.moteur.contrats import Run
     candidate = registre.charger(module)
     connus = ("take_profit_r", "stop_atr", "horizon_bougies")
-    run = Run(candidate=candidate, paires=tuple(paires or ("BTC", "ETH", "SOL", "BNB")),
-              timeframe=timeframe,
+    # L'univers vient de `univers.PAIRES`, jamais d'une liste ecrite ici : une liste de
+    # paires en dur ailleurs que la-bas est exactement ce qui fait tourner un backtest sur
+    # 4 paires en croyant en couvrir 6. Corrige le 19/08, l'outil en portait une.
+    defaut = tuple(p.base for p in univers.PAIRES)
+    run = Run(candidate=candidate, paires=tuple(paires or defaut), timeframe=timeframe,
               **{cle: options[cle] for cle in connus if cle in options})
     verdict, _ = pipeline.executer(run, n_chemins=n_chemins_synthetiques)
     return verdict.dict()
@@ -256,6 +260,28 @@ def traiter(requete: dict) -> dict | None:
     raise ValueError(f"methode non supportee : {methode}")
 
 
+def forcer_utf8() -> None:
+    """MCP parle UTF-8. Windows, lui, ouvre stdout en cp1252 — et corrompt la reponse.
+
+    Trouve par `scripts/epreuve_mcp.py` le 19/08, invisible pour `tests/test_ponts.py` :
+    en processus, `traiter()` rend des objets Python, jamais des octets. Des qu'on passe par
+    un vrai tube, le premier tiret cadratin d'une description d'outil sort en 0x97, et le
+    client MCP echoue a decoder la ligne — donc n'obtient jamais la liste des outils.
+
+    Le corriger ICI plutot que dans la configuration du client est ce qui compte : un
+    serveur dont la correction vit dans le `PYTHONIOENCODING` de l'appelant est casse pour
+    tout client qui ne l'a pas mis, et on ne s'en apercoit qu'au branchement suivant.
+
+    `newline="\\n"` en plus : le mode texte de Windows traduirait chaque `\\n` en `\\r\\n`,
+    ce qui ajoute un octet parasite a un protocole delimite par la ligne.
+    """
+    for flux, sens in ((sys.stdout, "\n"), (sys.stderr, None)):
+        if hasattr(flux, "reconfigure"):
+            flux.reconfigure(encoding="utf-8", errors="replace", newline=sens)
+    if hasattr(sys.stdin, "reconfigure"):
+        sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+
+
 def servir(entree=None, sortie=None) -> int:
     """Boucle stdio. Une erreur d'outil est une reponse d'erreur, jamais un arret.
 
@@ -263,6 +289,7 @@ def servir(entree=None, sortie=None) -> int:
     comprendre : le refus doit lui revenir sous forme de message, c'est ce qui lui permet de
     corriger — par exemple d'aller preenregistrer son hypothese avant de relancer.
     """
+    forcer_utf8()
     entree = entree or sys.stdin
     logging.basicConfig(level=logging.INFO, stream=sys.stderr,
                         format="%(levelname)-7s %(name)s %(message)s")

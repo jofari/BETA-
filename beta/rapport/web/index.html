@@ -36,6 +36,9 @@
     <button class="tab" data-onglet="candidates" role="tab">
       <span aria-hidden="true">◈</span> Candidates
     </button>
+    <button class="tab" data-onglet="atelier" role="tab">
+      <span aria-hidden="true">✎</span> Atelier
+    </button>
     <button class="tab" data-onglet="lake" role="tab">
       <span aria-hidden="true">▤</span> Données
     </button>
@@ -199,6 +202,68 @@
     </div>
   </section>
 
+  <section class="panneau" id="onglet-atelier" hidden>
+    <div class="fiche-grille">
+      <aside class="carte fiche-aside">
+        <h2>Candidates</h2>
+        <p class="sous">Une candidate par fichier : corriger la n° 12 ne peut pas réveiller
+          la n° 3, et les verdicts déjà rendus restent vrais.</p>
+        <div id="atelier-liste"></div>
+
+        <h2 style="margin-top:18px">Modèles locaux</h2>
+        <p class="sous">Rien ne sort de la machine. Ollama sur 11434, LM Studio sur 1234.</p>
+        <div id="atelier-modeles"></div>
+      </aside>
+
+      <div>
+        <div class="carte">
+          <h2>Écrire une candidate</h2>
+          <p class="sous">L'atelier abaisse le coût d'<em>écrire</em> une candidate, jamais
+            le seuil pour en <em>confirmer</em> une : préenregistrement, compteur d'essais et
+            batterie S1-S9 restent devant elle, inchangés.</p>
+
+          <div class="atelier-champs">
+            <label>module
+              <input id="atelier-module" type="text" placeholder="r7_breakout" spellcheck="false">
+            </label>
+            <label>hypothèse
+              <input id="atelier-hypothese" type="text" placeholder="R7" spellcheck="false">
+            </label>
+            <label class="atelier-large">règle voulue, en une phrase
+              <input id="atelier-intention" type="text" spellcheck="false"
+                     placeholder="cassure du plus haut des 20 dernières bougies, sans filtre">
+            </label>
+            <label>modèle local
+              <select id="atelier-modele"></select>
+            </label>
+            <label>essais
+              <input id="atelier-essais" type="number" min="1" max="5" value="3">
+            </label>
+          </div>
+
+          <div class="atelier-boutons">
+            <button class="btn" data-geste="gabarit">Squelette</button>
+            <button class="btn" data-geste="generer">Demander au modèle local</button>
+            <button class="btn" data-geste="valider">Passer le sas</button>
+            <button class="btn" data-geste="deposer">Déposer</button>
+            <label class="chk"><input type="checkbox" id="atelier-ecraser"> écraser</label>
+            <span class="sous" id="atelier-message"></span>
+          </div>
+        </div>
+
+        <div class="carte">
+          <h2>Code de la candidate</h2>
+          <p class="sous">Trois interdits, vérifiés et non relus : ne rien lire après la
+            ligne qu'on décide, ne garder aucun état, n'aller chercher aucune donnée.</p>
+          <textarea id="atelier-code" class="atelier-code" spellcheck="false"
+                    placeholder="Choisir une candidate à gauche, partir d'un squelette, ou demander au modèle local."></textarea>
+        </div>
+
+        <div class="carte" id="atelier-rapport"></div>
+      </div>
+    </div>
+  </section>
+
   <section class="panneau" id="onglet-lake" hidden>
     <div class="carte" id="carte-lake"></div>
     <div class="carte">
@@ -223,6 +288,7 @@
 </main>
 
 <script src="fiche.js"></script>
+<script src="atelier.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

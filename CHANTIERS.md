@@ -19,11 +19,14 @@
 > candidates — deux travaux, deux dépôts), **C1-bis** (paramètre d'AritV1, que **R6** se
 > contente de mesurer) et **F2 / G2 / G8** (le dry-run, qui ne tourne que chez ARIT).
 
-**État en une phrase au 19/08** : BETA sait chercher un edge et le tuer. Le moteur, la
-batterie S1-S9, le pont freqtrade et le pont MCP sont en place ; trois hypothèses sont
-passées à la batterie et **aucune n'a survécu** — une infirmée, deux indécidables. Ce qui
-manque désormais n'est plus de l'outillage mais **des données** : funding, macro et spot,
-sans lesquelles R3, R4 et R5 ne sont pas mesurables.
+**État en une phrase au 19/08 (soir)** : BETA sait chercher un edge, le tuer, et depuis ce
+soir **en écrire d'autres**. Le moteur et la batterie S1-S9 sont en place, le pont MCP est
+**branché et éprouvé** (Claude Code + LM Studio), et l'**atelier** permet d'écrire une
+candidate à la main ou avec un modèle local — derrière un sas statique et une épreuve de
+causalité en sous-processus. Trois hypothèses sont passées à la batterie et **aucune n'a
+survécu**. Ce qui manque n'est toujours pas de l'outillage mais **des données** : funding,
+macro et spot, sans lesquelles R3, R4 et R5 ne sont pas mesurables — et désormais **un
+arbitrage** : le compteur d'essais compte les hypothèses, pas les mesures (§ A, dette T8).
 
 ---
 
@@ -53,7 +56,7 @@ sans lesquelles R3, R4 et R5 ne sont pas mesurables.
 
 ---
 
-## M — le moteur (en attente du feu vert de Jonas)
+## M — le moteur (feu vert de Jonas le 19/08 — sur du code déjà écrit)
 
 Arbitrage du 18/08 : **hybride** — moteur maison en espace-R pour cribler, freqtrade pour
 confirmer les survivantes. Aucun des deux seul ne suffit : le maison ne simule ni frais, ni
@@ -65,6 +68,12 @@ slots, ni compounding ; freqtrade ne permet pas 1 000 runs Monte-Carlo.
 | ~~M2~~ | ~~`moteur/espace_r.py` — triple barrière vectorisée~~ | ✅ fermé 19/08 | M | fait : bougie ambiguë ⇒ SL comme chez ARIT ; le coût en R croît quand le stop se resserre |
 | ~~M3~~ | ~~Pont freqtrade~~ | ✅ fermé 19/08 | M | fait : refuse une candidate non survivante, sauf `forcer=True` explicite |
 | ~~M4~~ | ~~Registre de candidates~~ | ✅ fermé 19/08 | S | fait : une candidate cassée est journalisée en ERROR, elle n'annule pas les autres |
+| ~~M5~~ | ~~`beta.py cribler` et `beta.py candidates` — lancer le moteur depuis le terminal~~ | ✅ fermé 19/08 | S | fait : le lot passe ensemble, donc S7 et S9 ont un sens |
+
+⚠️ **Le feu vert du 19/08 est arrivé sur du code déjà écrit** (commits `94eff2d`, `6ad1a2f`).
+Ce qui manquait vraiment n'était pas le moteur mais son **lanceur** : jusqu'à M5, aucune
+commande ne permettait de cribler une candidate. Un moteur sans porte d'entrée est un moteur
+qu'on croit avoir.
 
 ⚠️ **M2 ne produit jamais un verdict portefeuille.** Un chiffre issu du criblage se lit en
 R par trade, jamais en rendement de portefeuille. La confusion des deux est l'erreur qui
@@ -175,6 +184,27 @@ qui serait une autre candidate avec son propre préenregistrement.
 | ~~P1~~ | ~~Bouton du dashboard qui lance `claude "prompt"` avec le contexte du run~~ | ✅ fermé 19/08 | S |
 | ~~P2~~ | ~~Serveur MCP stdio, 7 outils~~ | ✅ fermé 19/08 | M |
 | ~~P3~~ | ~~`beta_run_backtest` refuse un run sans préenregistrement~~ | ✅ fermé 19/08 | S |
+| ~~P5~~ | ~~**Brancher** le pont : `.mcp.json`, `beta.py mcp`, épreuve stdio réelle, déclaration LM Studio~~ | ✅ fermé 19/08 | S |
+
+### P5 — ce que « à tester » a trouvé
+
+Le pont existait depuis le matin mais **n'était déclaré à aucun client** : pas de
+`.mcp.json`, `mcpServers` vide côté Claude Code comme côté LM Studio. Un pont que rien ne
+traverse.
+
+`scripts/epreuve_mcp.py` le traverse pour de vrai — sous-processus, JSON-RPC ligne à ligne —
+et a trouvé du premier coup un défaut que `tests/test_ponts.py` ne pouvait pas voir :
+**le serveur écrivait en cp1252**. Les tests appellent `traiter()` en direct, qui rend des
+objets Python ; dès qu'on passe par un tube, le premier tiret cadratin d'une description
+d'outil sort en `0x97` et le client échoue à décoder la ligne — donc n'obtient **jamais** la
+liste des outils. Corrigé à la source (`serveur.forcer_utf8()`), pas dans la configuration
+du client : un serveur dont le correctif vit dans le `PYTHONIOENCODING` de l'appelant est
+cassé pour tout client qui ne l'a pas mis. Test de non-régression : le seul du dépôt qui
+lance un vrai sous-processus.
+
+Trouvé au passage et corrigé : `beta_run_backtest` portait une **liste de paires en dur**
+(`BTC, ETH, SOL, BNB`), alors que `univers.py` dit qu'une liste de paires écrite ailleurs est
+un bug — c'est exactement ce qui fait tourner un backtest sur 4 paires en croyant en couvrir 6.
 
 ⚠️ **Rouvert par Jonas le 19/08** (« tous les chantiers M, S, R et P »). Le pipeline
 **YouTube → stratégie générée** (`P4`) reste reporté, lui : une vidéo est une source
@@ -182,6 +212,59 @@ d'**hypothèses**, jamais d'edge.
 
 Lancement du serveur MCP :
 `& C:/Users/jofar/venvs/arit/Scripts/python.exe -m beta.mcp.serveur`
+
+---
+
+## A — l'atelier de candidates (ouvert et fermé le 19/08, demande de Jonas)
+
+Demande, mot pour mot : « une possibilité de tester d'autres stratégies, et une **option
+locale** pour coder ces stratégies à la main ou avec un modèle local sur Ollama ou LM Studio ».
+
+Le problème que l'atelier résout n'est pas *produire du code de stratégie* — un modèle de
+7 milliards de paramètres en produit dix par minute. C'est **empêcher que ce code, écrit
+vite, entre dans le banc en emportant du look-ahead avec lui**.
+
+> **Une candidate écrite par une machine est une source d'HYPOTHÈSES, jamais d'edge.**
+> Même règle que P4 (YouTube). Elle entre au banc par la même porte que les autres :
+> préenregistrement, compteur d'essais, batterie S1-S9. L'atelier abaisse le coût
+> d'**écrire** une candidate, jamais le seuil pour en **confirmer** une.
+
+| # | Chantier | Statut | Effort | Ce que ça fait |
+|---|---|---|---|---|
+| ~~A1~~ | ~~`atelier/gabarit.py` + `beta.py atelier nouveau`~~ | ✅ fermé 19/08 | S | la voie « à la main » : un squelette qui porte le contrat, et qui **ne signale rien** — donc que l'épreuve refuse tant que la règle n'est pas écrite |
+| ~~A2~~ | ~~`atelier/sas.py` — contrôle statique AST, **avant tout import**~~ | ✅ fermé 19/08 | M | imports en liste blanche, pas d'`open`/`exec`, `creer()` présent, aucun effet de bord à l'import, `shift(-n)` et `center=True` refusés |
+| ~~A3~~ | ~~`atelier/epreuve.py` — l'épreuve en **sous-processus avec chronomètre**~~ | ✅ fermé 19/08 | M | contrat, déterminisme, **causalité**, non-dégénérescence. Un `while True` d'un 7B est tué, il ne gèle pas le dashboard |
+| ~~A4~~ | ~~`atelier/depot.py` — le chemin unique vers `beta/candidates/`~~ | ✅ fermé 19/08 | S | valide sur un fichier **temporaire** : une nouvelle version refusée ne détruit pas la candidate en place |
+| ~~A5~~ | ~~`atelier/local.py` — Ollama (11434) et LM Studio (1234), `urllib` seul~~ | ✅ fermé 19/08 | M | auto-détection, prompt portant le contrat, **boucle de réparation** : le refus du sas repart au modèle |
+| ~~A6~~ | ~~Onglet **Atelier** au dashboard + `beta.py atelier`~~ | ✅ fermé 19/08 | M | éditeur, modèle local, sas, dépôt. Liste blanche de gestes, rien d'exécuté avant le sas |
+
+### Le couple qui justifie tout l'étage
+
+Deux tests disent la même chose depuis les deux côtés, et c'est le résultat le plus utile de
+la journée :
+
+- `test_le_sas_ne_voit_pas_une_normalisation_globale` — une candidate qui divise par
+  `close.mean()` **passe** le contrôle statique. Aucun motif interdit n'y figure.
+- `test_l_epreuve_attrape_la_normalisation_globale_que_le_sas_a_laissee_passer` — la même
+  candidate est **refusée** par l'épreuve de causalité, qui voit 110 signaux du passé changer
+  quand on tronque la série.
+
+⇒ **Une liste de motifs interdits attrape ce qu'elle connaît ; la causalité attrape ce qu'on
+n'avait pas prévu.** `signaux(df[:t])` doit rendre exactement `signaux(df)[:t]` : une
+fonction causale ne peut pas produire autre chose sur un préfixe, puisque chaque ligne ne
+dépend que de son passé. C'est vrai de tout look-ahead, y compris ceux qu'aucune liste ne
+prévoit.
+
+⚠️ **Le sas n'est pas un bac à sable.** Qui peut écrire dans `beta/candidates/` peut déjà
+exécuter du code sur cette machine. Il attrape des **erreurs**, pas un adversaire. On relit
+le code déposé — surtout celui qu'un modèle vient d'écrire.
+
+### Vérifié en vrai, pas seulement en test
+
+`qwen2.5:7b` sur Ollama, prompt « croisement de deux moyennes mobiles » : candidate conforme
+et **causale** du premier essai (`rolling` + `shift(1)` positif), sas et épreuve passés,
+réserve correctement levée sur l'hypothèse non préenregistrée. Le fichier de démonstration a
+été retiré — il n'avait pas de préenregistrement, donc rien à mesurer.
 
 ---
 
@@ -195,6 +278,7 @@ Lancement du serveur MCP :
 | **T4** | **`ts_utc` du journal d'ARIT ment** sur les événements `gestion` (heure d'exécution du backtest, pas de la bougie). Contourné côté BETA par `signal_id`. ⚠️ **La correction appartient à ARIT** : inscrite là-bas le 19/08 sous **T4-ARIT** (`ARIT2.0/research/pistes_2026-07-31/CHANTIERS.md` § MISE À JOUR DU 2026-08-19) — cause exacte : `ev_gestion()` ne pose pas de `ts_utc`, `write()` retombe sur `_now_iso()` | 🔴 ouverte (contournée ici, **non corrigée** à la source) | à corriger **à la source**, côté ARIT, sinon chaque nouveau consommateur retombera dedans |
 | **T5** | **Le pont freqtrade n'a pas ses données** — `--datadir` pointe sur `data/raw`, où seuls LINK et XRP sont en feather ; BTC/ETH/SOL/BNB ne vivent qu'en parquet dans le lake | 🔴 ouverte | la confirmation portefeuille (M3) ne peut tourner que sur 2 paires sur 6. Faire lire `ARIT2.0/user_data/data/` à freqtrade lui ferait écrire dans le dossier d'ARIT — **interdit par l'invariant n° 1** — donc à résoudre par un export feather depuis le lake |
 | **T6** | **Chemins synthétiques rejoués sur une seule paire** (la première du run) | 🟠 ouverte, assumée | le coût est linéaire en nombre de paires ; la réserve est écrite dans chaque verdict, elle n'est donc pas silencieuse |
+| **T8** | **Le compteur d'essais compte les HYPOTHÈSES, pas les MESURES.** `compteur()` = 30 + nombre d'ids distincts dans `EXPERIMENTS.jsonl`. Tant qu'il y avait une candidate par hypothèse les deux nombres coïncidaient ; l'atelier casse l'égalité — dix candidates sous R7, c'est dix tests et **un seul point de compteur**. `RUNS.jsonl` (racine, append-only, ajouté le 19/08) **mesure** l'écart, `beta.py doctor` l'affiche, et **rien ne change encore** : faire porter N par les runs durcirait rétroactivement tous les verdicts déjà rendus. ⇒ arbitrage de Jonas, `DECISIONS.md` § A1 | 🔴 ouverte, **mesurée** | S1 et S2 corrigent sur un N trop petit dès qu'il y a plusieurs candidates par hypothèse : les seuils sont trop généreux, donc les verdicts trop flatteurs |
 | **T7** | **L'équity à risque fixe non composé peut passer sous zéro** — R2 finit à −83 750 sur 100 000 | 🟠 ouverte, assumée | mathématiquement cohérent, physiquement impossible. Le choix rend deux candidates comparables entre elles ; le compounding se mesure côté freqtrade (M3), une seule fois |
 
 
@@ -216,10 +300,14 @@ faute de séries, et aucune ne peut être mesurée en attendant.
 c'est le seul des trois qui ne demande aucun appel réseau. À faire en premier pour cette
 seule raison.
 
-## Ce qui reste, après le 19/08
+## Ce qui reste, après le 19/08 (soir)
 
-1. **D5-D7** — sans quoi R3, R4 et R5 restent à l'arrêt.
-2. **T5** — sans quoi le verdict portefeuille ne couvre que 2 paires sur 6.
-3. **De nouvelles candidates.** Le moteur en accepte autant qu'on veut ; il n'en existe
-   qu'une. Chacune demande son préenregistrement, et chacune **augmente le compteur
-   d'essais** — donc durcit le seuil de toutes les autres. C'est voulu.
+1. **T8 / `DECISIONS.md` § A1** — l'arbitrage sur ce que compte N. À trancher **avant** de
+   lancer l'atelier en série, pas après : mesurer vingt candidates puis découvrir que le
+   seuil était trop généreux, c'est vingt mesures à refaire ou à jeter.
+2. **D5-D7** — sans quoi R3, R4 et R5 restent à l'arrêt.
+3. **T5** — sans quoi le verdict portefeuille ne couvre que 2 paires sur 6.
+4. **De nouvelles candidates.** Le moteur en accepte autant qu'on veut, l'atelier sait les
+   écrire, et il n'en existe toujours **qu'une**. Chacune demande son préenregistrement.
+   Le goulot n'est plus l'outillage : c'est le nombre d'hypothèses falsifiables qu'on est
+   prêt à écrire avant de regarder les chiffres.

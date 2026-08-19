@@ -159,12 +159,27 @@ def donnees_run(params: dict) -> dict:
     return runs.fiche(identifiant)
 
 
+def donnees_atelier() -> dict:
+    from beta.rapport import atelier
+    return atelier.inventaire()
+
+
+def donnees_candidate(params: dict) -> dict:
+    from beta.rapport import atelier
+    module = (params.get("module") or [""])[0]
+    if not module:
+        raise ValueError("parametre `module` manquant")
+    return atelier.code_de(module)
+
+
 _ROUTES_BRUTES = {
     "/api/lake": lambda p: donnees_lake(),
     "/api/strategie": lambda p: donnees_strategie(bool(p.get("holdout"))),
     "/api/protocole": lambda p: donnees_protocole(),
     "/api/runs": lambda p: donnees_runs(),
     "/api/run": donnees_run,
+    "/api/atelier": lambda p: donnees_atelier(),
+    "/api/candidate": donnees_candidate,
 }
 
 # Toutes les routes passent par `propre` : aucune ne peut renvoyer de NaN au navigateur,
@@ -175,6 +190,11 @@ ROUTES = {chemin: (lambda p, f=fonction: propre(f(p)))
 # Corps maximal accepte en POST. Le client n'envoie qu'un nom d'action et un run_id :
 # au-dela, c'est que quelque chose d'autre parle au serveur.
 MAX_CORPS_POST = 4096
+
+# L'atelier fait exception : il transporte le CODE d'une candidate. Le plafond reste bas —
+# une candidate est une regle nue, pas un programme — mais il ne peut pas etre celui d'un
+# nom d'action.
+MAX_CORPS_ATELIER = 64 * 1024
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -226,22 +246,39 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json({"erreur": f"{type(exc).__name__}: {exc}"}, 500)
         return self._statique(route.lstrip("/"))
 
-    def do_POST(self) -> None:       # noqa: N802 — impose par BaseHTTPRequestHandler
-        """Une seule route, une liste blanche d'actions, aucune commande venue du client."""
-        from beta.rapport import actions, runs
-
-        if urlparse(self.path).path.rstrip("/") != "/api/action":
-            return self._json({"erreur": "route inconnue"}, 404)
+    def _corps(self, maximum: int):
+        """Lit le corps d'un POST, borne. Rend None APRES avoir repondu, en cas de refus."""
         try:
             taille = int(self.headers.get("Content-Length") or 0)
         except ValueError:
-            return self._json({"erreur": "longueur invalide"}, 400)
-        if taille > MAX_CORPS_POST:
-            return self._json({"erreur": "corps trop grand"}, 413)
+            self._json({"erreur": "longueur invalide"}, 400)
+            return None
+        if taille > maximum:
+            self._json({"erreur": f"corps trop grand (maximum {maximum} octets)"}, 413)
+            return None
         try:
-            charge = json.loads(self.rfile.read(taille) or b"{}")
+            return json.loads(self.rfile.read(taille) or b"{}")
         except (json.JSONDecodeError, OSError) as exc:
-            return self._json({"erreur": f"corps illisible : {exc}"}, 400)
+            self._json({"erreur": f"corps illisible : {exc}"}, 400)
+            return None
+
+    def do_POST(self) -> None:       # noqa: N802 — impose par BaseHTTPRequestHandler
+        """Deux routes, deux listes blanches, aucune commande venue du client.
+
+        `/api/action` porte un nom d'action et un run_id. `/api/atelier` porte un nom de
+        geste et le code d'une candidate — du CODE, donc, mais qui ne s'execute que dans le
+        sous-processus de l'epreuve, et jamais avant que le sas ait lu ce qu'il contient.
+        """
+        route = urlparse(self.path).path.rstrip("/")
+        if route == "/api/atelier":
+            return self._post_atelier()
+        if route != "/api/action":
+            return self._json({"erreur": "route inconnue"}, 404)
+
+        from beta.rapport import actions, runs
+        charge = self._corps(MAX_CORPS_POST)
+        if charge is None:
+            return None
 
         action = str(charge.get("action") or "")
         run_id = str(charge.get("run_id") or "")
@@ -254,6 +291,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json({"erreur": str(exc)}, 400)
         except Exception as exc:                         # noqa: BLE001
             log.exception("action %s", action)
+            return self._json({"erreur": f"{type(exc).__name__}: {exc}"}, 500)
+
+    def _post_atelier(self):
+        from beta.atelier import depot
+        from beta.rapport import atelier
+
+        charge = self._corps(MAX_CORPS_ATELIER)
+        if charge is None:
+            return None
+        geste = str(charge.get("geste") or "")
+        try:
+            return self._json(propre(atelier.executer(geste, charge)))
+        except (atelier.AtelierError, depot.DepotError) as exc:
+            return self._json({"erreur": str(exc)}, 400)
+        except Exception as exc:                         # noqa: BLE001
+            log.exception("geste d'atelier %s", geste)
             return self._json({"erreur": f"{type(exc).__name__}: {exc}"}, 500)
 
 

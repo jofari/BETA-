@@ -112,6 +112,40 @@ def test_la_boucle_stdio_rend_une_erreur_plutot_que_de_mourir(capsys):
     assert reponse["error"]["code"] == -32000
 
 
+def test_le_serveur_mcp_ecrit_en_utf8_a_travers_un_vrai_tube():
+    """Regression du 19/08 : sous Windows, stdout sortait en cp1252 et le client echouait.
+
+    Le seul test du fichier qui lance un vrai sous-processus. Il coute deux secondes, et
+    c'est le prix de la seule chose que les autres ne peuvent pas voir : `traiter()` rend
+    des objets Python, jamais des octets. Le defaut ne vivait pas dans la logique du
+    serveur, il vivait dans son branchement — un tiret cadratin de description d'outil
+    sortait en 0x97, et le client n'obtenait jamais la liste des outils.
+
+    L'environnement est transmis TEL QUEL, sans PYTHONIOENCODING : c'est le serveur qui
+    doit se corriger, pas la configuration de l'appelant.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    racine = Path(__file__).resolve().parents[1]
+    requetes = "\n".join(json.dumps(r) for r in (
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})) + "\n"
+    # Tube en OCTETS des deux cotes : c'est l'encodage de la reponse qui est teste, donc
+    # laisser subprocess decoder a notre place viderait le test de son objet.
+    fini = subprocess.run([sys.executable, "-m", "beta.mcp.serveur"],
+                          input=requetes.encode("utf-8"), capture_output=True,
+                          cwd=str(racine), timeout=60)
+
+    lignes = fini.stdout.decode("utf-8", errors="strict").splitlines()   # strict : le test
+    reponses = [json.loads(ligne) for ligne in lignes if ligne.strip()]  # EST le decodage
+    assert reponses[0]["result"]["serverInfo"]["name"] == "beta"
+    descriptions = " ".join(o["description"] for o in reponses[1]["result"]["tools"])
+    assert any(ord(c) > 127 for c in descriptions), \
+        "plus aucune description non-ASCII : le test ne prouve plus rien"
+
+
 # --- P1 actions du dashboard -----------------------------------------------------------
 
 def test_nettoyer_retire_ce_qui_atteindrait_un_shell():

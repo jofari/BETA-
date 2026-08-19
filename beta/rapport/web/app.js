@@ -323,13 +323,14 @@ async function charger() {
   rendreLake();
   rendreProtocole();
   FICHE.charger();
+  ATELIER.charger();
 }
 
 function ongletActif(nom) {
   etat.onglet = nom;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("is-active", t.dataset.onglet === nom));
-  ["strategie", "candidates", "lake", "protocole"].forEach((o) =>
+  ["strategie", "candidates", "atelier", "lake", "protocole"].forEach((o) =>
     ($("#onglet-" + o).hidden = o !== nom));
   // Un canvas d'onglet masque a une largeur nulle : la fiche se redessine a l'affichage.
   if (nom === "candidates" && FICHE.aDesDonnees()) FICHE.redessiner();

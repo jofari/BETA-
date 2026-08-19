@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "beta": {
+      "command": "C:/Users/jofar/venvs/arit/Scripts/python.exe",
+      "args": [
+        "-m",
+        "beta.mcp.serveur"
+      ],
+      "env": {
+        "PYTHONPATH": "C:/Users/jofar/BETA"
+      }
+    }
+  }
+}

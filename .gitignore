@@ -1,6 +1,11 @@
 # Donnees : jetables, jamais versionnees (invariant n° 7)
 data/
 
+# Essais de l'atelier. `depot.valider` les retire dans son `finally` ; ceci couvre le
+# cas ou un plantage en laisse un derriere. Le prefixe `_` les rend deja invisibles du
+# registre, donc un essai oublie n'entre jamais dans un criblage.
+beta/candidates/_essai_*.py
+
 # Python
 __pycache__/
 *.pyc

@@ -158,6 +158,12 @@ def _ecrire(verdict: Verdict, artefacts: dict) -> None:
     Ecrit sous `data/`, donc jetable (invariant n° 7). Ce qui doit survivre a un effacement
     de `data/` est le PREENREGISTREMENT, qui vit dans EXPERIMENTS.jsonl a la racine.
     """
+    # Le journal des runs vit a la RACINE, pas ici : il doit survivre a un effacement de
+    # `data/`, sinon le nombre de mesures effectuees redevient inconnu au premier nettoyage.
+    experiences.enregistrer_run(
+        verdict.run.id, verdict.run.id_experience, verdict.run.candidate.nom,
+        verdict.run.candidate.empreinte, verdict.issue)
+
     dossier = RESULTATS / verdict.run.id
     try:
         dossier.mkdir(parents=True, exist_ok=True)

@@ -35,7 +35,7 @@ signaux en 5 ans, p = 0,38 / 0,30 contre le modèle nul.
 | **Téléchargement** | les 4 habituelles sont **déjà sur disque** — ne lancer que les 2 nouvelles. Les téléchargements peuvent être **simultanés** dans BETA (repère : 27 min pour 4 paires en séquentiel). |
 | **Emplacement** | **nouveau dossier hors ARIT2.0, repo git séparé et PRIVÉ.** |
 | **Patte graphique** | celle d'ALPHA (`ALPHA/web/style.css`), thème sombre, tokens CSS. |
-| **MCP** | double sens : dashboard → Claude Code (comme `ALPHA/alpha/actions.py:160`) **et** Claude Code → BETA (serveur MCP stdio exposant le catalogue, les runs, le registre d'expériences). Reporté avec le pipeline YouTube. |
+| **MCP** | double sens : dashboard → Claude Code (comme `ALPHA/alpha/actions.py:160`) **et** Claude Code → BETA (serveur MCP stdio exposant le catalogue, les runs, le registre d'expériences). ✅ **codé et branché le 19/08** (P1-P3, P5) — le pipeline YouTube (P4) reste seul reporté. |
 
 ### Le moteur — tranché le 18/08 : **hybride**
 
@@ -68,9 +68,49 @@ portefeuille ; seule la phase freqtrade en produit un.
    d'ARIT, devenu S8) : ce qui ne bat pas le hold mesure le marché, pas un edge.
 
 **Ce qui reste à faire n'est pas listé ici** : blocs M (moteur), S (multi-test), R (recherche
-d'edge), P (MCP) dans `CHANTIERS.md`. Les deux hypothèses les moins chères, **R1** (le
+d'edge), P (MCP) et A (atelier) dans `CHANTIERS.md`. **Feu vert de Jonas le 19/08 sur M1-M4
+et sur le pont MCP**, plus l'ouverture de l'atelier (§ A) : « une possibilité de tester
+d'autres stratégies, et une option locale pour les coder à la main ou avec un modèle local
+sur Ollama ou LM Studio ». Les deux hypothèses les moins chères, **R1** (le
 trailing stop détruit les shorts) et **R6** (`news_window`), se mesurent sur les données déjà
 présentes, sans écrire une seule candidate : ce sont les deux premières à préenregistrer.
+
+---
+
+## A1 — ce que compte N : les hypothèses, ou les mesures ? **OUVERTE, en attente de Jonas**
+
+**Découvert le 19/08 en construisant l'atelier.** `experiences.compteur()` vaut
+`30 + nombre d'ids distincts dans EXPERIMENTS.jsonl` : il compte les **hypothèses
+préenregistrées**, pas les **mesures effectuées**. C'est ce N qui alimente S1
+(Benjamini-Hochberg) et S2 (Sharpe dégonflé) — donc c'est lui qui fixe la sévérité de toute
+la batterie.
+
+Tant qu'il y avait une candidate par hypothèse, les deux nombres étaient égaux et la
+question ne se posait pas. **L'atelier casse l'égalité** : dix candidates écrites sous
+l'hypothèse R7, ce sont dix tests, et **un seul point de compteur**. L'écart est exactement
+la quantité de p-hacking qu'un banc rapide rend possible sans qu'elle se voie.
+
+État au 19/08 : **1 run mesuré pour 6 hypothèses déclarées** — l'écart n'existe pas encore.
+
+| Option | Ce que ça donne | Coût |
+|---|---|---|
+| **(a)** laisser N = hypothèses | statu quo. Le premier lot de l'atelier rendra les seuils trop généreux, donc les verdicts trop flatteurs | gratuit, et faux dès la 2ᵉ candidate d'une même hypothèse |
+| **(b)** N = `30 + runs mesurés` (`RUNS.jsonl`) | honnête : chaque mesure paie son coût statistique, ce qui est le sens même du compteur cumulatif | **durcit rétroactivement** les seuils. Les trois verdicts du 19/08 ont été rendus avec N = 36 ; il faudrait dire qu'ils l'ont été, pas les réécrire |
+| **(c)** N = hypothèses, **et une candidate par hypothèse imposée** | garde le compteur juste en interdisant le cas qui le casse | rend l'atelier beaucoup moins utile : chaque variante demande un préenregistrement complet |
+
+**Ma recommandation : (b)**, parce que c'est la seule qui reste vraie quand le banc
+accélère, et parce que l'invariant n° 4 dit « N doit compter TOUS les essais, y compris ceux
+qu'on n'a jamais rapportés ». Un compteur qu'on n'incrémente que lorsqu'on écrit une
+hypothèse *nouvelle* est exactement le compteur que le fléau des tests multiples exploite.
+Les verdicts déjà rendus resteraient publiés **avec leur N d'époque**, écrit à côté — on ne
+réécrit pas un résultat, on date sa sévérité.
+
+**Ce qui est déjà fait, quelle que soit la réponse** : `RUNS.jsonl` existe à la racine
+(append-only, hors de `data/` qui est jetable), `beta.py doctor` affiche les deux nombres et
+signale l'écart. **Aucun seuil n'a été touché** — c'est un arbitrage, pas un commit.
+
+⚠️ **À trancher avant de lancer l'atelier en série.** Mesurer vingt candidates puis
+découvrir que le seuil était trop généreux, c'est vingt mesures à refaire ou à jeter.
 
 ---
 
@@ -78,5 +118,4 @@ présentes, sans écrire une seule candidate : ce sont les deux premières à pr
 
 | # | Objet | État | Depuis |
 |---|---|---|---|
-| **M** | Feu vert pour écrire le moteur (M1-M4) | **à trancher** — le périmètre du 18/08 était « les données, et rien d'autre » | 18/08 |
-| **P** | Pont MCP double sens + pipeline YouTube | **reporté** par Jonas | 18/08 |
+| **A1** | Ce que compte N : hypothèses ou mesures (ci-dessus) | **à trancher** — recommandation : (b) | 19/08 |

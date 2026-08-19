@@ -24,18 +24,28 @@ En ligne de commande :
 | `python beta.py strategie` | importe les données de stratégie depuis ARIT |
 | `python beta.py etat` | le catalogue, dans le terminal |
 | `python beta.py doctor` | ce qui est en place et ce qui manque |
+| `python beta.py candidates` | l'inventaire du registre de candidates |
+| `python beta.py cribler` | passe des candidates à la batterie S1-S9 |
+| `python beta.py atelier nouveau <module> --hypothese R7` | un squelette prêt à remplir |
+| `python beta.py atelier valider <module>` | sas statique + épreuve de causalité |
+| `python beta.py atelier local "<règle>" --module r7_x --hypothese R7` | la fait écrire par un modèle local |
+| `python beta.py atelier modeles` | quels serveurs locaux répondent |
 | `python scripts/preenregistrer.py` | préenregistre R1-R6 (idempotent) |
 | `python scripts/mesurer.py` | mesure R1 et R6, applique Benjamini-Hochberg, clôt au registre |
-| `python -m beta.mcp.serveur` | le serveur MCP stdio (7 outils) |
+| `python scripts/epreuve_mcp.py` | **éprouve le pont MCP pour de vrai** (sous-processus, JSON-RPC) |
+| `python beta.py mcp` | le serveur MCP stdio (7 outils) — normalement lancé par le client |
 
 ## Le dashboard
 
-Quatre onglets, port **7474** (ALPHA occupe 7373) :
+Cinq onglets, port **7474** (ALPHA occupe 7373) :
 
 - **Stratégie** — le R moyen affiché **à côté de son MDE**, avec un bandeau qui dit en clair
   quand l'écart est sous le seuil de détection. Courbe d'équity en R cumulés, distribution
   des R, ventilation par sens / paire / stratégie, raisons de **sortie** et raisons de
   **rejet**. Le hold-out est exclu par défaut ; l'inclure affiche un avertissement permanent.
+- **Atelier** — écrire une candidate, à la main ou avec un modèle local. Éditeur, bouton
+  « demander au modèle local », sas, dépôt. Rien n'entre dans `beta/candidates/` sans avoir
+  passé le contrôle statique **et** l'épreuve de causalité.
 - **Données** — les séries du lake, leur couverture réelle, et la **borne commune** : un run
   multi-paires ne peut pas aller plus loin que la série qui s'arrête le plus tôt.
 - **Protocole** — le compteur d'essais cumulés et le registre d'expériences.
@@ -73,6 +83,17 @@ trades = strategie.lire("trades", train_seulement=True)       # hold-out exclu
 ```
 
 ## Cribler une candidate
+
+```
+python beta.py cribler --candidates r2_mean_reversion --paires BTC,ETH --timeframe 4h
+```
+
+Sans `--candidates`, tout le registre passe **ensemble** — c'est nécessaire, pas cosmétique :
+S7 (reality check du maximum) et S9 (corrélation des équity) comparent les candidates entre
+elles et n'ont aucun sens une par une. Les cribler en solo donnerait des résultats faux dans
+le sens flatteur, chacune se croyant seule au monde.
+
+En Python, pour piloter finement :
 
 ```python
 from beta.moteur import pipeline, registre
@@ -118,9 +139,46 @@ seulement *pas encore tuée*.
 | S8 | Buy-and-hold | ce qui mesure le marché plutôt qu'un edge |
 | S9 | Corrélation des équity | ce qui répète une candidate déjà retenue |
 
+## L'atelier — écrire d'autres candidates
+
+Deux voies, un seul chemin de dépôt.
+
+```
+python beta.py atelier nouveau r7_breakout --hypothese R7      # à la main
+python beta.py atelier local "cassure du plus haut des 20 dernières bougies"        --module r7_breakout --hypothese R7                      # modèle local
+python beta.py atelier valider r7_breakout
+```
+
+Le modèle tourne **sur cette machine** — Ollama (11434) ou LM Studio (1234), détecté
+automatiquement, `urllib` seul, aucune dépendance ajoutée. Une hypothèse de trading n'a pas
+à passer par un tiers pour devenir dix lignes de pandas.
+
+**Deux étages, et le second est celui qui compte.**
+
+| Étage | Ce qu'il voit | Ce qu'il ne voit pas |
+|---|---|---|
+| **sas** (`ast`, sans importer) | imports hors liste blanche, `open`/`exec`, `shift(-n)`, `center=True`, `bfill`, effets de bord à l'import, `creer()` manquant | tout look-ahead qui ne ressemble à aucun motif connu |
+| **épreuve** (sous-processus, chronomètre) | **causalité**, déterminisme, contrat, non-dégénérescence | rien de ce qui précède ne lui échappe |
+
+L'épreuve de causalité tient en une phrase : **`signaux(df[:t])` doit rendre exactement
+`signaux(df)[:t]`.** Une fonction causale ne peut pas produire autre chose sur un préfixe,
+puisque chaque ligne ne dépend que de son passé. Une normalisation par `close.mean()` passe
+le sas sans encombre — aucun motif interdit — et se fait tuer par l'épreuve, qui voit 110
+signaux du passé changer quand on tronque la série.
+
+> Une liste de motifs interdits attrape ce qu'elle connaît ; la causalité attrape ce qu'on
+> n'avait pas prévu.
+
+⚠️ **Le sas n'est pas un bac à sable.** Qui peut écrire dans `beta/candidates/` peut déjà
+exécuter du code ici. Il attrape des **erreurs**, pas un adversaire — on relit le code
+déposé, surtout celui qu'un modèle vient d'écrire. Et une candidate écrite par une machine
+est une source d'**hypothèses**, jamais d'edge : elle entre au banc par la même porte que les
+autres, préenregistrement compris.
+
 ## Le serveur MCP
 
-`python -m beta.mcp.serveur` — JSON-RPC stdio, aucune dépendance. Sept outils :
+`python beta.py mcp` — JSON-RPC stdio, aucune dépendance. Déclaré dans `.mcp.json` (Claude
+Code) et `~/.lmstudio/mcp.json` (le modèle local reçoit les mêmes outils). Sept outils :
 `beta_data_catalog`, `beta_load_ohlcv`, `beta_results`, `beta_register_edge`,
 `beta_submit_strategy`, `beta_run_backtest`, `beta_publish`.
 
@@ -129,8 +187,12 @@ contourne. Un agent capable de lancer mille backtests sans préenregistrer produ
 faux gagnants en une nuit, et le compteur d'essais — donc toute la batterie — ne vaudrait
 plus rien.
 
-C'est le **seul** point d'entrée. Plus aucun chemin de fichier OHLCV n'est écrit à la main
-ailleurs que dans `beta/config.py` — c'était la raison d'être du projet.
+`scripts/epreuve_mcp.py` le traverse **pour de vrai** : sous-processus, JSON-RPC ligne à
+ligne, sept épreuves. Il existe parce que les tests en processus appellent `traiter()`
+directement, qui rend des objets Python — ils ne prouvent rien du transport. Il a trouvé du
+premier coup que le serveur écrivait en **cp1252** sous Windows : le premier tiret cadratin
+d'une description d'outil sortait en `0x97`, et le client n'obtenait jamais la liste des
+outils. Un pont ne casse pas dans sa logique, il casse dans son branchement.
 
 ## L'univers
 
@@ -174,13 +236,18 @@ beta/stats/       descriptif · bootstrap · multitest · montecarlo · syntheti
 beta/moteur/      contrats (les 3 contrats gelés) · espace_r · registre · pipeline
                   pont_freqtrade (le seul verdict portefeuille)
 beta/candidates/  une hypothèse par fichier, isolée, jetable
+beta/atelier/     sas (statique) · epreuve (sous-processus) · depot · local · gabarit · cli
 beta/recherche/   les mesures R1-R6, chacune sur son préenregistrement
 beta/mcp/         serveur MCP stdio (7 outils, zéro dépendance)
-beta/rapport/     serveur + runs + actions + web/ (le dashboard)
+beta/rapport/     serveur + runs + actions + atelier + web/ (le dashboard)
 scripts/build_lake.py        construit le lake OHLCV
 scripts/import_strategie.py  importe les données de stratégie
 scripts/preenregistrer.py    écrit R1-R6 au registre, avant toute mesure
 scripts/mesurer.py           mesure, corrige par BH, clôt au registre
+scripts/epreuve_mcp.py       traverse le pont MCP pour de vrai
+EXPERIMENTS.jsonl            les hypothèses, append-only          <- hors de data/, exprès
+RUNS.jsonl                   les mesures effectuées, append-only  <- hors de data/, exprès
+.mcp.json                    le pont, déclaré au client
 beta.py · BETA.cmd           les points d'entrée
 ```
 
@@ -209,3 +276,11 @@ décale la série et fabrique du look-ahead en silence).
   compounding. L'autre verdict vient du pont freqtrade, et de lui seul.
 - Il ne mesure rien sans préenregistrement, et le compteur d'essais (**36**, parti de 30)
   n'est jamais remis à zéro — voir `CLAUDE.md`.
+- **L'atelier n'est pas un bac à sable, et il ne raccourcit rien.** Il abaisse le coût
+  d'écrire une candidate ; préenregistrement, compteur et batterie restent devant elle.
+- ⚠️ **Le compteur compte les hypothèses, pas les mesures.** Tant qu'il y a une candidate
+  par hypothèse c'est la même chose ; l'atelier peut casser l'égalité. `RUNS.jsonl` mesure
+  l'écart et `beta.py doctor` l'affiche, mais **aucun seuil n'a bougé** : c'est un arbitrage
+  ouvert (`DECISIONS.md` § A1), pas un correctif à glisser dans un commit.
+- Il ne génère pas de stratégie depuis une vidéo (P4, reporté) : une vidéo est une source
+  d'hypothèses, jamais d'edge — exactement comme un modèle local.
