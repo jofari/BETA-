@@ -51,10 +51,22 @@ def test_table_neutralise_les_nan():
     assert serveur._table(df) == [{"a": 1.0, "b": "x"}, {"a": None, "b": None}]
 
 
+# `/api/run` exige un identifiant : on lui passe celui d'un run enregistre, ou on saute.
+def _params(route: str) -> dict | None:
+    if route != "/api/run":
+        return {}
+    from beta.rapport import runs
+    liste = runs.liste()
+    return {"id": [liste[0]["run_id"]]} if liste else None
+
+
 @pytest.mark.parametrize("route", list(serveur.ROUTES))
 def test_chaque_route_produit_du_json_strict(route):
     """`json.dumps` accepte NaN par defaut ; le navigateur, non. On teste le texte produit."""
-    texte = json.dumps(serveur.ROUTES[route]({}), ensure_ascii=False)
+    params = _params(route)
+    if params is None:
+        pytest.skip(f"{route} demande un run enregistre")
+    texte = json.dumps(serveur.ROUTES[route](params), ensure_ascii=False)
     assert "NaN" not in texte
     assert "Infinity" not in texte
     json.loads(texte, parse_constant=_refuser)      # releverait sur NaN/Infinity
@@ -67,16 +79,17 @@ def _refuser(constante):
 # --- coherence des fichiers web ----------------------------------------------------------
 
 def test_chaque_id_utilise_par_le_js_existe_dans_le_html():
-    js = (WEB / "app.js").read_text(encoding="utf-8")
+    js = "\n".join((WEB / f).read_text(encoding="utf-8")
+                    for f in ("app.js", "fiche.js"))
     html = (WEB / "index.html").read_text(encoding="utf-8")
-    utilises = set(re.findall(r'\$\("#([^"]+)"\)', js))
+    utilises = set(re.findall(r'[$q]\("#([^"]+)"\)', js))
     declares = set(re.findall(r'id="([^"]+)"', html))
     assert utilises and not (utilises - declares)
 
 
 def test_aucune_ressource_externe():
     """Zero CDN : la page doit fonctionner hors ligne, comme ALPHA."""
-    for fichier in ("index.html", "app.js", "style.css"):
+    for fichier in ("index.html", "app.js", "fiche.js", "style.css"):
         contenu = (WEB / fichier).read_text(encoding="utf-8")
         for motif in ("http://", "https://"):
             for occurrence in re.findall(rf"{motif}[^\s\"')]+", contenu):
@@ -84,10 +97,12 @@ def test_aucune_ressource_externe():
                 assert "w3.org" in occurrence, f"{fichier} : ressource externe {occurrence}"
 
 
-def test_les_trois_routes_du_js_existent_cote_serveur():
-    js = (WEB / "app.js").read_text(encoding="utf-8")
-    for route in re.findall(r'fetch\("(/api/[^"?]+)', js):
-        assert route in serveur.ROUTES, f"le JS appelle {route}, absent du serveur"
+def test_toutes_les_routes_du_js_existent_cote_serveur():
+    lisibles = set(serveur.ROUTES) | {"/api/action"}      # /api/action est en POST
+    for fichier in ("app.js", "fiche.js"):
+        js = (WEB / fichier).read_text(encoding="utf-8")
+        for route in re.findall(r'fetch\("(/api/[^"?]+)', js):
+            assert route in lisibles, f"{fichier} appelle {route}, absent du serveur"
 
 
 # --- confinement du statique ---------------------------------------------------------------

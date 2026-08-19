@@ -173,3 +173,70 @@ td.muet { color: var(--text-muted); }
 .avertir strong { color: var(--text-primary); }
 .vide { color: var(--text-muted); font-size: 12.5px; padding: 10px 0; }
 .erreur { color: var(--status-critical); font-size: 12.5px; }
+
+/* ---------- fiche d'une candidate ---------- */
+/* Deux colonnes : la liste des runs reste visible pendant qu'on lit la fiche, sans quoi
+   comparer deux candidates demanderait un aller-retour a chaque coup d'oeil. */
+.fiche-grille {
+  display: grid; grid-template-columns: minmax(220px, 260px) 1fr;
+  gap: var(--gap); align-items: start;
+}
+@media (max-width: 900px) { .fiche-grille { grid-template-columns: 1fr; } }
+.fiche-aside { position: sticky; top: var(--gap); }
+.fiche-actions { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+#fiche-detail { display: flex; flex-direction: column; gap: var(--gap); }
+
+.run-item {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: var(--plane); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 8px 10px; margin-bottom: 6px; color: inherit;
+}
+.run-item:hover { border-color: var(--accent); }
+.run-item.is-active { border-color: var(--accent); background: var(--accent-doux); }
+.run-nom { display: block; font-weight: 600; font-size: 13px; }
+.run-meta { display: block; font-size: 11px; color: var(--text-muted); }
+.run-issue { display: inline-block; margin-top: 4px; font-size: 11px; }
+.run-issue[data-tone="good"] { color: var(--status-good); }
+.run-issue[data-tone="warn"] { color: var(--status-warning); }
+.run-issue[data-tone="critical"] { color: var(--status-critical); }
+
+/* Le verdict d'abord, la courbe ensuite : une belle courbe lue en premier eteint
+   l'esprit critique pour tout le reste de la page. */
+.verdict-bandeau {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: var(--gap); flex-wrap: wrap; border-left: 4px solid var(--text-muted);
+  padding-left: 12px;
+}
+.verdict-bandeau[data-tone="good"] { border-left-color: var(--status-good); }
+.verdict-bandeau[data-tone="warn"] { border-left-color: var(--status-warning); }
+.verdict-bandeau[data-tone="critical"] { border-left-color: var(--status-critical); }
+.verdict-issue { font-size: 18px; font-weight: 700; letter-spacing: 0.04em; }
+.verdict-issue[data-tone="good"] { color: var(--status-good); }
+.verdict-issue[data-tone="warn"] { color: var(--status-warning); }
+.verdict-issue[data-tone="critical"] { color: var(--status-critical); }
+.badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text-secondary); vertical-align: middle;
+}
+
+.kpis-fiche {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px; margin: 12px 0;
+}
+
+.portes { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 12px 0 0; }
+.porte {
+  font-size: 11.5px; padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.porte.ok { color: var(--status-good); border-color: #0ca30c55; }
+.porte.ko { color: var(--status-critical); border-color: #d03b3b55; }
+/* Une porte non executee n'est PAS un echec, et ne doit pas s'afficher comme tel. */
+.porte.na { color: var(--text-muted); }
+.porte.na em { font-style: normal; opacity: 0.75; }
+
+.reserves { margin-top: 14px; }
+.reserves h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); margin: 0 0 6px; }
+.reserves ul { margin: 0; padding-left: 18px; }
+.reserves li { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 3px; }

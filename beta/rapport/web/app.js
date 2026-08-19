@@ -322,14 +322,17 @@ async function charger() {
   rendreStrategie();
   rendreLake();
   rendreProtocole();
+  FICHE.charger();
 }
 
 function ongletActif(nom) {
   etat.onglet = nom;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("is-active", t.dataset.onglet === nom));
-  ["strategie", "lake", "protocole"].forEach((o) =>
+  ["strategie", "candidates", "lake", "protocole"].forEach((o) =>
     ($("#onglet-" + o).hidden = o !== nom));
+  // Un canvas d'onglet masque a une largeur nulle : la fiche se redessine a l'affichage.
+  if (nom === "candidates" && FICHE.aDesDonnees()) FICHE.redessiner();
   if (nom === "strategie" && etat.strategie && !etat.strategie.erreur) {
     // Le canvas d'un onglet masque a une largeur nulle : on redessine a l'affichage.
     courbeEquity($("#equity"), etat.strategie.equity);

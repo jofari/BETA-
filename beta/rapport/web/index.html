@@ -33,6 +33,9 @@
     <button class="tab is-active" data-onglet="strategie" role="tab">
       <span aria-hidden="true">▚</span> Stratégie
     </button>
+    <button class="tab" data-onglet="candidates" role="tab">
+      <span aria-hidden="true">◈</span> Candidates
+    </button>
     <button class="tab" data-onglet="lake" role="tab">
       <span aria-hidden="true">▤</span> Données
     </button>
@@ -95,6 +98,107 @@
     </div>
   </section>
 
+  <section class="panneau" id="onglet-candidates" hidden>
+    <div class="fiche-grille">
+      <aside class="carte fiche-aside">
+        <h2>Runs</h2>
+        <p class="sous">Un run = une candidate, un univers, un split. L'empreinte du code
+          entre dans son identifiant : modifier la candidate crée un nouveau run plutôt
+          que d'écraser l'ancien verdict.</p>
+        <div id="fiche-liste"></div>
+        <div class="fiche-actions">
+          <button class="btn" data-action-run="claude">Ouvrir dans Claude Code</button>
+          <button class="btn" data-action-run="dossier">Dossier du run</button>
+          <p class="sous" id="fiche-action-message"></p>
+        </div>
+      </aside>
+
+      <div id="fiche-detail" hidden>
+        <div class="carte" id="fiche-entete"></div>
+
+        <div class="duo">
+          <div class="carte">
+            <h2>Équity contre buy-and-hold</h2>
+            <p class="sous">Base 100, risque fixe de 1 % du capital initial, sans
+              composition. La référence grise est le hold équipondéré sur les mêmes paires
+              et la même période : ce qui ne la bat pas mesure le marché, pas un edge.</p>
+            <canvas class="graphique" id="fiche-equity" height="240"></canvas>
+          </div>
+          <div class="carte">
+            <h2>Cône Monte-Carlo</h2>
+            <p class="sous">La courbe observée n'est qu'un tirage parmi les ordres possibles
+              des mêmes trades. Le cône montre les autres.</p>
+            <canvas class="graphique" id="fiche-cone" height="240"></canvas>
+          </div>
+        </div>
+
+        <div class="carte">
+          <h2>Monte-Carlo — ce que la séquence doit au hasard</h2>
+          <div class="kpis-fiche" id="fiche-mc-chiffres"></div>
+          <canvas class="graphique" id="fiche-dd" height="180"></canvas>
+        </div>
+
+        <div class="duo">
+          <div class="carte">
+            <h2>Walk-forward purgé et embargo</h2>
+            <p class="sous">Gris : en échantillon. Couleur : hors échantillon. Un edge qui
+              ne survit pas au passage de l'un à l'autre est un sur-ajustement.</p>
+            <div class="kpis-fiche" id="fiche-wf-chiffres"></div>
+            <canvas class="graphique" id="fiche-wf-graph" height="200"></canvas>
+          </div>
+          <div class="carte">
+            <h2>Distribution des chemins CPCV</h2>
+            <p class="sous">Un R moyen hors échantillon par combinaison de plis de test.
+              La part de chemins perdants répond à « et sur une période que je n'ai pas
+              vue ? ».</p>
+            <canvas class="graphique" id="fiche-cpcv" height="240"></canvas>
+          </div>
+        </div>
+
+        <div class="carte">
+          <h2>Marchés synthétiques</h2>
+          <p class="sous">La candidate rejouée sur des séries fabriquées, de même volatilité
+            et de même autocorrélation, mais sans structure exploitable. Gagner autant
+            dessus que sur le vrai marché signifie n'exploiter rien.</p>
+          <div class="kpis-fiche" id="fiche-syn-chiffres"></div>
+        </div>
+
+        <div class="duo">
+          <div class="carte">
+            <h2>P&amp;L par année</h2>
+            <p class="sous">La ventilation qui tue le plus de candidates : un edge porté par
+              une seule année est un régime, pas un edge.</p>
+            <canvas class="graphique" id="fiche-annees-graph" height="200"></canvas>
+            <div class="tableau-wrap" id="fiche-annees"></div>
+          </div>
+          <div class="carte">
+            <h2>Distribution des R</h2>
+            <canvas class="graphique" id="fiche-distribution" height="200"></canvas>
+            <div class="tableau-wrap" id="fiche-raisons"></div>
+          </div>
+        </div>
+
+        <div class="duo">
+          <div class="carte">
+            <h2>Par sens</h2>
+            <div class="tableau-wrap" id="fiche-sens"></div>
+          </div>
+          <div class="carte">
+            <h2>Par paire</h2>
+            <div class="tableau-wrap" id="fiche-paires"></div>
+          </div>
+        </div>
+
+        <div class="carte">
+          <h2>Bootstrap par blocs — sensibilité à ℓ</h2>
+          <p class="sous">Publiée entière, jamais la meilleure ligne : un résultat qui ne
+            survit qu'à une seule longueur de bloc est un artefact de réglage.</p>
+          <div class="tableau-wrap" id="fiche-bootstrap"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="panneau" id="onglet-lake" hidden>
     <div class="carte" id="carte-lake"></div>
     <div class="carte">
@@ -118,6 +222,7 @@
 
 </main>
 
+<script src="fiche.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

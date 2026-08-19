@@ -62,6 +62,22 @@ def _propre(valeur):
     return str(valeur)
 
 
+def propre(charge):
+    """`_propre` applique en profondeur : dicts, listes, et scalaires imbriques.
+
+    La fiche d'un run est une structure a cinq niveaux venue de fichiers JSON et parquet.
+    Un seul NaN au fond — un CAGR non calculable, par exemple — suffit a faire echouer
+    `JSON.parse` dans le navigateur, et la page reste blanche sans rien dire. Nettoyer
+    scalaire par scalaire a l'entree de chaque route est le seul endroit ou l'on est sur de
+    ne rien oublier.
+    """
+    if isinstance(charge, dict):
+        return {cle: propre(valeur) for cle, valeur in charge.items()}
+    if isinstance(charge, (list, tuple)):
+        return [propre(valeur) for valeur in charge]
+    return _propre(charge)
+
+
 def _table(df: pd.DataFrame) -> list[dict]:
     if df is None or df.empty:
         return []
@@ -130,11 +146,35 @@ def donnees_protocole() -> dict:
                             for i, e in etat.items()]}
 
 
-ROUTES = {
+def donnees_runs() -> dict:
+    from beta.rapport import runs
+    return {"runs": runs.liste()}
+
+
+def donnees_run(params: dict) -> dict:
+    from beta.rapport import runs
+    identifiant = (params.get("id") or [""])[0]
+    if not identifiant:
+        raise ValueError("parametre `id` manquant")
+    return runs.fiche(identifiant)
+
+
+_ROUTES_BRUTES = {
     "/api/lake": lambda p: donnees_lake(),
     "/api/strategie": lambda p: donnees_strategie(bool(p.get("holdout"))),
     "/api/protocole": lambda p: donnees_protocole(),
+    "/api/runs": lambda p: donnees_runs(),
+    "/api/run": donnees_run,
 }
+
+# Toutes les routes passent par `propre` : aucune ne peut renvoyer de NaN au navigateur,
+# et une nouvelle route ne peut pas oublier de le faire.
+ROUTES = {chemin: (lambda p, f=fonction: propre(f(p)))
+          for chemin, fonction in _ROUTES_BRUTES.items()}
+
+# Corps maximal accepte en POST. Le client n'envoie qu'un nom d'action et un run_id :
+# au-dela, c'est que quelque chose d'autre parle au serveur.
+MAX_CORPS_POST = 4096
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -185,6 +225,36 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 log.exception("route %s", route)
                 return self._json({"erreur": f"{type(exc).__name__}: {exc}"}, 500)
         return self._statique(route.lstrip("/"))
+
+    def do_POST(self) -> None:       # noqa: N802 — impose par BaseHTTPRequestHandler
+        """Une seule route, une liste blanche d'actions, aucune commande venue du client."""
+        from beta.rapport import actions, runs
+
+        if urlparse(self.path).path.rstrip("/") != "/api/action":
+            return self._json({"erreur": "route inconnue"}, 404)
+        try:
+            taille = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return self._json({"erreur": "longueur invalide"}, 400)
+        if taille > MAX_CORPS_POST:
+            return self._json({"erreur": "corps trop grand"}, 413)
+        try:
+            charge = json.loads(self.rfile.read(taille) or b"{}")
+        except (json.JSONDecodeError, OSError) as exc:
+            return self._json({"erreur": f"corps illisible : {exc}"}, 400)
+
+        action = str(charge.get("action") or "")
+        run_id = str(charge.get("run_id") or "")
+        try:
+            verdict = runs.fiche(run_id)["verdict"]
+            return self._json(actions.executer(action, verdict))
+        except FileNotFoundError as exc:
+            return self._json({"erreur": str(exc)}, 404)
+        except actions.ActionError as exc:
+            return self._json({"erreur": str(exc)}, 400)
+        except Exception as exc:                         # noqa: BLE001
+            log.exception("action %s", action)
+            return self._json({"erreur": f"{type(exc).__name__}: {exc}"}, 500)
 
 
 def servir(hote: str = HOTE, port: int = PORT, ouvrir: bool = True) -> int:
