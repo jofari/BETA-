@@ -10,7 +10,7 @@ dans son branchement.
 
     & C:\\Users\\jofar\\venvs\\arit\\Scripts\\python.exe scripts/epreuve_mcp.py
 
-Sept epreuves, dont deux qui comptent plus que les autres :
+Huit epreuves, dont deux qui comptent plus que les autres :
 
 - **le garde-fou P3 traverse le transport** : une candidate deposee par MCP, dont
   l'hypothese n'est pas preenregistree, doit recevoir un REFUS. Un agent qui contourne le
@@ -143,9 +143,9 @@ def epreuve_poignee_de_main(client: Client) -> str:
 def epreuve_inventaire(client: Client) -> str:
     outils = client.envoyer("tools/list")["result"]["tools"]
     noms = {o["name"] for o in outils}
-    attendus = {"beta_data_catalog", "beta_load_ohlcv", "beta_results",
-                "beta_register_edge", "beta_submit_strategy", "beta_run_backtest",
-                "beta_publish"}
+    attendus = {"beta_data_catalog", "beta_load_ohlcv", "beta_results", "beta_ideas",
+                "beta_suggest_idea", "beta_register_edge", "beta_submit_strategy",
+                "beta_run_backtest", "beta_publish"}
     if noms != attendus:
         raise EpreuveError(f"outils annonces {sorted(noms)}, attendus {sorted(attendus)}")
     sans_schema = [o["name"] for o in outils if o.get("inputSchema", {}).get("type") != "object"]

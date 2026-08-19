@@ -278,3 +278,26 @@ td.muet { color: var(--text-muted); }
 .atelier-mesures { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; }
 .atelier-mesure { font-size: 12px; color: var(--text-secondary); }
 .atelier-mesure em { color: var(--text-muted); font-style: normal; }
+
+/* ---------- onglet Comparaison ---------- */
+.comp-legende {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 10px 14px 0 0; font-size: 12px; color: var(--text-secondary);
+}
+.comp-legende i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* La matrice de correlation : l'en-tete de ligne compte autant que celui de colonne. */
+#comparaison-matrice th { white-space: nowrap; }
+#comparaison-matrice tbody th {
+  text-align: left; font-weight: 600; color: var(--text-secondary);
+}
+
+/* ---------- boite a idees ---------- */
+#idee-form { margin-bottom: 12px; }
+#idee-form input {
+  background: var(--plane); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px;
+  font-size: 13px; font-family: inherit;
+}
+#idee-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.idee-champ { flex: 1 1 320px; min-width: 220px; }

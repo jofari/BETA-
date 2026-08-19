@@ -301,6 +301,51 @@ function rendreProtocole() {
     : '<p class="vide">Aucune expérience déclarée. Rien ne se mesure avant.</p>';
 }
 
+/* ---------- boite a idees ---------------------------------------------------------------- */
+
+// Noter une idee est GRATUIT : le compteur d'essais ne bouge pas. Il ne bouge qu'a la
+// promotion en experience preenregistree, qui se fait en ligne de commande — la friction est
+// voulue, c'est le seul geste qui durcit le seuil de toutes les hypotheses.
+async function chargerIdees() {
+  let d;
+  try {
+    d = await fetch("/api/idees").then((r) => r.json());
+  } catch (exc) {
+    $("#idees").innerHTML = `<p class="erreur">${exc.message}</p>`;
+    return;
+  }
+  $("#idees").innerHTML = d.idees.length
+    ? tableau(d.idees.map((i) => ({
+        id: i.id, date: i.date, etat: i.etat, texte: i.texte,
+        suite: i.id_experience || i.motif || "",
+      })), ["id", "date", "etat", "texte", "suite"])
+    : '<p class="vide">Aucune idée notée. La boîte est gratuite : rien ne coûte tant qu'on ne promeut pas.</p>';
+  $("#idee-message").textContent =
+    `${d.resume.nouvelle} nouvelle(s) · compteur d'essais : ${d.resume.compteur_essais} (inchangé)`;
+}
+
+document.addEventListener("submit", async (ev) => {
+  if (ev.target.id !== "idee-form") return;
+  ev.preventDefault();
+  const texte = $("#idee-texte").value.trim();
+  if (texte.length < 10) {
+    $("#idee-message").textContent = "une idée de moins de dix caractères ne se relira pas";
+    return;
+  }
+  $("#idee-message").textContent = "…";
+  const reponse = await fetch("/api/idee", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ texte, source: $("#idee-source").value.trim() }),
+  }).then((r) => r.json()).catch((exc) => ({ erreur: exc.message }));
+  if (reponse.erreur) {
+    $("#idee-message").textContent = "refus : " + reponse.erreur;
+    return;
+  }
+  $("#idee-texte").value = "";
+  $("#idee-source").value = "";
+  chargerIdees();
+});
+
 /* ---------- chargement ------------------------------------------------------------------ */
 
 async function charger() {
@@ -324,16 +369,19 @@ async function charger() {
   rendreProtocole();
   FICHE.charger();
   ATELIER.charger();
+  COMPARAISON.charger();
+  chargerIdees();
 }
 
 function ongletActif(nom) {
   etat.onglet = nom;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("is-active", t.dataset.onglet === nom));
-  ["strategie", "candidates", "atelier", "lake", "protocole"].forEach((o) =>
+  ["strategie", "candidates", "comparaison", "atelier", "lake", "protocole"].forEach((o) =>
     ($("#onglet-" + o).hidden = o !== nom));
   // Un canvas d'onglet masque a une largeur nulle : la fiche se redessine a l'affichage.
   if (nom === "candidates" && FICHE.aDesDonnees()) FICHE.redessiner();
+  if (nom === "comparaison" && COMPARAISON.aDesDonnees()) COMPARAISON.redessiner();
   if (nom === "strategie" && etat.strategie && !etat.strategie.erreur) {
     // Le canvas d'un onglet masque a une largeur nulle : on redessine a l'affichage.
     courbeEquity($("#equity"), etat.strategie.equity);

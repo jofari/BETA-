@@ -1,0 +1,4 @@
+{"id": "I1", "date": "2026-08-19", "etat": "nouvelle", "texte": "Le funding extreme (>0,1% sur 8h) precede un retournement de la tendance courte : short quand le funding est tres positif, long quand il est tres negatif.", "source": "MacroFlip 27/07 : le funding faisait 86% du profit", "pourquoi": "si le funding porte le profit, ses extremes portent peut-etre aussi de l'information directionnelle"}
+{"id": "I2", "date": "2026-08-19", "etat": "nouvelle", "texte": "Les bougies de liquidation en cascade (meche > 3x ATR contre la tendance) sont suivies d'un retour vers le VWAP de la journee.", "source": "observation, pas mesuree", "pourquoi": ""}
+{"id": "I3", "date": "2026-08-19", "etat": "nouvelle", "texte": "Idee de test depuis le dashboard, a supprimer.", "source": "test", "pourquoi": ""}
+{"id": "I3", "date": "2026-08-19", "etat": "ecartee", "motif": "idee de test technique du dashboard, sans contenu de recherche"}

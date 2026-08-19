@@ -159,6 +159,17 @@ def donnees_run(params: dict) -> dict:
     return runs.fiche(identifiant)
 
 
+def donnees_comparaison(params: dict) -> dict:
+    from beta.rapport import comparaison
+    split = holdout.HOLDOUT if params.get("holdout") else holdout.TRAIN
+    return comparaison.vue(split)
+
+
+def donnees_idees() -> dict:
+    from beta.protocole import idees
+    return {"idees": idees.lister(), "resume": idees.resume()}
+
+
 def donnees_atelier() -> dict:
     from beta.rapport import atelier
     return atelier.inventaire()
@@ -180,6 +191,8 @@ _ROUTES_BRUTES = {
     "/api/run": donnees_run,
     "/api/atelier": lambda p: donnees_atelier(),
     "/api/candidate": donnees_candidate,
+    "/api/comparaison": donnees_comparaison,
+    "/api/idees": lambda p: donnees_idees(),
 }
 
 # Toutes les routes passent par `propre` : aucune ne peut renvoyer de NaN au navigateur,
@@ -272,6 +285,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         route = urlparse(self.path).path.rstrip("/")
         if route == "/api/atelier":
             return self._post_atelier()
+        if route == "/api/idee":
+            return self._post_idee()
         if route != "/api/action":
             return self._json({"erreur": "route inconnue"}, 404)
 
@@ -292,6 +307,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as exc:                         # noqa: BLE001
             log.exception("action %s", action)
             return self._json({"erreur": f"{type(exc).__name__}: {exc}"}, 500)
+
+    def _post_idee(self):
+        """Noter une idee. Le seul POST du serveur qui ne coute RIEN.
+
+        Volontairement separe de tout ce qui preenregistre : promouvoir une idee en
+        experience avance le compteur d'essais et durcit le seuil de toutes les autres,
+        definitivement. Ce geste-la reste en ligne de commande, ou la friction est visible.
+        """
+        from beta.protocole import idees
+
+        charge = self._corps(MAX_CORPS_POST)
+        if charge is None:
+            return None
+        try:
+            idee = idees.ajouter(str(charge.get("texte") or ""),
+                                 source=str(charge.get("source") or ""),
+                                 pourquoi=str(charge.get("pourquoi") or ""))
+            return self._json(propre({**idee, "compteur_inchange": idees.experiences.compteur()}))
+        except idees.IdeeError as exc:
+            return self._json({"erreur": str(exc)}, 400)
 
     def _post_atelier(self):
         from beta.atelier import depot

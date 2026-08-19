@@ -8,6 +8,8 @@
 
     python beta.py candidates    l'inventaire du registre de candidates
     python beta.py cribler       passe des candidates a la batterie S1-S9
+    python beta.py comparer      compare les strategies deja mesurees entre elles
+    python beta.py idee ...      la boite a idees (noter est gratuit)
     python beta.py atelier ...   ecrire une candidate, a la main ou avec un modele local
     python beta.py mcp           le serveur MCP stdio (lance par le client, pas a la main)
 
@@ -151,14 +153,97 @@ def cmd_cribler(args) -> int:
     print("\ndetail : data/runs/<run_id>/  ·  dashboard : onglet Candidates")
     print("un chiffre de criblage se lit en R par trade, JAMAIS en rendement de "
           "portefeuille.")
+    cmd_comparer(args)
     # Une candidate infirmee n'est pas un echec de la commande : c'est son resultat normal,
     # et de loin le plus frequent. Seule l'absence de verdict en est un (traitee plus haut).
+    return 0
+
+
+def cmd_comparer(args) -> int:
+    """Le banc COMPARATIF : ce qu'on ne peut pas savoir en regardant une candidate a la fois.
+
+    Il relit `data/runs/`, il ne relance rien. Deux strategies mesurees a trois semaines
+    d'ecart doivent pouvoir se comparer sans qu'on ait a les remesurer ensemble — sinon la
+    comparaison ne se fait jamais.
+    """
+    from beta.rapport import comparaison as lecture
+    from beta.stats import comparaison as stats_comparaison
+
+    split = getattr(args, "split", "train")
+    lot, classement = lecture.classement_du_lot(split)
+    if not lot["n"]:
+        print(f"\naucun run en '{split}' — `python beta.py cribler` d'abord")
+        return 1
+    print("\n=== comparaison ===")
+    print(stats_comparaison.texte(classement))
     return 0
 
 
 def cmd_atelier(args) -> int:
     from beta.atelier import cli
     return cli.executer(args)
+
+
+def cmd_idee(args) -> int:
+    """La boite a idees. Noter est gratuit ; promouvoir avance le compteur d'essais.
+
+    C'est toute la raison d'etre de la commande : sans etage gratuit, une idee de passage
+    n'a nulle part ou aller — preenregistrer chacune couterait un cran de compteur, donc on
+    n'en note aucune, donc on les perd.
+    """
+    from beta.protocole import idees
+
+    try:
+        if args.geste == "note":
+            idee = idees.ajouter(args.texte, source=args.source, pourquoi=args.pourquoi)
+            print(f"{idee['id']} notee. Le compteur d'essais n'a PAS bouge "
+                  f"({idees.experiences.compteur()}).")
+            print(f"La promouvoir : `python beta.py idee promouvoir {idee['id']} "
+                  "--experience R7 ...`")
+            return 0
+
+        if args.geste == "liste":
+            trouvees = idees.lister(args.etat)
+            if not trouvees:
+                print("aucune idee. `python beta.py idee note \"...\"`")
+                return 0
+            for idee in trouvees:
+                marque = {"nouvelle": " ", "promue": "+", "ecartee": "-"}.get(
+                    idee.get("etat"), "?")
+                suffixe = ""
+                if idee.get("etat") == "promue":
+                    suffixe = f"   -> {idee.get('id_experience')}"
+                elif idee.get("etat") == "ecartee":
+                    suffixe = f"   ecartee : {idee.get('motif', '')[:60]}"
+                print(f"{marque} {idee['id']:<5} {idee.get('date', '')}  "
+                      f"{idee.get('texte', '')[:88]}{suffixe}")
+            resume = idees.resume()
+            print(f"\n{resume['n']} idee(s) : {resume['nouvelle']} nouvelle(s), "
+                  f"{resume['promue']} promue(s), {resume['ecartee']} ecartee(s). "
+                  f"Compteur d'essais : {resume['compteur_essais']}.")
+            return 0
+
+        if args.geste == "ecarter":
+            idees.ecarter(args.id, args.motif)
+            print(f"{args.id} ecartee — elle reste au fichier, avec son motif.")
+            return 0
+
+        regle = {"confirmee": args.confirmee, "infirmee": args.infirmee,
+                 "indecidable": args.indecidable}
+        promue = idees.promouvoir(
+            args.id, args.experience, args.hypothese, args.metrique, regle,
+            mde_attendu=args.mde, famille_taille=args.famille,
+            deja_connu=args.deja_connu, issue_attendue=args.issue_attendue)
+        print(f"{args.id} promue en {args.experience}.")
+        print(f"Compteur d'essais : {promue['compteur_avant']} -> "
+              f"{promue['compteur_apres']}. Le seuil de TOUTES les autres vient de durcir.")
+        return 0
+    except idees.IdeeError as exc:
+        print(f"refus : {exc}")
+        return 1
+    except idees.experiences.ProtocoleError as exc:
+        print(f"preenregistrement refuse : {exc}\nL'idee reste `nouvelle`.")
+        return 1
 
 
 def cmd_doctor(_args) -> int:
@@ -241,6 +326,11 @@ def parseur() -> argparse.ArgumentParser:
     subs.add_parser("candidates", help="inventaire du registre de candidates"
                     ).set_defaults(fonction=cmd_candidates)
 
+    comparer = subs.add_parser("comparer", help="compare les strategies deja mesurees "
+                                                "entre elles, sans rien relancer")
+    comparer.add_argument("--split", default="train", choices=["train", "holdout"])
+    comparer.set_defaults(fonction=cmd_comparer)
+
     from beta.moteur.contrats import Run
     from beta.protocole import holdout
     defauts = Run.__dataclass_fields__
@@ -287,6 +377,42 @@ def parseur() -> argparse.ArgumentParser:
 
     ateliers.add_parser("modeles", help="quels serveurs locaux repondent, et avec quoi")
     atelier.set_defaults(fonction=cmd_atelier)
+
+    idee = subs.add_parser("idee", help="la boite a idees : noter est gratuit, "
+                                        "promouvoir avance le compteur d'essais")
+    gestes = idee.add_subparsers(dest="geste", required=True)
+
+    note = gestes.add_parser("note", help="note une idee, sans forme imposee et sans cout")
+    note.add_argument("texte")
+    note.add_argument("--source", default="", help="d'ou elle vient (vidéo, mesure, lecture)")
+    note.add_argument("--pourquoi", default="", help="ce qui te fait y croire aujourd'hui")
+
+    liste = gestes.add_parser("liste", help="les idees notees")
+    liste.add_argument("--etat", default="", choices=["", "nouvelle", "promue", "ecartee"])
+
+    ecarter = gestes.add_parser("ecarter", help="ecarte une idee, sans l'effacer")
+    ecarter.add_argument("id")
+    ecarter.add_argument("motif")
+
+    # Promouvoir demande tout ce qui manque a une idee pour devenir mesurable. La friction
+    # est le point : c'est le seul geste du fichier qui coute un cran de compteur.
+    promo = gestes.add_parser("promouvoir",
+                              help="transforme une idee en experience preenregistree")
+    promo.add_argument("id")
+    promo.add_argument("--experience", required=True, help="id court, ex: R7")
+    promo.add_argument("--hypothese", required=True, help="la phrase FALSIFIABLE")
+    promo.add_argument("--metrique", required=True, help="la metrique primaire, une seule")
+    promo.add_argument("--confirmee", required=True, help="ce qui vaut confirmee")
+    promo.add_argument("--infirmee", required=True, help="ce qui vaut infirmee")
+    promo.add_argument("--indecidable", default="tout le reste")
+    promo.add_argument("--mde", type=float, default=None, help="MDE attendu")
+    promo.add_argument("--famille", type=int, default=None,
+                       help="taille de la famille de tests, declaree AVANT")
+    promo.add_argument("--issue-attendue", default="", dest="issue_attendue")
+    promo.add_argument("--deja-connu", default="", dest="deja_connu",
+                       help="ce qui a DEJA ete regarde sur ces donnees — ne pas le remplir "
+                            "rend le preenregistrement sans valeur")
+    idee.set_defaults(fonction=cmd_idee)
     return p
 
 

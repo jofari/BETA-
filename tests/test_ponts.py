@@ -61,13 +61,28 @@ def test_la_commande_freqtrade_porte_les_drapeaux_imposes(run_jetable, tmp_path)
 
 # --- P2/P3 serveur MCP -----------------------------------------------------------------
 
-def test_le_serveur_mcp_annonce_ses_sept_outils():
+def test_le_serveur_mcp_annonce_ses_outils():
     from beta.mcp import serveur
     reponse = serveur.traiter({"method": "tools/list"})
     noms = {outil["name"] for outil in reponse["tools"]}
-    assert noms == {"beta_data_catalog", "beta_load_ohlcv", "beta_results",
-                    "beta_register_edge", "beta_submit_strategy", "beta_run_backtest",
-                    "beta_publish"}
+    assert noms == {"beta_data_catalog", "beta_load_ohlcv", "beta_results", "beta_ideas",
+                    "beta_suggest_idea", "beta_register_edge", "beta_submit_strategy",
+                    "beta_run_backtest", "beta_publish"}
+
+
+def test_l_outil_gratuit_et_l_outil_couteux_se_distinguent_dans_leur_description():
+    """Un agent choisit son outil sur sa description : elle doit dire ce que ca coute.
+
+    `beta_suggest_idea` est gratuit, `beta_register_edge` avance le compteur d'essais donc
+    durcit le seuil de toutes les hypotheses. Confondre les deux fait preenregistrer dix
+    idees pour en mesurer une — et ruine la batterie pour les neuf autres.
+    """
+    from beta.mcp import serveur
+    outils = {o["name"]: o["description"]
+              for o in serveur.traiter({"method": "tools/list"})["tools"]}
+    assert "GRATUIT" in outils["beta_suggest_idea"]
+    assert "compteur" in outils["beta_register_edge"]
+    assert "beta_suggest_idea" in outils["beta_register_edge"]
 
 
 def test_chaque_outil_mcp_declare_un_schema():

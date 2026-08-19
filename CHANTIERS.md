@@ -19,8 +19,11 @@
 > candidates — deux travaux, deux dépôts), **C1-bis** (paramètre d'AritV1, que **R6** se
 > contente de mesurer) et **F2 / G2 / G8** (le dry-run, qui ne tourne que chez ARIT).
 
-**État en une phrase au 19/08 (soir)** : BETA sait chercher un edge, le tuer, et depuis ce
-soir **en écrire d'autres**. Le moteur et la batterie S1-S9 sont en place, le pont MCP est
+**État en une phrase au 19/08 (soir)** : BETA sait chercher un edge, le tuer, **en écrire
+d'autres**, et depuis ce soir **les comparer entre elles** — classement, matrice de
+corrélation, reality check du maximum, et AritV1 en référence à côté du buy-and-hold. Une
+boîte à idées gratuite est apparue devant le préenregistrement, parce que noter une idée ne
+doit pas coûter un cran de compteur. Le moteur et la batterie S1-S9 sont en place, le pont MCP est
 **branché et éprouvé** (Claude Code + LM Studio), et l'**atelier** permet d'écrire une
 candidate à la main ou avec un modèle local — derrière un sas statique et une épreuve de
 causalité en sous-processus. Trois hypothèses sont passées à la batterie et **aucune n'a
@@ -268,6 +271,95 @@ réserve correctement levée sur l'hypothèse non préenregistrée. Le fichier d
 
 ---
 
+## I — la boîte à idées (ouverte et fermée le 19/08, demande de Jonas)
+
+Question de Jonas : **« où je peux suggérer des idées ? »** Réponse honnête avant ce soir :
+nulle part de confortable. Éditer `scripts/preenregistrer.py` demandait déjà de savoir
+formuler métrique + règle de décision + MDE ; `beta_register_edge` **préenregistre**, donc
+avance le compteur définitivement ; et une idée dite en conversation finissait dans
+`DECISIONS.md`, qui n'est pas fait pour ça.
+
+Le fond du problème : **préenregistrer coûte cher, donc on ne note rien, donc on perd tout.**
+D'où deux étages et un seul point de bascule.
+
+```
+IDEES.jsonl          gratuit, sans forme imposée — on y jette tout
+    |
+    | promouvoir()   <- LE moment où ça coûte : le compteur avance d'un cran
+    v
+EXPERIMENTS.jsonl    hypothèse falsifiable, métrique primaire, règle de décision
+```
+
+| # | Chantier | Statut | Effort |
+|---|---|---|---|
+| ~~I1~~ | ~~`protocole/idees.py` + `IDEES.jsonl` — ajouter / lister / écarter / promouvoir~~ | ✅ fermé 19/08 | S |
+| ~~I2~~ | ~~`beta.py idee`, encart dans l'onglet Protocole, outils MCP `beta_suggest_idea` et `beta_ideas`~~ | ✅ fermé 19/08 | S |
+
+Ce que la **promotion** force à écrire est exactement ce qui manque à une idée pour devenir
+mesurable. Une idée qu'on n'arrive pas à promouvoir n'est pas une mauvaise idée : c'est une
+idée qu'on n'a pas encore su rendre falsifiable, et le dire est déjà un résultat.
+
+⚠️ Une idée **écartée** ne disparaît jamais du fichier, et son motif est obligatoire : savoir
+ce qu'on a décidé de **ne pas** tester, et pourquoi, vaut autant que savoir ce qu'on a testé.
+
+⚠️ Côté MCP, les deux outils sont volontairement asymétriques dans leur description :
+`beta_suggest_idea` annonce « GRATUIT », `beta_register_edge` annonce qu'il avance le
+compteur et renvoie vers l'autre. Un agent choisit son outil sur sa description — sans cette
+asymétrie, il préenregistrerait dix idées pour en mesurer une, et ruinerait la batterie pour
+les neuf autres. Vérifié par test.
+
+---
+
+## C — le banc COMPARATIF (ouvert et fermé le 19/08, correction de Jonas)
+
+Correction de Jonas, mot pour mot : **« un banc de multitesting, ce n'est pas que à
+l'intérieur d'une stratégie, c'est aussi comparer plusieurs stratégies entre elles »**. Il
+avait raison, et c'était plus grave que décrit : la machinerie comparative existait (S7, S9,
+`pipeline.cribler` en deux passes) mais **n'avait jamais comparé quoi que ce soit** — une
+seule candidate existe, donc S7 rendait `nan` et S9 passait « faute d'objet ». Aucune vue ne
+mettait deux stratégies côte à côte, et `diversification.matrice()` n'était appelée nulle
+part hors des tests.
+
+| # | Chantier | Statut | Effort | Ce que ça montre |
+|---|---|---|---|---|
+| ~~C1~~ | ~~`stats/comparaison.py` — classement, S7, matrice, redondances~~ | ✅ fermé 19/08 | M | qui est devant, et si le devant veut dire quelque chose |
+| ~~C2~~ | ~~**AritV1 en référence** : sa courbe reconstruite avec la MÊME convention de sizing~~ | ✅ fermé 19/08 | S | « est-ce mieux que ce qui tourne déjà ? », que S8 ne posait pas |
+| ~~C3~~ | ~~Onglet **Comparaison** : classement, courbes superposées, matrice, S7~~ | ✅ fermé 19/08 | M | la comparaison devient lisible, pas seulement calculée |
+| ~~C4~~ | ~~`beta.py comparer` — relit `data/runs/`, ne relance rien~~ | ✅ fermé 19/08 | S | deux stratégies mesurées à trois semaines d'écart se comparent sans être remesurées |
+
+**Trois décisions de conception qui portent le tout :**
+
+1. **La comparaison relit `data/runs/`, elle ne dépend pas d'un criblage.** Exiger que deux
+   stratégies soient mesurées dans le même lot pour être comparables, c'est garantir que la
+   comparaison ne se fait jamais.
+2. **Un seul run par candidate, le plus récent de son split.** Deux runs de la même
+   stratégie ne sont pas deux stratégies : les compter double gonflerait l'univers de S7
+   avec une copie de lui-même, et la matrice afficherait fièrement 1,00 entre une candidate
+   et elle-même.
+3. **Le classement est trié sur le R moyen, jamais sur l'issue.** Trier par verdict mettrait
+   en tête les candidates qui ont eu la chance qu'une porte ne tourne pas.
+
+⚠️ **AritV1 se compare par sa COURBE, jamais par son R par trade.** Ses sorties sont les
+siennes (trailing, portes de gestion, protections freqtrade) ; celles d'une candidate
+viennent de la triple barrière du moteur. Les moyenner ensemble serait une faute. Sa courbe
+est donc reconstruite avec le **même sizing** que les candidates (risque fixe de 1 %, sans
+composition) — sinon l'écart mesurerait la convention de sizing avant de mesurer la
+stratégie. La réserve est écrite dans chaque classement, et une seconde prévient que ses
+52 trades rendent son Sharpe journalier instable.
+
+### Premier résultat comparatif du banc
+
+R2 contre AritV1, 1 419 jours communs : **corrélation 0,008** — décorrélées, ce qui est la
+moitié qui compte de la demande F1 (« diversifier les formes d'investissement ») — mais
+**−296 pts de rendement**. Décorrélée et perdante n'est pas une candidate : c'est une mesure
+de plus qui dit non.
+
+**Vérifié par test, et c'est le seul contrôle qui compte pour un banc comparatif** : sur
+vingt séries de bruit pur, S7 **ne sacre pas** la meilleure (p > 0,05) ; avec une vraie
+gagnante glissée dedans, il la **voit** (p ≤ 0,05, et c'est bien elle qu'il nomme).
+
+---
+
 ## Dettes connues
 
 | # | Dette | Statut | Conséquence si on l'oublie |
@@ -278,6 +370,8 @@ réserve correctement levée sur l'hypothèse non préenregistrée. Le fichier d
 | **T4** | **`ts_utc` du journal d'ARIT ment** sur les événements `gestion` (heure d'exécution du backtest, pas de la bougie). Contourné côté BETA par `signal_id`. ⚠️ **La correction appartient à ARIT** : inscrite là-bas le 19/08 sous **T4-ARIT** (`ARIT2.0/research/pistes_2026-07-31/CHANTIERS.md` § MISE À JOUR DU 2026-08-19) — cause exacte : `ev_gestion()` ne pose pas de `ts_utc`, `write()` retombe sur `_now_iso()` | 🔴 ouverte (contournée ici, **non corrigée** à la source) | à corriger **à la source**, côté ARIT, sinon chaque nouveau consommateur retombera dedans |
 | **T5** | **Le pont freqtrade n'a pas ses données** — `--datadir` pointe sur `data/raw`, où seuls LINK et XRP sont en feather ; BTC/ETH/SOL/BNB ne vivent qu'en parquet dans le lake | 🔴 ouverte | la confirmation portefeuille (M3) ne peut tourner que sur 2 paires sur 6. Faire lire `ARIT2.0/user_data/data/` à freqtrade lui ferait écrire dans le dossier d'ARIT — **interdit par l'invariant n° 1** — donc à résoudre par un export feather depuis le lake |
 | **T6** | **Chemins synthétiques rejoués sur une seule paire** (la première du run) | 🟠 ouverte, assumée | le coût est linéaire en nombre de paires ; la réserve est écrite dans chaque verdict, elle n'est donc pas silencieuse |
+| **T9** | **S1 n'est JAMAIS exécutée par le pipeline.** `pipeline.executer` ne passe pas `famille=` à `batterie.evaluer`, donc `portes["S1_benjamini_hochberg"]` reste `None`. Or `issue()` n'accorde CONFIRMEE que si **les neuf** portes ont tourné. ⇒ **aucune candidate ne peut être confirmée aujourd'hui : le plafond du banc est INDECIDABLE.** Vérifié sur le run `e9238689db9b`. Corriger demande de décider ce qu'est la famille pour un criblage — le lot du run, ou les hypothèses déclarées (`famille_taille`) comme le fait `scripts/mesurer.py`. Deux seuils différents, donc un arbitrage, cousin de A1 | 🔴 ouverte, **mesurée** | le banc ne peut que tuer ou dire « indécidable ». Sûr par défaut, mais le chemin de la confirmation est inatteignable |
+| **T10** | **Le criblage ne clôt pas l'expérience.** R2 est mesurée (INFIRMEE) mais `EXPERIMENTS.jsonl` la dit toujours `preenregistre` : `pipeline` écrit le verdict dans `data/runs/` et `RUNS.jsonl`, jamais `experiences.clore()`. R1 et R6 ne sont closes que parce que `scripts/mesurer.py` le fait à la main | 🔴 ouverte | contredit ce que `beta_publish` exige de tout agent — publier **surtout** quand c'est indécidable. Le registre donne une image fausse de ce qui a été mesuré |
 | **T8** | **Le compteur d'essais compte les HYPOTHÈSES, pas les MESURES.** `compteur()` = 30 + nombre d'ids distincts dans `EXPERIMENTS.jsonl`. Tant qu'il y avait une candidate par hypothèse les deux nombres coïncidaient ; l'atelier casse l'égalité — dix candidates sous R7, c'est dix tests et **un seul point de compteur**. `RUNS.jsonl` (racine, append-only, ajouté le 19/08) **mesure** l'écart, `beta.py doctor` l'affiche, et **rien ne change encore** : faire porter N par les runs durcirait rétroactivement tous les verdicts déjà rendus. ⇒ arbitrage de Jonas, `DECISIONS.md` § A1 | 🔴 ouverte, **mesurée** | S1 et S2 corrigent sur un N trop petit dès qu'il y a plusieurs candidates par hypothèse : les seuils sont trop généreux, donc les verdicts trop flatteurs |
 | **T7** | **L'équity à risque fixe non composé peut passer sous zéro** — R2 finit à −83 750 sur 100 000 | 🟠 ouverte, assumée | mathématiquement cohérent, physiquement impossible. Le choix rend deux candidates comparables entre elles ; le compounding se mesure côté freqtrade (M3), une seule fois |
 
@@ -307,7 +401,12 @@ seule raison.
    seuil était trop généreux, c'est vingt mesures à refaire ou à jeter.
 2. **D5-D7** — sans quoi R3, R4 et R5 restent à l'arrêt.
 3. **T5** — sans quoi le verdict portefeuille ne couvre que 2 paires sur 6.
-4. **De nouvelles candidates.** Le moteur en accepte autant qu'on veut, l'atelier sait les
-   écrire, et il n'en existe toujours **qu'une**. Chacune demande son préenregistrement.
+4. **T9** — sans quoi le banc ne peut structurellement **rien confirmer**.
+5. **Une DEUXIÈME candidate.** Le moteur en accepte autant qu'on veut, l'atelier sait les
+   écrire, le banc comparatif sait les mettre en regard — et il n'en existe toujours
+   **qu'une**. Tant que c'est le cas, S7 n'a pas d'objet, S9 non plus, et la moitié
+   comparative du banc tourne à vide. Deux idées attendent dans `IDEES.jsonl` (I1 funding
+   extrême, I2 cascade de liquidations) ; **les promouvoir est un geste de Jonas**, parce
+   que c'est lui qui décide ce qui vaut un cran de compteur.
    Le goulot n'est plus l'outillage : c'est le nombre d'hypothèses falsifiables qu'on est
    prêt à écrire avant de regarder les chiffres.

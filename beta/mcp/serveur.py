@@ -1,13 +1,19 @@
 """P2/P3 — serveur MCP stdio de BETA, en JSON-RPC sur la bibliotheque standard.
 
 Aucune dependance : le protocole MCP est du JSON-RPC 2.0 ligne par ligne sur stdin/stdout,
-et l'ecrire a la main coute moins cher que d'ajouter un SDK au projet pour sept outils. Le
+et l'ecrire a la main coute moins cher que d'ajouter un SDK au projet pour neuf outils. Le
 choix suit celui d'ALPHA, ou la meme decision a ete prise pour les memes raisons.
 
-Sept outils, deux familles :
+Neuf outils, trois familles, du moins cher au plus cher :
 
-    lecture     beta_data_catalog, beta_load_ohlcv, beta_results
-    ecriture    beta_register_edge, beta_submit_strategy, beta_run_backtest, beta_publish
+    lecture     beta_data_catalog, beta_load_ohlcv, beta_results, beta_ideas
+    gratuit     beta_suggest_idea            <- note une idee, le compteur ne bouge pas
+    couteux     beta_register_edge, beta_submit_strategy, beta_run_backtest, beta_publish
+
+La separation entre `beta_suggest_idea` et `beta_register_edge` est le point : preenregistrer
+avance le compteur d'essais cumulatif, donc durcit le seuil de toutes les autres hypotheses,
+definitivement. Sans etage gratuit devant, un agent qui a dix idees les preenregistre toutes
+et ruine la batterie pour les neuf qu'il ne mesurera jamais.
 
 **Le garde-fou P3 est le point du module.** `beta_run_backtest` passe par `contrats.Run`,
 qui appelle `protocole.exiger()` : un agent qui demande un backtest sans avoir preenregistre
@@ -120,10 +126,43 @@ def _json(chemin) -> dict:
 
 # --- ecriture -------------------------------------------------------------------------
 
+@outil("beta_suggest_idea",
+       "Note une idee de strategie ou d'hypothese dans la boite a idees. GRATUIT : le "
+       "compteur d'essais ne bouge PAS. Aucune forme imposee — pas de metrique, pas de "
+       "seuil. C'est l'etage AVANT le preenregistrement : utiliser celui-ci pour capturer, "
+       "beta_register_edge seulement quand on est pret a mesurer.",
+       {"type": "object",
+        "properties": {"texte": {"type": "string", "description": "l'idee, en clair"},
+                       "source": {"type": "string",
+                                  "description": "d'ou elle vient : mesure, video, lecture"},
+                       "pourquoi": {"type": "string",
+                                    "description": "ce qui fait y croire aujourd'hui — "
+                                                   "introuvable dans trois mois si non ecrit"}},
+        "required": ["texte"]})
+def _suggerer(texte: str, source: str = "", pourquoi: str = "", **_) -> dict:
+    from beta.protocole import idees
+    idee = idees.ajouter(texte, source=source, pourquoi=pourquoi)
+    return {**idee, "compteur_essais_inchange": idees.experiences.compteur()}
+
+
+@outil("beta_ideas",
+       "Les idees notees et leur etat : nouvelle, promue (elle a un id d'experience), ou "
+       "ecartee avec son motif. A lire avant d'en proposer une nouvelle — pour ne pas "
+       "represser une idee deja ecartee, et savoir pourquoi elle l'a ete.",
+       {"type": "object",
+        "properties": {"etat": {"type": "string",
+                                "description": "nouvelle, promue, ecartee, ou vide pour tout"}}})
+def _idees(etat: str = "", **_) -> dict:
+    from beta.protocole import idees
+    return {"idees": idees.lister(etat), "resume": idees.resume()}
+
+
 @outil("beta_register_edge",
        "Preenregistre une hypothese AVANT de la mesurer. Obligatoire : sans elle, "
        "beta_run_backtest refuse de tourner. Ecrire ce qu'on cherche, la metrique, la "
-       "regle de decision, et ce qu'on savait deja.",
+       "regle de decision, et ce qu'on savait deja. ATTENTION : ceci AVANCE le compteur "
+       "d'essais cumulatif, donc durcit le seuil de toutes les autres hypotheses, "
+       "definitivement. Pour simplement noter une idee, utiliser beta_suggest_idea.",
        {"type": "object",
         "properties": {"id": {"type": "string", "description": "identifiant court, ex: R7"},
                        "hypothese": {"type": "string"},

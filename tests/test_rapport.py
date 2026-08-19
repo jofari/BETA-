@@ -94,7 +94,8 @@ def test_chaque_id_utilise_par_le_js_existe_dans_le_html():
 
 def test_aucune_ressource_externe():
     """Zero CDN : la page doit fonctionner hors ligne, comme ALPHA."""
-    for fichier in ("index.html", "app.js", "fiche.js", "style.css"):
+    for fichier in ("index.html", "app.js", "fiche.js", "atelier.js",
+                    "comparaison.js", "style.css"):
         contenu = (WEB / fichier).read_text(encoding="utf-8")
         for motif in ("http://", "https://"):
             for occurrence in re.findall(rf"{motif}[^\s\"')]+", contenu):
@@ -102,12 +103,26 @@ def test_aucune_ressource_externe():
                 assert "w3.org" in occurrence, f"{fichier} : ressource externe {occurrence}"
 
 
+# Les routes POST ne sont pas dans `ROUTES` (qui est la table des GET) : elles sont
+# aiguillees dans `do_POST`. Les lister ici est ce qui fait echouer le test quand on ajoute
+# un fetch cote client sans la route qui va avec — l'oubli le plus facile du projet.
+ROUTES_POST = {"/api/action", "/api/atelier", "/api/idee"}
+
+
 def test_toutes_les_routes_du_js_existent_cote_serveur():
-    lisibles = set(serveur.ROUTES) | {"/api/action"}      # /api/action est en POST
-    for fichier in ("app.js", "fiche.js"):
-        js = (WEB / fichier).read_text(encoding="utf-8")
+    lisibles = set(serveur.ROUTES) | ROUTES_POST
+    for fichier in sorted(WEB.glob("*.js")):
+        js = fichier.read_text(encoding="utf-8")
         for route in re.findall(r'fetch\("(/api/[^"?]+)', js):
-            assert route in lisibles, f"{fichier} appelle {route}, absent du serveur"
+            assert route in lisibles, f"{fichier.name} appelle {route}, absent du serveur"
+
+
+def test_chaque_route_post_est_bien_aiguillee():
+    """Une route POST declaree ici mais absente de `do_POST` rendrait 404 sans qu'on le voie."""
+    import inspect
+    source = inspect.getsource(serveur.Handler.do_POST) + inspect.getsource(serveur.Handler)
+    for route in ROUTES_POST:
+        assert f'"{route}"' in source, f"{route} n'est aiguillee nulle part dans do_POST"
 
 
 # --- confinement du statique ---------------------------------------------------------------

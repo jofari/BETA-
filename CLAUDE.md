@@ -68,10 +68,26 @@ d'edge.
 8. **`data/` est jetable, jamais versionné.** Supprimer `data/` doit laisser BETA repartir
    proprement via `scripts/build_lake.py`.
 9. **Tout en UTC**, sans exception. Les timestamps du lake sont tz-aware.
-10. **Ce qui compte les essais vit à la RACINE**, jamais dans `data/` : `EXPERIMENTS.jsonl`
-    et `RUNS.jsonl`. Un compteur qu'un nettoyage remet à zéro est un compteur qui ment.
-    ⚠️ Les deux ne mesurent pas la même chose — hypothèses d'un côté, mesures de l'autre —
-    et l'écart est un arbitrage ouvert (`DECISIONS.md` § A1).
+10. **Ce qui compte les essais vit à la RACINE**, jamais dans `data/` : `EXPERIMENTS.jsonl`,
+    `RUNS.jsonl` et `IDEES.jsonl`. Un compteur qu'un nettoyage remet à zéro est un compteur
+    qui ment, et une idée perdue par un nettoyage est une idée qu'on n'aura pas deux fois.
+    ⚠️ Les deux premiers ne mesurent pas la même chose — hypothèses d'un côté, mesures de
+    l'autre — et l'écart est un arbitrage ouvert (`DECISIONS.md` § A1).
+11. **Noter une idée est GRATUIT ; la promouvoir COÛTE.** `IDEES.jsonl` n'a aucune forme
+    imposée et n'avance pas le compteur ; `promouvoir()` écrit le préenregistrement et
+    avance le compteur d'un cran, donc durcit le seuil de toutes les autres hypothèses.
+    Cette asymétrie est la fonctionnalité : sans étage gratuit devant, préenregistrer chaque
+    idée de passage coûterait trop cher, donc on n'en noterait aucune, donc on les perdrait
+    toutes. Elle vaut aussi côté MCP — `beta_suggest_idea` contre `beta_register_edge`.
+12. **Comparer plusieurs stratégies fait partie du banc, ce n'est pas un extra.** S7 (reality
+    check du maximum) et S9 (corrélation des équity) n'ont aucun sens candidate par
+    candidate : cribler dix candidates dix fois en solo donnerait dix résultats flatteurs et
+    faux. La comparaison relit `data/runs/` et ne dépend d'aucun criblage — deux stratégies
+    mesurées à trois semaines d'écart doivent se comparer sans être remesurées — et ne garde
+    **qu'un run par candidate**, sinon l'univers de S7 se remplit de copies d'elle-même.
+    ⚠️ **AritV1 est la seconde référence imposée, à côté du buy-and-hold** — mais par sa
+    COURBE seulement, jamais par son R par trade : ses sorties sont les siennes, celles des
+    candidates viennent de la triple barrière du moteur.
 
 ## Ce qui distingue BETA d'un backtester de plus
 

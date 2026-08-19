@@ -43,7 +43,7 @@ def hold(series: dict[str, pd.DataFrame], cout_aller_retour_pct: float = 0.0) ->
         "debut": str(courbe.index[0].date()), "fin": str(courbe.index[-1].date()),
         "rendement_total_pct": total,
         "cagr_pct": _cagr(courbe),
-        "sharpe_annuel": _sharpe_annuel(rendements),
+        "sharpe_annuel": sharpe_annuel(rendements),
         "drawdown_max_pct": float(((courbe / sommet - 1.0) * 100.0).min()),
         "courbe": {"ts": [d.isoformat() for d in courbe.index],
                    "valeur": [float(v) for v in courbe.to_numpy()]},
@@ -57,7 +57,7 @@ def _cagr(courbe: pd.Series) -> float:
     return float((courbe.iloc[-1] / courbe.iloc[0]) ** (JOURS_AN / jours) - 1.0) * 100.0
 
 
-def _sharpe_annuel(rendements: pd.Series) -> float:
+def sharpe_annuel(rendements: pd.Series) -> float:
     if len(rendements) < 2:
         return float("nan")
     sigma = float(rendements.std(ddof=1))
@@ -83,7 +83,7 @@ def strategie_journaliere(equity: pd.DataFrame) -> dict:
             "debut": str(courbe.index[0].date()), "fin": str(courbe.index[-1].date()),
             "rendement_total_pct": float(courbe.iloc[-1] / courbe.iloc[0] - 1.0) * 100.0,
             "cagr_pct": _cagr(courbe),
-            "sharpe_annuel": _sharpe_annuel(rendements),
+            "sharpe_annuel": sharpe_annuel(rendements),
             "drawdown_max_pct": float(((courbe / sommet - 1.0) * 100.0).min()),
             "courbe": {"ts": [d.isoformat() for d in courbe.index],
                        "valeur": [float(v) for v in courbe.to_numpy()]}}

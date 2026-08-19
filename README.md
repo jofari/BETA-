@@ -26,6 +26,10 @@ En ligne de commande :
 | `python beta.py doctor` | ce qui est en place et ce qui manque |
 | `python beta.py candidates` | l'inventaire du registre de candidates |
 | `python beta.py cribler` | passe des candidates à la batterie S1-S9 |
+| `python beta.py comparer` | compare les stratégies déjà mesurées entre elles |
+| `python beta.py idee note "..."` | note une idée — **gratuit**, le compteur ne bouge pas |
+| `python beta.py idee liste` | les idées notées, promues, écartées |
+| `python beta.py idee promouvoir I1 --experience R7 ...` | l'idée devient une expérience préenregistrée — **le compteur avance** |
 | `python beta.py atelier nouveau <module> --hypothese R7` | un squelette prêt à remplir |
 | `python beta.py atelier valider <module>` | sas statique + épreuve de causalité |
 | `python beta.py atelier local "<règle>" --module r7_x --hypothese R7` | la fait écrire par un modèle local |
@@ -37,18 +41,22 @@ En ligne de commande :
 
 ## Le dashboard
 
-Cinq onglets, port **7474** (ALPHA occupe 7373) :
+Six onglets, port **7474** (ALPHA occupe 7373) :
 
 - **Stratégie** — le R moyen affiché **à côté de son MDE**, avec un bandeau qui dit en clair
   quand l'écart est sous le seuil de détection. Courbe d'équity en R cumulés, distribution
   des R, ventilation par sens / paire / stratégie, raisons de **sortie** et raisons de
   **rejet**. Le hold-out est exclu par défaut ; l'inclure affiche un avertissement permanent.
+- **Comparaison** — le classement, les courbes superposées (AritV1 en pointillé), la matrice
+  de corrélation et la p-value du *meilleur* du lot. C'est le seul onglet qui répond à
+  « celle-ci apporte-t-elle quelque chose que je n'ai pas déjà ? ».
 - **Atelier** — écrire une candidate, à la main ou avec un modèle local. Éditeur, bouton
   « demander au modèle local », sas, dépôt. Rien n'entre dans `beta/candidates/` sans avoir
   passé le contrôle statique **et** l'épreuve de causalité.
 - **Données** — les séries du lake, leur couverture réelle, et la **borne commune** : un run
   multi-paires ne peut pas aller plus loin que la série qui s'arrête le plus tôt.
-- **Protocole** — le compteur d'essais cumulés et le registre d'expériences.
+- **Protocole** — le compteur d'essais cumulés, le registre d'expériences, et la **boîte à
+  idées** : noter est gratuit, seule la promotion avance le compteur.
 
 Zéro dépendance front, zéro CDN : les graphiques sont dessinés au canvas. Même palette
 qu'ALPHA, accent vert au lieu de bleu pour distinguer les deux onglets d'un coup d'œil.
@@ -138,6 +146,60 @@ seulement *pas encore tuée*.
 | S7 | Reality check de White / SPA | le meilleur d'un lot, quand le lot est du bruit |
 | S8 | Buy-and-hold | ce qui mesure le marché plutôt qu'un edge |
 | S9 | Corrélation des équity | ce qui répète une candidate déjà retenue |
+
+## Suggérer une idée
+
+```
+python beta.py idee note "Le funding extrême précède un retournement de la tendance courte."
+python beta.py idee liste
+python beta.py idee promouvoir I1 --experience R7 --hypothese "..." --metrique "..."        --confirmee "..." --infirmee "..."
+```
+
+Deux étages, un seul point de bascule :
+
+```
+IDEES.jsonl          gratuit, aucune forme imposée — le compteur d'essais NE BOUGE PAS
+    |
+    | promouvoir()   <- LE moment où ça coûte : le compteur avance d'un cran
+    v
+EXPERIMENTS.jsonl    hypothèse falsifiable, métrique primaire, règle de décision
+```
+
+Sans l'étage gratuit, préenregistrer chaque idée de passage coûterait un cran de compteur —
+donc durcirait le seuil de toutes les autres — donc on n'en noterait aucune, donc on les
+perdrait. Ce que la **promotion** force à écrire est exactement ce qui manque à une idée pour
+devenir mesurable ; une idée qu'on n'arrive pas à promouvoir est une idée qu'on n'a pas
+encore su rendre falsifiable, et le dire est déjà un résultat.
+
+Une idée **écartée** ne disparaît jamais, et son motif est obligatoire : savoir ce qu'on a
+décidé de *ne pas* tester vaut autant que savoir ce qu'on a testé.
+
+## Comparer plusieurs stratégies
+
+```
+python beta.py comparer
+```
+
+Il relit `data/runs/`, il ne relance rien : deux stratégies mesurées à trois semaines d'écart
+se comparent sans être remesurées ensemble. Ce que la comparaison montre et qu'aucune fiche
+individuelle ne peut montrer :
+
+| | Ce que ça répond |
+|---|---|
+| **classement** | qui est devant — trié sur le R moyen, jamais sur l'issue, sinon les candidates qui ont eu la chance qu'une porte ne tourne pas passeraient en tête |
+| **S7 reality check** | *et si le meilleur du lot était bon par accident ?* Vingt candidates de bruit pur produisent toujours une « meilleure » flatteuse |
+| **S9 matrice de corrélation** | deux stratégies rentables corrélées à 0,9 n'en font pas deux : elles en font une, testée deux fois |
+| **vs AritV1** | *est-ce mieux que ce qui tourne déjà ?* — la question que le buy-and-hold ne pose pas |
+
+⚠️ **Un seul run par candidate**, le plus récent : deux runs de la même stratégie ne sont pas
+deux stratégies, et les compter double gonflerait l'univers de S7 avec une copie de lui-même.
+
+⚠️ **AritV1 se compare par sa COURBE, jamais par son R par trade.** Sa courbe est reconstruite
+avec le même sizing que les candidates (risque fixe de 1 %, sans composition) — sinon l'écart
+mesurerait la convention de sizing avant de mesurer la stratégie.
+
+Premier résultat comparatif : R2 est **décorrélée d'AritV1 (0,008)** sur 1 419 jours communs,
+et lui perd **296 points de rendement**. Décorrélée et perdante n'est pas une candidate.
 
 ## L'atelier — écrire d'autres candidates
 
@@ -230,16 +292,17 @@ avertissement. C'est l'invariant n° 3 du projet.
 ```
 beta/config.py    le SEUL endroit où un chemin de données est écrit
 beta/lake/        univers · telechargement · construction · catalogue · lecture · strategie
-beta/protocole/   experiences (le verrou) · holdout        <- dont tout dépend
+beta/protocole/   experiences (le verrou) · idees (l'étage gratuit) · holdout  <- dont tout dépend
 beta/stats/       descriptif · bootstrap · multitest · montecarlo · synthetique
                   walkforward · reference · diversification · batterie   (S1-S9)
+                  comparaison (le banc COMPARATIF : classement, S7, matrice, vs AritV1)
 beta/moteur/      contrats (les 3 contrats gelés) · espace_r · registre · pipeline
                   pont_freqtrade (le seul verdict portefeuille)
 beta/candidates/  une hypothèse par fichier, isolée, jetable
 beta/atelier/     sas (statique) · epreuve (sous-processus) · depot · local · gabarit · cli
 beta/recherche/   les mesures R1-R6, chacune sur son préenregistrement
 beta/mcp/         serveur MCP stdio (7 outils, zéro dépendance)
-beta/rapport/     serveur + runs + actions + atelier + web/ (le dashboard)
+beta/rapport/     serveur + runs + actions + atelier + comparaison + web/ (le dashboard)
 scripts/build_lake.py        construit le lake OHLCV
 scripts/import_strategie.py  importe les données de stratégie
 scripts/preenregistrer.py    écrit R1-R6 au registre, avant toute mesure
@@ -247,6 +310,7 @@ scripts/mesurer.py           mesure, corrige par BH, clôt au registre
 scripts/epreuve_mcp.py       traverse le pont MCP pour de vrai
 EXPERIMENTS.jsonl            les hypothèses, append-only          <- hors de data/, exprès
 RUNS.jsonl                   les mesures effectuées, append-only  <- hors de data/, exprès
+IDEES.jsonl                  les idées, gratuites, append-only    <- hors de data/, exprès
 .mcp.json                    le pont, déclaré au client
 beta.py · BETA.cmd           les points d'entrée
 ```
@@ -284,3 +348,11 @@ décale la série et fabrique du look-ahead en silence).
   ouvert (`DECISIONS.md` § A1), pas un correctif à glisser dans un commit.
 - Il ne génère pas de stratégie depuis une vidéo (P4, reporté) : une vidéo est une source
   d'hypothèses, jamais d'edge — exactement comme un modèle local.
+- ⚠️ **Il ne peut aujourd'hui CONFIRMER aucune candidate.** S1 n'est jamais exécutée par le
+  pipeline (`famille=` n'est pas passé à la batterie), or une issue CONFIRMEE exige les neuf
+  portes exécutées. Le plafond réel est INDECIDABLE — sûr par défaut, mais le chemin de la
+  confirmation est inatteignable. Dette **T9**, `CHANTIERS.md`.
+- ⚠️ **Le criblage ne clôt pas l'expérience au registre** : le verdict va dans `data/runs/` et
+  `RUNS.jsonl`, jamais dans `EXPERIMENTS.jsonl`. Dette **T10**.
+- **Il n'a encore jamais comparé deux stratégies** : une seule candidate existe. La moitié
+  comparative du banc (S7, S9) tourne à vide tant que c'est le cas.
