@@ -63,12 +63,19 @@ def _lignes(chemin: pathlib.Path | None = None) -> list[dict]:
 
 
 def etat(chemin: pathlib.Path | None = None) -> dict[str, dict]:
-    """Le dernier etat de chaque experience — la derniere ligne d'un id fait foi."""
-    dernier: dict[str, dict] = {}
+    """L'etat courant de chaque experience : les lignes d'un meme id sont FUSIONNEES.
+
+    La derniere ligne fait foi champ par champ, pas ligne entiere. La difference n'est pas
+    theorique : une ligne de cloture ne porte que le verdict, donc l'ecrasement pur ferait
+    disparaitre l'hypothese et la regle de decision du dossier. `exiger()` refuserait alors
+    de remesurer une experience deja close — c'est-a-dire qu'on ne pourrait plus jamais
+    reproduire un resultat publie, ce qui est exactement le contraire du but.
+    """
+    fusion: dict[str, dict] = {}
     for entree in _lignes(chemin):
         if "id" in entree:
-            dernier[entree["id"]] = entree
-    return dernier
+            fusion[entree["id"]] = {**fusion.get(entree["id"], {}), **entree}
+    return fusion
 
 
 def exiger(id_exp: str, chemin: pathlib.Path | None = None) -> dict:
@@ -122,6 +129,34 @@ def preenregistrer(id_exp: str, hypothese: str, metrique_primaire: str,
     _ajouter(entree, chemin)
     log.info("experience '%s' preenregistree (essai cumule n° %s)",
              id_exp, entree["n_essais_cumules"])
+    return entree
+
+
+def amender(id_exp: str, raison: str, chemin: pathlib.Path | None = None,
+            **champs) -> dict:
+    """Modifie un preenregistrement AVANT mesure, en laissant la trace du changement.
+
+    Un preenregistrement qu'on ne peut pas amender est un preenregistrement qu'on
+    contourne : quand la donnee necessaire manque, la tentation est d'ecrire un protocole
+    different et de ne rien dire. On prefere donc un amendement DATE, MOTIVE, et conserve a
+    cote de l'original — la ligne d'origine reste dans le fichier, et la comparaison des
+    deux est justement ce qui permet de juger si l'amendement etait de bonne foi.
+
+    Refuse d'amender une experience deja close : a ce moment-la, ce n'est plus un
+    amendement, c'est une reecriture du resultat.
+    """
+    chemin = chemin or REGISTRE
+    dernier = etat(chemin).get(id_exp)
+    if dernier and dernier.get("statut") in ("clos", "abandonne"):
+        raise ProtocoleError(f"'{id_exp}' est {dernier['statut']} : on n'amende pas "
+                             "un preenregistrement apres avoir vu le resultat")
+    origine = exiger(id_exp, chemin)
+    entree = {**origine, **champs, "id": id_exp,
+              "date": datetime.now(UTC).date().isoformat(), "statut": "preenregistre",
+              "amendement": raison,
+              "amende_depuis": origine.get("date")}
+    _ajouter(entree, chemin)
+    log.info("experience '%s' amendee : %s", id_exp, raison)
     return entree
 
 

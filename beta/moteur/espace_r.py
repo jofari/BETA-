@@ -97,7 +97,12 @@ def evaluer(df: pd.DataFrame, signaux: pd.DataFrame, *, take_profit_r: float = 2
     if not len(positions):
         return _vide()
 
-    entree_tout = df["close"].to_numpy(dtype=float)
+    # Une candidate entre au close de sa bougie de signal. Rejouer des trades DEJA pris
+    # (mesures R1/R5) demande au contraire le prix d'entree reel : sans lui, l'ecart mesure
+    # melangerait l'effet etudie et un decalage d'entree de quelques dizaines de points.
+    entree_tout = (signaux["prix_entree"].to_numpy(dtype=float)
+                   if "prix_entree" in signaux.columns
+                   else df["close"].to_numpy(dtype=float))
     if "stop_distance" in signaux.columns:
         risque_tout = signaux["stop_distance"].to_numpy(dtype=float)
     else:
