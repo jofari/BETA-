@@ -1,6 +1,6 @@
 # CLAUDE.md — BETA, doctrine du projet
 
-**Banc d'essai d'edges.** Ouvert le 2026-08-18 (décision F1 de `ARIT2.0/DECISIONS.md`).
+**Banc d'essai d'edges.** Ouvert le 2026-08-18 (décision F1 d'ARIT ; les arbitrages vivent depuis le 19/08 dans `DECISIONS.md` de ce dépôt).
 Objectif : tester **plusieurs** hypothèses d'edge sur les mêmes données, avec une batterie
 statistique qui les tue quand elles ne valent rien — et le dire.
 

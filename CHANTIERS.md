@@ -5,7 +5,19 @@
 > une ligne fermée est **barrée en place**, avec sa date. Si elle n'est pas barrée, elle est
 > ouverte.
 >
-> Arbitrages de Jonas : `ARIT2.0/DECISIONS.md` § F1. Doctrine : `CLAUDE.md`.
+> Arbitrages de Jonas : `DECISIONS.md` (ce dépôt, depuis le 19/08 ; avant, `ARIT2.0/DECISIONS.md` § F1). Doctrine : `CLAUDE.md`.
+>
+> **Frontière ARIT / BETA** (posée le 19/08, symétrique de
+> `ARIT2.0/research/pistes_2026-07-31/CHANTIERS.md` § MISE À JOUR DU 2026-08-19) :
+> **ARIT2.0 = la stratégie qui tourne** (AritV1 : ses portes, ses scores, sa gestion, son
+> dry-run, son observabilité). **BETA = la recherche d'autres stratégies** (moteur de
+> criblage, batterie multi-test, hypothèses d'edge). **Aucun statut ne vit aux deux
+> endroits** : le dépôt propriétaire fait foi, l'autre ne porte qu'un pointeur.
+> Ce qui a migré ici le 18/08 et n'est plus suivi chez ARIT : **F1 / H7** (le banc) et
+> **Q9** (Deflated Sharpe + buy-and-hold → S2 et S8). Ce qui **reste chez ARIT** malgré
+> l'apparence : **Q7** (walk-forward pour AritV1 ; S6 est le même outil appliqué aux
+> candidates — deux travaux, deux dépôts), **C1-bis** (paramètre d'AritV1, que **R6** se
+> contente de mesurer) et **F2 / G2 / G8** (le dry-run, qui ne tourne que chez ARIT).
 
 **État en une phrase** : BETA sait dire ce que le marché a fait et ce qu'une stratégie en a
 fait. Il ne sait **pas encore chercher un edge**, ni comparer plusieurs candidates sans
@@ -63,8 +75,8 @@ ils ne la redécouvrent pas.
 | **S5** | **Chemins synthétiques** — GBM et phase randomization, la stratégie rejouée sur ~200 séries | 🔴 ouvert | L | `chemins synthetiques - GBM et phase randomization.md` |
 | **S6** | **Walk-forward avec purge et embargo (CPCV)** | 🔴 ouvert | L | `walk-forward purge et embargo (CPCV).md` |
 | **S7** | **Reality Check de White / SPA de Hansen** — bootstrap sur la statistique du **maximum** d'un univers de N candidates | 🔴 ouvert | L | `budget de tests et sharpe degonfle.md` |
-| **S8** | **Buy-and-hold** comme référence imposée de toute candidate, même période | 🔴 ouvert | S | décision Q9 · `ARIT2.0/DECISIONS.md` § F1 |
-| **S9** | **Corrélation des courbes d'équity** entre candidates — deux stratégies rentables corrélées à 0,9 n'apportent rien | 🔴 ouvert | M | `ARIT2.0/DECISIONS.md` § F1, critère de diversification |
+| **S8** | **Buy-and-hold** comme référence imposée de toute candidate, même période | 🔴 ouvert | S | ex-Q9 d'ARIT · `DECISIONS.md` |
+| **S9** | **Corrélation des courbes d'équity** entre candidates — deux stratégies rentables corrélées à 0,9 n'apportent rien | 🔴 ouvert | M | `DECISIONS.md`, critère de diversification |
 
 **Ordre imposé** : S1, S2 et S8 **avant** la première comparaison de candidates. Sans elles,
 le premier gagnant du banc sera un artefact, et on l'aura cru.
@@ -97,7 +109,7 @@ ARIT l'a montré : 7 signaux marginaux pour un MDE de +1,53 R.
 | # | Hypothèse | Statut | Origine | Effort |
 |---|---|---|---|---|
 | **R1** | **Le trailing stop détruit les shorts.** Signal short brut +0,0637 R, stratégie complète −0,4683 R sur la même période ; MFE moyen +0,438 R côté short contre +1,215 R côté long | 🔴 à préenregistrer | mesure du 18/08 — **seul écart du lot à dépasser son MDE**, mais sous-groupe trouvé après coup ⇒ **à préenregistrer avant de mesurer** | S |
-| **R2** | **Mean-reversion** — l'opposé structurel d'AritV1, qui est un suiveur de tendance | 🔴 à préenregistrer | `ARIT2.0/DECISIONS.md` § F1 | M |
+| **R2** | **Mean-reversion** — l'opposé structurel d'AritV1, qui est un suiveur de tendance | 🔴 à préenregistrer | `DECISIONS.md` | M |
 | **R3** | **Portage / funding** — 86 % du profit de MacroFlip venait de là | 🔴 à préenregistrer | § F1 | M |
 | **R4** | **Macro seule**, sans couche technique | 🔴 à préenregistrer | § F1 | M |
 | **R5** | **Spot vs perpétuel** — D1 côté ARIT a été abandonné parce qu'il mesurait l'alternance bull/bear, pas un edge. À reposer proprement, avec le hold-out | 🔴 à préenregistrer | § F1 · `BUILD_NOTES` 17/08 | M |
@@ -129,4 +141,4 @@ reporté, pas annulé — une vidéo est une source d'**hypothèses**, jamais d'
 | **T1** | **Repo distant privé non créé** — `gh` n'est pas installé sur la machine | 🔴 ouverte | tout le travail vit sur un seul disque |
 | **T2** | **venv partagé avec ARIT** (`C:\Users\jofar\venvs\arit`) | 🔴 ouverte | une mise à jour pour ARIT casse BETA, ou l'inverse |
 | **T3** | **Bornes de fin hétérogènes** — LINK/XRP vont au 18/08, les 4 paires d'ARIT s'arrêtent au 04/08 | 🔴 ouverte | un run multi-paires s'arrête à la borne commune sans le dire ; visible dans le dashboard, à ne pas oublier au moment de conclure |
-| **T4** | **`ts_utc` du journal d'ARIT ment** sur les événements `gestion` (heure d'exécution du backtest, pas de la bougie). Contourné côté BETA par `signal_id` | 🔴 ouverte | à corriger **à la source**, côté ARIT, sinon chaque nouveau consommateur retombera dedans |
+| **T4** | **`ts_utc` du journal d'ARIT ment** sur les événements `gestion` (heure d'exécution du backtest, pas de la bougie). Contourné côté BETA par `signal_id`. ⚠️ **La correction appartient à ARIT** : inscrite là-bas le 19/08 sous **T4-ARIT** (`ARIT2.0/research/pistes_2026-07-31/CHANTIERS.md` § MISE À JOUR DU 2026-08-19) — cause exacte : `ev_gestion()` ne pose pas de `ts_utc`, `write()` retombe sur `_now_iso()` | 🔴 ouverte (contournée ici, **non corrigée** à la source) | à corriger **à la source**, côté ARIT, sinon chaque nouveau consommateur retombera dedans |
