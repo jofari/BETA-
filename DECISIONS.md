@@ -133,7 +133,10 @@ Deux effets de bord assumés, tous deux dans le sens sévère :
   jugées au même seuil. Sans ce gel, la dernière du lot serait jugée plus durement que la
   première pour la seule raison qu'elle est passée après ;
 - `scripts/mesurer.py` journalise désormais ses mesures (R1, R6) : une mesure hors pipeline
-  était gratuite au compteur alors qu'elle consommait bien un essai.
+  était gratuite au compteur alors qu'elle consommait bien un essai. Son `run_id` est haché
+  sur l'**empreinte du code de la mesure** (corrigé le 20/08 ; la première version datait
+  l'identifiant, donc relancer le script le lendemain fabriquait un essai). Un compteur qui
+  monte parce que le temps passe ne mesure plus rien.
 
 ---
 

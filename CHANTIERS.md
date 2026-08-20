@@ -432,18 +432,30 @@ fin de lot.
 ### Ce qui n'a PAS encore tourné pour de vrai
 
 `proposer` a réellement tourné (I4-I7, ollama/qwen2.5:7b) et R2 a réellement été re-criblée.
-**`auto cribler` de bout en bout, non** : aucun module `auto_*` n'a encore été déposé, et
-`ecrire_le_lot()` n'a pas de test. AR2 est fermé sur la foi de tests unitaires et de ses
-refus, pas d'un lot mesuré. Deux réserves à lever en même temps :
+**`auto cribler` de bout en bout avec un modèle vivant, non** : aucun module `auto_*` n'a
+encore été déposé. Le chemin nominal est désormais couvert par des tests à backend factice
+(`ecrire_le_lot`, `_lot_ecrit`, `lancer` → `cribler`), mais un test n'est pas une exécution.
 
-- `lancer()` crible `registre.par_hypothese()`, donc **toutes** les candidates de
-  l'hypothèse, pas seulement le lot qu'elle vient d'écrire. Le contrôle
-  `budget <= famille_taille` ne borne donc pas ce qui est réellement criblé. Le sens reste
-  conservateur — `_famille_du_lot` remonte *m* à la taille du lot, donc BH durcit — mais le
-  verrou n'est pas aussi strict que le README l'annonce.
-- le `run_id` de `scripts/mesurer.py` n'est déterministe que **dans la journée**
-  (`{id}-mesure-{date}`) : remesurer R1 demain coûterait un cran de compteur sans que rien
-  n'ait changé. Le pipeline, lui, a un `run_id` haché, donc stable.
+Les deux réserves ouvertes en même temps ont été **levées le 20/08**, et une troisième est
+apparue en les levant :
+
+| # | Réserve | Statut |
+|---|---|---|
+| ~~AR-a~~ | ~~`lancer()` criblait `registre.par_hypothese()`, donc **toutes** les candidates de l'hypothèse, pas seulement le lot écrit — le contrôle `budget <= famille_taille` ne bornait pas ce qui était réellement criblé~~ | ✅ **fermée 20/08** — `_lot_ecrit()` ne charge que les modules déposés par ce lot, et écarte celles qui déclarent une autre hypothèse |
+| ~~AR-b~~ | ~~le `run_id` de `scripts/mesurer.py` n'était déterministe que **dans la journée** (`{id}-mesure-{date}`) : remesurer R1 le lendemain coûtait un cran de compteur sans que rien n'ait changé~~ | ✅ **fermée 20/08** — haché sur l'**empreinte du code de la mesure**, même convention que `Candidate.empreinte`. Il ne monte que si le code a changé, et alors c'est bien un nouveau test |
+| ~~T11~~ | ~~**Le registre mesurait l'ANCIEN code après un dépôt `--ecraser`.**~~ Trouvée en fermant AR-a, jamais soupçonnée avant | ✅ **fermée 20/08** — voir ci-dessous |
+
+**T11 est la plus vicieuse des trois**, et c'est celle qu'on ne cherchait pas. `registre.
+charger()` faisait un `import_module` : un module déjà importé restait en mémoire avec son
+code précédent, donc le criblage mesurait la version d'avant **en publiant l'empreinte de
+la nouvelle**. Un verdict faux, et signé. `ecraser=True` étant le défaut de la boucle, le
+cas se serait présenté dès la deuxième relance.
+
+Un `reload` ne suffisait pas : le cache de bytecode valide une entrée sur
+(mtime **en secondes**, taille en octets) de la source. Deux variantes générées à la chaîne,
+écrites dans la même seconde et de même longueur, lui sont **indiscernables** — et le piège
+survit à un redémarrage du processus. Le `.pyc` est donc supprimé avant chaque chargement.
+Le test qui l'attrape échouait exactement pour cette raison : deux versions de même taille.
 
 ### Ce que la fermeture de T9 a changé, concrètement
 

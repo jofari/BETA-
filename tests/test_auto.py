@@ -265,6 +265,157 @@ def test_les_modules_ecrits_par_la_boucle_sont_reconnaissables():
     assert auto._nom_module("R-7 bis", 12) == "auto_r_7_bis_12"
 
 
+# --- la boucle : le lot qu'elle crible ------------------------------------------------
+
+def _candidate(nom, hypothese="R7"):
+    from beta.moteur.contrats import Candidate
+    return Candidate(nom=nom, hypothese=hypothese,
+                     signaux=lambda df: df.assign(sens=0)[["sens"]])
+
+
+def _fausse_ecriture(monkeypatch, refusees=()):
+    """Un backend factice : le modele « ecrit » toujours, le sas refuse ce qu'on lui dit."""
+    def ecrire_candidate(intention, module, id_exp, **_):
+        if module in refusees:
+            return {"module": module, "ok": False, "refus": ["sas : look-ahead"]}
+        return {"module": module, "ok": True, "refus": [], "code": f"# {intention}"}
+
+    def deposer(code, module, ecraser=False, **_):
+        return {"module": module, "ok": True, "depose": True, "chemin": f"/x/{module}.py"}
+
+    monkeypatch.setattr(auto.local, "ecrire_candidate", ecrire_candidate)
+    monkeypatch.setattr(auto.depot, "deposer", deposer)
+
+
+def test_ecrire_le_lot_numerote_les_modules_dans_l_ordre(monkeypatch):
+    _fausse_ecriture(monkeypatch)
+    rapports = auto.ecrire_le_lot("R7", ["a", "b", "c"])
+    assert [r["module"] for r in rapports] == ["auto_r7_01", "auto_r7_02", "auto_r7_03"]
+
+
+def test_une_intention_refusee_n_interrompt_pas_les_autres(monkeypatch):
+    """Sa place dans la famille reste prise : abandonner en route relacherait le seuil."""
+    _fausse_ecriture(monkeypatch, refusees={"auto_r7_02"})
+    rapports = auto.ecrire_le_lot("R7", ["a", "b", "c"])
+    assert [r["depose"] for r in rapports] == [True, False, True]
+    assert len(rapports) == 3
+
+
+def test_une_generation_impossible_est_journalisee_pas_fatale(monkeypatch):
+    _fausse_ecriture(monkeypatch)
+
+    def casse(intention, module, id_exp, **_):
+        raise auto.local.LocalError("le serveur local ne repond plus")
+
+    monkeypatch.setattr(auto.local, "ecrire_candidate", casse)
+    rapports = auto.ecrire_le_lot("R7", ["a", "b"])
+    assert len(rapports) == 2
+    assert not any(r["depose"] for r in rapports)
+
+
+def test_le_lot_crible_est_le_lot_ECRIT_pas_toute_l_hypothese(monkeypatch):
+    """Le verrou n° 2. Un filtre par hypothese ramenerait aussi les lots precedents.
+
+    Le budget verifie porte sur les intentions de CE lot ; si le lot crible ramasse les
+    candidates deja presentes, les deux nombres divergent des le deuxieme lot.
+    """
+    monkeypatch.setattr(auto.registre, "charger", lambda m: _candidate(m))
+    rapports = [{"module": "auto_r7_01", "depose": True},
+                {"module": "auto_r7_02", "depose": True}]
+    lot = auto._lot_ecrit(rapports, "R7")
+    assert sorted(lot) == ["auto_r7_01", "auto_r7_02"]
+
+
+def test_une_candidate_non_deposee_n_entre_pas_dans_le_lot(monkeypatch):
+    monkeypatch.setattr(auto.registre, "charger", lambda m: _candidate(m))
+    lot = auto._lot_ecrit([{"module": "auto_r7_01", "depose": False},
+                           {"module": "auto_r7_02", "depose": True}], "R7")
+    assert sorted(lot) == ["auto_r7_02"]
+
+
+def test_une_candidate_qui_declare_une_AUTRE_hypothese_est_ecartee(monkeypatch):
+    """Le modele a le droit de se tromper de `hypothese=` ; le banc n'a pas le droit de
+    la mesurer sous une famille qui n'est pas la sienne."""
+    monkeypatch.setattr(auto.registre, "charger",
+                        lambda m: _candidate(m, "R2" if m.endswith("02") else "R7"))
+    lot = auto._lot_ecrit([{"module": "auto_r7_01", "depose": True},
+                           {"module": "auto_r7_02", "depose": True}], "R7")
+    assert sorted(lot) == ["auto_r7_01"]
+
+
+def test_une_candidate_deposee_mais_illisible_n_annule_pas_le_lot(monkeypatch):
+    def charger(module):
+        if module.endswith("01"):
+            raise RuntimeError("SyntaxError dans le fichier depose")
+        return _candidate(module)
+
+    monkeypatch.setattr(auto.registre, "charger", charger)
+    lot = auto._lot_ecrit([{"module": "auto_r7_01", "depose": True},
+                           {"module": "auto_r7_02", "depose": True}], "R7")
+    assert sorted(lot) == ["auto_r7_02"]
+
+
+def test_lancer_passe_a_cribler_exactement_le_lot_ecrit(monkeypatch, registre):
+    """Le chemin nominal, de bout en bout, sans modele local ni donnees."""
+    monkeypatch.setattr(experiences, "REGISTRE", registre)
+    _preenregistrer(registre, famille=6)
+    _fausse_ecriture(monkeypatch)
+    monkeypatch.setattr(auto.registre, "charger", lambda m: _candidate(m))
+
+    vu = {}
+
+    def faux_cribler(lot, **options):
+        vu["lot"] = sorted(lot)
+        vu["options"] = options
+        return dict.fromkeys(lot, "verdict")
+
+    monkeypatch.setattr(auto.pipeline, "cribler", faux_cribler)
+    rapport = auto.lancer("R7", ["a", "b"], paires=("BTC",), timeframe="4h")
+
+    assert vu["lot"] == ["auto_r7_01", "auto_r7_02"]
+    assert vu["options"]["split"] == "train"
+    assert rapport["lot"] == ["auto_r7_01", "auto_r7_02"]
+    assert rapport["famille_declaree"] == 6
+
+
+def test_lancer_ne_crible_rien_si_aucune_candidate_n_a_ete_deposee(monkeypatch, registre):
+    monkeypatch.setattr(experiences, "REGISTRE", registre)
+    _preenregistrer(registre, famille=6)
+    _fausse_ecriture(monkeypatch, refusees={"auto_r7_01", "auto_r7_02"})
+    monkeypatch.setattr(auto.pipeline, "cribler",
+                        lambda *a, **k: pytest.fail("rien ne doit etre crible"))
+    rapport = auto.lancer("R7", ["a", "b"], paires=("BTC",), timeframe="4h")
+    assert rapport["verdicts"] == {}
+    assert "rien n'a ete mesure" in rapport["motif"]
+
+
+# --- le registre relit le disque -------------------------------------------------------
+
+def test_charger_relit_le_fichier_apres_un_depot_ecrase():
+    """Un module deja importe garderait son ANCIEN code : verdict faux, et signe.
+
+    `ecraser=True` est le defaut de la boucle, donc ce cas arrive a chaque relance.
+    """
+    from beta.moteur import registre as reg
+
+    dossier = RACINE / "beta" / "candidates"
+    module = "_essai_rechargement"
+    fichier = dossier / f"{module}.py"
+    gabarit = """from beta.moteur.contrats import Candidate
+def creer():
+    return Candidate(nom="{nom}", hypothese="R7",
+                     signaux=lambda df: df.assign(sens=0)[["sens"]])
+"""
+    try:
+        fichier.write_text(gabarit.format(nom="version_1"), encoding="utf-8")
+        assert reg.charger(module).nom == "version_1"
+        fichier.write_text(gabarit.format(nom="version_2"), encoding="utf-8")
+        assert reg.charger(module).nom == "version_2"
+    finally:
+        fichier.unlink(missing_ok=True)
+        sys.modules.pop(f"{reg.PAQUET}.{module}", None)
+
+
 # --- l'etage gratuit -------------------------------------------------------------------
 
 def test_proposer_n_avance_pas_le_compteur(monkeypatch, tmp_path):
@@ -302,3 +453,36 @@ def test_le_journal_des_idees_n_est_pas_le_registre_d_experiences(tmp_path):
     from beta.protocole import idees
 
     assert idees.REGISTRE != experiences.REGISTRE
+
+
+# --- la mesure hors pipeline paie, mais une seule fois --------------------------------
+
+def _module_mesurer():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("scripts_mesurer",
+                                                  RACINE / "scripts" / "mesurer.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_le_run_id_d_une_mesure_ne_depend_pas_du_jour():
+    """Un compteur qui monte parce que le temps passe ne mesure plus rien.
+
+    La premiere version datait l'identifiant, donc relancer mesurer.py le lendemain sans
+    avoir rien touche durcissait S1/S2 pour toutes les hypotheses suivantes.
+    """
+    mesurer = _module_mesurer()
+    empreinte = "aaaaaaaaaaaa"
+    assert mesurer._run_id("R1", empreinte) == mesurer._run_id("R1", empreinte)
+    assert mesurer._run_id("R1", empreinte) != mesurer._run_id("R1", "bbbbbbbbbbbb")
+    assert mesurer._run_id("R1", empreinte) != mesurer._run_id("R6", empreinte)
+
+
+def test_l_empreinte_d_une_mesure_porte_sur_son_code():
+    """Meme convention que Candidate.empreinte : c'est le CODE qui identifie un test."""
+    mesurer = _module_mesurer()
+    nom, empreinte = mesurer._identite(mesurer.MESURES["R1"])
+    assert nom == "r1_trailing"
+    assert len(empreinte) == 12
+    assert empreinte != mesurer._identite(mesurer.MESURES["R6"])[1]

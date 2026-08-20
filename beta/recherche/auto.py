@@ -14,7 +14,9 @@ Trois regles portees par le code, pas par la discipline de celui qui lance la co
    `beta_register_edge` (couteux), et il n'y a aucune raison que la boucle locale dispose
    d'un chemin que l'agent distant n'a pas.
 2. **Le budget est declare AVANT de generer**, et il est borne par la `famille_taille` du
-   preenregistrement. Ecrire dix candidates puis declarer une famille de dix revient a ne
+   preenregistrement. Le lot crible est exactement le lot ECRIT — pas toutes les candidates
+   rattachees a l'hypothese — sans quoi le budget verifie et le lot mesure divergeraient
+   des le deuxieme lot. Ecrire dix candidates puis declarer une famille de dix revient a ne
    pas corriger du tout : le m de Benjamini-Hochberg doit etre fixe avant de voir les
    p-values, sinon il s'ajuste tout seul a ce qui arrange.
 3. **Le modele local ne choisit pas les hypotheses, il ecrit des variantes.** L'intention
@@ -191,6 +193,39 @@ def ecrire_le_lot(id_experience: str, intentions: list[str], *, backend: str = "
     return rapports
 
 
+def _lot_ecrit(rapports: list[dict], id_experience: str) -> dict:
+    """Les candidates de CE lot, chargees par leur module. Jamais celles des lots passes.
+
+    Un filtre par hypothese rendrait toutes les candidates rattachees a celle-ci, y
+    compris celles d'un lot precedent ou ecrites a la main. Le controle
+    `budget <= famille_taille` porte, lui, sur les intentions de CE lot : les deux nombres
+    divergeraient des le deuxieme lot, et le lot crible deborderait la famille declaree
+    sans qu'aucun refus ne tombe. Le sens du debordement est conservateur — le m de BH
+    remonte a la taille du lot, donc le seuil durcit — mais un verrou qui ne tient que par
+    la direction de sa fuite n'est pas un verrou.
+
+    Une candidate qui ne declare pas l'hypothese du lot est ECARTEE : le modele a le droit
+    de se tromper de `hypothese=` dans le code qu'il ecrit, le banc n'a pas le droit de la
+    mesurer sous une famille qui n'est pas la sienne.
+    """
+    lot: dict = {}
+    for rapport in rapports:
+        if not rapport.get("depose"):
+            continue
+        module = rapport["module"]
+        try:
+            candidate = registre.charger(module)
+        except Exception as exc:                     # noqa: BLE001 - une candidate cassee
+            log.error("%s deposee mais illisible, ecartee du criblage : %s", module, exc)
+            continue
+        if candidate.hypothese != id_experience:
+            log.error("%s declare l'hypothese '%s' au lieu de '%s' : ecartee",
+                      module, candidate.hypothese, id_experience)
+            continue
+        lot[module] = candidate
+    return lot
+
+
 def lancer(id_experience: str, intentions: list[str], paires: tuple[str, ...],
            timeframe: str, *, backend: str = "auto", modele: str = "",
            split: str = holdout.TRAIN, ecraser: bool = True, **options) -> dict:
@@ -213,16 +248,18 @@ def lancer(id_experience: str, intentions: list[str], paires: tuple[str, ...],
     rapports = ecrire_le_lot(id_experience, intentions, backend=backend, modele=modele,
                              ecraser=ecraser)
 
-    lot = registre.par_hypothese(id_experience)
+    lot = _lot_ecrit(rapports, id_experience)
     if not lot:
         return {"experience": id_experience, "ecriture": rapports, "verdicts": {},
                 "compteur_avant": n_avant, "compteur_apres": experiences.compteur(),
                 "famille_declaree": preenr.get("famille_taille"),
-                "motif": "aucune candidate deposee — rien n'a ete mesure, "
+                "lot": [],
+                "motif": "aucune candidate exploitable dans ce lot — rien n'a ete mesure, "
                          "donc le compteur n'a pas bouge"}
 
     verdicts = pipeline.cribler(lot, paires=paires, timeframe=timeframe, split=split,
                                 **options)
     return {"experience": id_experience, "ecriture": rapports, "verdicts": verdicts,
-            "compteur_avant": n_avant, "compteur_apres": experiences.compteur(),
+            "lot": sorted(lot), "compteur_avant": n_avant,
+            "compteur_apres": experiences.compteur(),
             "famille_declaree": preenr.get("famille_taille")}

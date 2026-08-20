@@ -263,7 +263,7 @@ d'hypothèses. `cribler` mesure, donc paie.
 | Verrou | Ce qu'il empêche |
 |---|---|
 | la boucle ne **préenregistre jamais** | qu'une machine décide qu'une idée vaut un cran de compteur. Elle exige une hypothèse déjà écrite, et refuse de démarrer sinon |
-| le **budget est borné par `famille_taille`**, déclarée avant | qu'on écrive dix candidates puis qu'on déclare une famille de dix. Le *m* de Benjamini-Hochberg doit être fixe avant de voir les p-values, sinon il s'ajuste à ce qui arrange |
+| le **budget est borné par `famille_taille`**, déclarée avant | qu'on écrive dix candidates puis qu'on déclare une famille de dix. Le *m* de Benjamini-Hochberg doit être fixe avant de voir les p-values, sinon il s'ajuste à ce qui arrange. Le lot criblé est exactement le lot **écrit** — pas toutes les candidates rattachées à l'hypothèse — sinon le budget vérifié et le lot mesuré divergent dès le deuxième lot |
 | le modèle **n'invente pas les hypothèses** | qu'une intention naisse et se teste dans le même mouvement. L'intention vient de Jonas ou d'une idée promue ; la boucle automatise le passage de l'intention au code |
 
 Elle refuse aussi le hold-out, et tout lot au-delà de `BUDGET_MAX = 20` — au-delà, personne

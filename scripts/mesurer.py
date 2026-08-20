@@ -13,11 +13,12 @@ hypotheses ont ete formulees, elles comptent, qu'on les ait mesurees ou non.
 
 from __future__ import annotations
 
+import hashlib
+import inspect
 import json
 import logging
 import pathlib
 import sys
-from datetime import UTC, datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
@@ -61,12 +62,10 @@ def main() -> int:
         verdict, motif = _apres_correction(resultat, corrigee)
         # Depuis A1 (20/08), N porte les MESURES. Une mesure qui ne passe pas par le
         # pipeline doit donc se journaliser elle-meme, sinon elle est gratuite au
-        # compteur alors qu'elle a bel et bien consomme un essai. L'id est
-        # deterministe : remesurer la meme hypothese le meme jour ne fabrique pas un
-        # essai de plus.
-        experiences.enregistrer_run(
-            f"{id_exp}-mesure-{datetime.now(UTC).date().isoformat()}", id_exp,
-            MESURES[id_exp].__name__.rsplit(".", 1)[-1], "", verdict)
+        # compteur alors qu'elle a bel et bien consomme un essai.
+        nom, empreinte = _identite(MESURES[id_exp])
+        experiences.enregistrer_run(_run_id(id_exp, empreinte), id_exp, nom, empreinte,
+                                    verdict)
         experiences.clore(id_exp, verdict, motif)
         print(f"\n{id_exp} : {verdict.upper()}\n  {motif}")
 
@@ -75,6 +74,32 @@ def main() -> int:
              else []})
     print(f"\nCompteur d'essais cumules : {experiences.compteur()}")
     return 0
+
+
+def _identite(module) -> tuple[str, str]:
+    """Le nom court de la mesure, et l'empreinte de SON CODE.
+
+    Meme convention que `Candidate.empreinte`, et pour la meme raison : ce qui identifie
+    une mesure est le code qui la produit, pas le jour ou on l'a lancee.
+    """
+    nom = module.__name__.rsplit(".", 1)[-1]
+    try:
+        source = inspect.getsource(module.mesurer)
+    except (OSError, TypeError):
+        source = repr(module.mesurer)
+    return nom, hashlib.sha256(source.encode()).hexdigest()[:12]
+
+
+def _run_id(id_exp: str, empreinte: str) -> str:
+    """Deterministe dans le TEMPS, pas seulement dans la journee.
+
+    La premiere version datait l'identifiant (`R1-mesure-2026-08-20`), donc relancer
+    mesurer.py le lendemain sans avoir touche a quoi que ce soit fabriquait un essai de
+    plus et durcissait S1/S2 pour toutes les hypotheses suivantes. Un compteur qui monte
+    parce que le temps passe ne mesure plus rien. Ici il ne monte que si le CODE de la
+    mesure a change — et alors c'est bien un nouveau test.
+    """
+    return hashlib.sha256(f"{id_exp}|mesure|{empreinte}".encode()).hexdigest()[:12]
 
 
 def _famille(resultats: dict) -> pd.DataFrame:

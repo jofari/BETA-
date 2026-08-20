@@ -16,8 +16,11 @@ change d'identifiant, et l'ancien verdict ne peut plus etre confondu avec le nou
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import logging
+import pathlib
 import pkgutil
+import sys
 
 from beta.moteur.contrats import Candidate, ContratError
 
@@ -34,8 +37,33 @@ def _modules() -> list[str]:
 
 
 def charger(nom_module: str) -> Candidate:
-    """Instancie UNE candidate. Les erreurs remontent : une candidate cassee doit se voir."""
-    module = importlib.import_module(f"{PAQUET}.{nom_module}")
+    """Instancie UNE candidate. Les erreurs remontent : une candidate cassee doit se voir.
+
+    Le fichier est relu du disque a chaque appel, et ce n'est pas une precaution de style.
+    L'atelier ecrit une candidate puis la crible dans la meme seconde, et deux caches de
+    l'importeur mentent alors dans le meme sens :
+
+        - un fichier fraichement pose n'existe pas encore pour le `FileFinder` du paquet,
+          donc `import_module` leve `ModuleNotFoundError` sur une candidate bien presente ;
+        - un module deja importe reste en memoire avec son ANCIEN code apres un depot
+          `--ecraser`, donc le criblage mesurerait la version precedente en croyant mesurer
+          la nouvelle — et l'empreinte publiee serait celle du code qui n'a pas tourne.
+
+    Le second cas est le dangereux : il ne plante pas, il produit un verdict faux et
+    signe. Cf. `beta/recherche/auto.py`, ou `ecraser=True` est le defaut.
+
+    Le `.pyc` est supprime avant chaque chargement, et ce n'est pas de la ceinture et
+    bretelles. Le cache de bytecode valide une entree sur (mtime en SECONDES, taille en
+    octets) de la source : deux versions d'une candidate ecrites dans la meme seconde et
+    de meme longueur — deux variantes generees a la chaine, exactement le cas de l'atelier
+    — sont indiscernables pour lui, et l'ancien bytecode est reutilise. Un `reload` seul
+    n'y change rien, et le piege survit meme a un redemarrage du processus.
+    """
+    chemin_module = f"{PAQUET}.{nom_module}"
+    importlib.invalidate_caches()
+    _oublier_le_bytecode(nom_module)
+    deja = sys.modules.get(chemin_module)
+    module = importlib.reload(deja) if deja else importlib.import_module(chemin_module)
     fabrique = getattr(module, FABRIQUE, None)
     if fabrique is None:
         raise ContratError(f"{PAQUET}.{nom_module} n'expose pas de fonction {FABRIQUE}()")
@@ -44,6 +72,16 @@ def charger(nom_module: str) -> Candidate:
         raise ContratError(f"{nom_module}.{FABRIQUE}() rend {type(candidate).__name__}, "
                            "pas un Candidate")
     return candidate
+
+
+def _oublier_le_bytecode(nom_module: str) -> None:
+    """Retire le .pyc d'une candidate. Silencieux : c'est un cache, pas une donnee."""
+    try:
+        paquet = importlib.import_module(PAQUET)
+        source = pathlib.Path(paquet.__path__[0]) / f"{nom_module}.py"
+        pathlib.Path(importlib.util.cache_from_source(str(source))).unlink(missing_ok=True)
+    except (OSError, ImportError, IndexError, ValueError) as exc:
+        log.debug("bytecode de '%s' non retire : %s", nom_module, exc)
 
 
 def toutes() -> dict[str, Candidate]:
@@ -60,11 +98,6 @@ def toutes() -> dict[str, Candidate]:
         except Exception as exc:                      # noqa: BLE001 - on isole, on journalise
             log.error("candidate '%s' illisible : %s", nom, exc)
     return trouvees
-
-
-def par_hypothese(id_experience: str) -> dict[str, Candidate]:
-    """Les candidates rattachees a une hypothese preenregistree donnee (R1, R2, ...)."""
-    return {nom: c for nom, c in toutes().items() if c.hypothese == id_experience}
 
 
 def inventaire() -> list[dict]:
