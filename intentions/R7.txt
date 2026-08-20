@@ -1,0 +1,6 @@
+# R7 — cascade de liquidations, 4 intentions declarees AVANT generation (famille = 4).
+# Une intention par ligne. Relues telles qu'elles ont ete soumises le 2026-08-20.
+Entrer LONG a la cloture d'une bougie dont la meche BASSE (min(open,close) - low) depasse 3 fois l'ATR(14) de la bougie precedente, et SHORT quand la meche HAUTE (high - max(open,close)) depasse 3 fois ce meme ATR. Sinon sens = 0.
+Le meme declencheur avec un seuil de 2 fois l'ATR(14) au lieu de 3, ce qui donne plus de signaux et donc un test moins bruite mais moins selectif.
+Le declencheur a 3 fois l'ATR(14), mais le signal n'est retenu que si le volume de la bougie depasse 2 fois la moyenne mobile 20 periodes du volume : une cascade de liquidations laisse une trace en volume, pas seulement en meche.
+Le declencheur a 3 fois l'ATR(14), mais le signal n'est retenu que si la cloture de la bougie est revenue du bon cote du VWAP roulant sur 20 periodes, ce qui exige que le retour a la moyenne ait deja commence au lieu de le parier.

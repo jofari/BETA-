@@ -406,7 +406,7 @@ avant, c'était produire des verdicts à jeter.
 | # | Chantier | Statut | Effort | Ce que ça fait |
 |---|---|---|---|---|
 | ~~AR1~~ | ~~`recherche/auto.py` — étage GRATUIT (`proposer`)~~ | ✅ fermé 20/08 | S | le modèle local note des hypothèses dans `IDEES.jsonl`, **le compteur ne bouge pas**. Rien n'est mesuré, rien n'est préenregistré |
-| ~~AR2~~ | ~~`recherche/auto.py` — étage COÛTEUX (`lancer`)~~ | ✅ fermé 20/08 ⚠️ **jamais exécuté de bout en bout** (réserve ci-dessous) | M | une candidate écrite par intention, sas + épreuve + dépôt, puis criblage du **lot entier** en une fois |
+| ~~AR2~~ | ~~`recherche/auto.py` — étage COÛTEUX (`lancer`)~~ | ✅ fermé 20/08, **exécuté pour de vrai le 20/08** (lot R7 ci-dessous) | M | une candidate écrite par intention, sas + épreuve + dépôt, puis criblage du **lot entier** en une fois |
 | ~~AR3~~ | ~~`beta.py auto proposer` / `auto cribler`~~ | ✅ fermé 20/08 | S | les deux étages séparés jusque dans la ligne de commande |
 | ~~AR4~~ | ~~`tests/test_auto.py`~~ | ✅ fermé 20/08 | M | 30 tests, dont **8 sur ce que la boucle refuse** |
 
@@ -429,12 +429,47 @@ avant, c'était produire des verdicts à jeter.
 boucle a déposé dans `beta/candidates/` est **à relire**. La commande le rappelle à chaque
 fin de lot.
 
-### Ce qui n'a PAS encore tourné pour de vrai
+### Le premier vrai lot — 20/08, et ce qu'il a appris
 
-`proposer` a réellement tourné (I4-I7, ollama/qwen2.5:7b) et R2 a réellement été re-criblée.
-**`auto cribler` de bout en bout avec un modèle vivant, non** : aucun module `auto_*` n'a
-encore été déposé. Le chemin nominal est désormais couvert par des tests à backend factice
-(`ecrire_le_lot`, `_lot_ecrit`, `lancer` → `cribler`), mais un test n'est pas une exécution.
+`auto cribler --experience R7 --intentions intentions/R7.txt --timeframe 4h`, ollama /
+qwen2.5:7b, 6 paires, 4h. **Tout ce qui devait tenir a tenu** : 4 intentions déclarées
+avant génération, budget borné par `famille_taille` = 4, N figé à 39 pour tout le lot,
+S1 exécutée, R7 passée à `mesure` au registre, 2 runs journalisés, compteur 37 → 38.
+Deux candidates refusées par le sas (`aucun signal sur la tranche témoin`, `KeyError: 20`),
+deux mesurées, **les deux INFIRMEE**.
+
+| candidate | n | R moyen | MDE | portes échouées |
+|---|---|---|---|---|
+| `auto_r7_01` | 2 961 | −0,1161 | 0,0777 | S1, S2, S3, S4, S6, S7, S8 |
+| `auto_r7_03` | 102 | +0,3936 | 0,4687 | S2, S7, S8 |
+
+⚠️ **Le résultat du lot n'est pas dans ce tableau.** À la relecture — celle que la commande
+réclame à chaque fin de lot — **aucune des deux candidates n'implémente R7** :
+
+- `auto_r7_01` écrit `meche_basse = (open - close).abs().min() - low` : `.min()` sur une
+  Series rend un **scalaire**, donc la « mèche » est une constante moins le low, et
+  l'« ATR » est cette même quantité décalée d'un cran. Le code signale sur ~99 % des
+  bougies sur série témoin. Ce n'est pas un détecteur de cascade, c'est un détecteur de
+  rien ;
+- `auto_r7_03` déclenche sur `close − close.shift(1) > 3·ATR` — un **écart de clôture**,
+  pas une mèche — et prend le sens du **momentum**, alors que l'hypothèse dit retour à la
+  moyenne. Il teste le contraire de ce qui est écrit au préenregistrement.
+
+Les deux verdicts INFIRMEE sont des verdicts **valides** — le banc a fait son travail, il a
+tué — mais ils ne mesurent pas R7. Ils ont coûté 2 crans de compteur, définitivement, pour
+mesurer du code écrit de travers. **C'est le vrai enseignement du premier lot, et il vaut
+mieux que les chiffres.**
+
+| # | Dette découverte | Statut | Ce que ça coûte |
+|---|---|---|---|
+| **T12** | **Le sas valide du code qui ne teste pas l'hypothèse.** Il attrape le look-ahead, l'état caché, le chargement de données — des erreurs de **protocole**. Il ne peut rien dire d'une erreur de **sens** : `auto_r7_03` est causal, isolé, sans état, et mesure autre chose que ce qui est préenregistré | 🔴 ouverte | chaque candidate hors sujet consomme un cran de compteur et durcit le seuil de toutes les autres. C'est le coût le plus bête possible |
+| **T13** | **`.min()` / `.max()` / `.mean()` sur toute la série ne sont pas dans les motifs du sas**, et l'épreuve de causalité ne les a **pas** attrapés ici — par accident numérique : le code est si cassé que ses signaux sont quasi constants, donc tronquer la série ne les change pas. La garde de forme et la garde de comportement ont raté le même trou en même temps | 🔴 ouverte | un vrai look-ahead statistique global peut passer les deux étages |
+| **T14** | **qwen2.5:7b ne traduit pas une intention en français en stratégie correcte.** 2 refus sur 4, et 2 contresens sur les 2 qui passent : **0/4 utilisable** | 🔴 ouverte, mesurée | l'atelier abaisse le coût d'écrire une candidate, pas celui d'en écrire une **juste**. Tant que ce taux tient, la boucle produit surtout de la dette de compteur |
+
+**Ce qu'il ne faut pas en conclure.** Ni que la boucle est inutile — elle a refusé, mesuré,
+journalisé et compté exactement comme prévu — ni que R7 est infirmée : **R7 n'a pas été
+testée**. Elle est au registre en `mesure` avec deux runs qui ne la concernent pas, et
+c'est une trace honnête de ce qui s'est réellement passé.
 
 Les deux réserves ouvertes en même temps ont été **levées le 20/08**, et une troisième est
 apparue en les levant :
