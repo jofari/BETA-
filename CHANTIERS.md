@@ -519,3 +519,52 @@ fabriqué par une remesure à l'identique (A1).
    que c'est lui qui décide ce qui vaut un cran de compteur.
    Le goulot n'est plus l'outillage : c'est le nombre d'hypothèses falsifiables qu'on est
    prêt à écrire avant de regarder les chiffres.
+
+---
+
+## O — l'observabilité à distance (ouverte le 20/08, décision de Jonas sur G2)
+
+**Demande, mot pour mot** : « intègre le suivi à distance dans le projet BETA si possible,
+sinon dans un autre dashboard, mais **il faut pouvoir suivre ça sans avoir accès au PC**
+(bientôt on aura un VPS à disposition ce qui simplifiera la tâche) ».
+
+C'est un **déplacement volontaire de la frontière** posée le 19/08, qui disait « F2 / G2 / G8
+restent chez ARIT ». La version précisée : **ARIT produit les événements, BETA les affiche.**
+Ce qui reste chez ARIT, c'est la **relance** du dry-run et sa survie aux redémarrages — le bot,
+pas sa fenêtre. **BETA continue de ne jamais écrire dans `ARIT2.0`** (invariant n° 1 intact :
+le bloc O est en lecture seule sur le journal et sur `user_data/state/`).
+
+### ⚠️ Le piège qui commande toute la conception
+
+`ARIT2.0/services/watchdog.py` surveille déjà le heartbeat et alerte si le silence dépasse
+10 min. **Il meurt avec la session Windows.** Un dashboard hébergé sur la même machine hérite
+exactement du même angle mort :
+
+> **Le silence y est indiscernable de la santé.** Une page qui ne répond pas peut vouloir dire
+> « bot arrêté », « PC éteint », ou « tout va bien mais le réseau est coupé ».
+
+⇒ Tant que le VPS (ARIT `G8`) n'existe pas, le seul suivi distant honnête est un **push
+sortant** avec un **signal de vie positif et périodique** — jamais une page à consulter. Le
+webhook Discord existe déjà et Jonas le lit ; les limites sont connues (`webhook discord
+(embeds et limites)` : **4096 caractères ou rien**, tableaux Markdown non rendus).
+
+| # | Chantier | Effort | Ce que ça fait |
+|---|---|---|---|
+| **O1** | **Battement sortant** — un push périodique qui dit « je suis vivant, voici l'état », depuis la machine qui héberge le bot | S | Transforme l'absence de nouvelles en information. Sans O1, O2 et O3 mentent par omission |
+| **O2** | **Lecteur d'état ARIT en lecture seule** — `user_data/state/heartbeat`, `logs/decisions/*.jsonl`, `macro_state.json` → une vue « santé + dernières évaluations » | M | BETA sait déjà lire le journal d'ARIT (c'est sa table `evaluations`). Réutiliser, ne pas réécrire |
+| **O3** | **Onglet « Live » du dashboard**, patte graphique existante | S | La consultation confortable **une fois** qu'on est devant un écran — jamais le canal d'alerte |
+
+⚠️ **Aucune exposition publique sans arbitrage explicite de Jonas.** Le dashboard tourne sur
+`127.0.0.1:7474` et affiche des données privées (positions, équité, signaux). Le rendre
+joignable de l'extérieur — port ouvert, tunnel, hébergement — est une **décision de sécurité**,
+pas un détail d'implémentation : elle attend une réponse, elle ne se prend pas par défaut.
+En attendant, **O1 seul** (push Discord) donne déjà « suivre sans accès au PC » sans rien
+exposer.
+
+### Ce qui reste à trancher
+
+| # | Question | Défaut proposé |
+|---|---|---|
+| **O-a** | **Le canal.** Push Discord seul (rien d'exposé), ou aussi une page joignable de l'extérieur ? | **Discord seul** tant qu'il n'y a pas de VPS |
+| **O-b** | **La cadence du battement.** Toutes les heures ? 4 h ? Une fois par jour ? | **4 h**, + une alerte immédiate sur événement (entrée, sortie, circuit breaker) |
+| **O-c** | **Où tourne O1** tant qu'il n'y a pas de VPS — sur le PC (meurt avec lui, mais son silence devient un signal) ou dans une routine cloud ? | **Sur le PC**, avec le silence traité comme une panne côté lecteur |
