@@ -34,6 +34,8 @@ En ligne de commande :
 | `python beta.py atelier valider <module>` | sas statique + épreuve de causalité |
 | `python beta.py atelier local "<règle>" --module r7_x --hypothese R7` | la fait écrire par un modèle local |
 | `python beta.py atelier modeles` | quels serveurs locaux répondent |
+| `python beta.py auto proposer --sujet "..."` | le modèle local note des hypothèses — **gratuit**, rien n'est mesuré |
+| `python beta.py auto cribler --experience R7 --intentions f.txt` | écrit un lot de candidates et le crible — **un cran de compteur chacune** |
 | `python scripts/preenregistrer.py` | préenregistre R1-R6 (idempotent) |
 | `python scripts/mesurer.py` | mesure R1 et R6, applique Benjamini-Hochberg, clôt au registre |
 | `python scripts/epreuve_mcp.py` | **éprouve le pont MCP pour de vrai** (sous-processus, JSON-RPC) |
@@ -236,6 +238,46 @@ exécuter du code ici. Il attrape des **erreurs**, pas un adversaire — on reli
 déposé, surtout celui qu'un modèle vient d'écrire. Et une candidate écrite par une machine
 est une source d'**hypothèses**, jamais d'edge : elle entre au banc par la même porte que les
 autres, préenregistrement compris.
+
+## L'auto-recherche — la boucle, et ce qu'elle refuse
+
+C'est la pièce la plus dangereuse du dépôt. Un banc d'essai branché sur un générateur de
+code est une machine à produire des faux gagnants : le modèle écrit vingt candidates, on
+garde la meilleure, et le chiffre publié est le maximum d'une distribution nulle. Ça
+ressemble à une découverte.
+
+**Deux étages, et ils ne se mélangent jamais.**
+
+```
+python beta.py auto proposer --sujet "régimes de volatilité" --combien 5   # GRATUIT
+python beta.py auto cribler --experience R7 --intentions intentions.txt    # COÛTEUX
+```
+
+`proposer` n'écrit que dans `IDEES.jsonl` : le compteur d'essais ne bouge pas, rien n'est
+mesuré, et il faut un geste humain (`idee promouvoir`) pour qu'une idée devienne une
+expérience. C'est la seule façon honnête de laisser une machine élargir l'univers
+d'hypothèses. `cribler` mesure, donc paie.
+
+**Trois verrous, dans le code plutôt que dans la doctrine.**
+
+| Verrou | Ce qu'il empêche |
+|---|---|
+| la boucle ne **préenregistre jamais** | qu'une machine décide qu'une idée vaut un cran de compteur. Elle exige une hypothèse déjà écrite, et refuse de démarrer sinon |
+| le **budget est borné par `famille_taille`**, déclarée avant | qu'on écrive dix candidates puis qu'on déclare une famille de dix. Le *m* de Benjamini-Hochberg doit être fixe avant de voir les p-values, sinon il s'ajuste à ce qui arrange |
+| le modèle **n'invente pas les hypothèses** | qu'une intention naisse et se teste dans le même mouvement. L'intention vient de Jonas ou d'une idée promue ; la boucle automatise le passage de l'intention au code |
+
+Elle refuse aussi le hold-out, et tout lot au-delà de `BUDGET_MAX = 20` — au-delà, personne
+ne relit ce que le modèle a écrit. Chaque refus nomme sa raison de protocole et rend 1.
+
+**Le criblage se fait sur le lot entier, jamais candidate par candidate.** C'est ce qui
+permet à S1 (Benjamini-Hochberg), S7 (reality check) et S9 (corrélation) d'exister : les
+trois portes comparent les candidates entre elles, et les lancer une par une donnerait à
+chacune l'illusion d'être seule au monde — dans le sens flatteur. **N est figé avant le
+premier passage** (`compteur() + taille du lot`) : le lot est payé d'avance, et ses
+candidates sont jugées au même seuil.
+
+⚠️ Ce que le modèle a écrit et que la boucle a déposé est **à relire**. Le sas attrape des
+erreurs, pas un adversaire.
 
 ## Le serveur MCP
 

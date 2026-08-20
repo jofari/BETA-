@@ -246,6 +246,105 @@ def cmd_idee(args) -> int:
         return 1
 
 
+def cmd_auto(args) -> int:
+    """L'auto-recherche : proposer des idees (gratuit), ou cribler un lot (couteux).
+
+    Les deux etages ne se melangent pas, et c'est le point de la commande. `proposer`
+    n'ecrit que dans la boite a idees : le compteur d'essais ne bouge pas, rien n'est
+    mesure, et il faut un geste humain pour qu'une idee devienne une experience.
+    `cribler` mesure, donc paie — un cran de compteur par candidate, definitivement.
+    """
+    from beta.lake import univers
+    from beta.protocole import experiences
+    from beta.recherche import auto
+
+    if args.sous_commande == "proposer":
+        try:
+            notees = auto.proposer(args.sujet, args.combien, backend=args.backend,
+                                   modele=args.modele)
+        except auto.local.LocalError as exc:
+            print(f"modele local indisponible : {exc}")
+            return 1
+        if not notees:
+            print("aucune idee exploitable dans la reponse du modele")
+            return 1
+        for idee in notees:
+            print(f"  {idee['id']}  {idee['texte']}")
+        print(f"\n{len(notees)} idee(s) notees. Compteur d'essais inchange : "
+              f"{experiences.compteur()}.")
+        print("Aucune n'est mesurable tant qu'elle n'est pas promue : "
+              "`beta.py idee promouvoir <id> --experience R7 ...`")
+        return 0
+
+    intentions = _intentions(args)
+    if not intentions:
+        print("aucune intention lisible — --intentions attend un fichier, "
+              "une ligne par candidate")
+        return 1
+
+    paires = tuple(p.strip().upper() for p in args.paires.split(",") if p.strip()) \
+        if args.paires else tuple(p.base for p in univers.PAIRES)
+
+    print(f"auto-recherche sur '{args.experience}' : {len(intentions)} intention(s), "
+          f"{', '.join(paires)} en {args.timeframe}")
+    try:
+        rapport = auto.lancer(
+            args.experience, intentions, paires=paires, timeframe=args.timeframe,
+            backend=args.backend, modele=args.modele, take_profit_r=args.take_profit_r,
+            stop_atr=args.stop_atr, horizon_bougies=args.horizon)
+    except (auto.AutoError, experiences.ProtocoleError) as exc:
+        # Un refus de protocole n'est pas un plantage : c'est la reponse attendue quand
+        # l'hypothese n'a pas ete ecrite avant. On l'affiche tel quel, sans trace.
+        print(f"\nREFUS : {exc}")
+        return 1
+
+    print(f"\necriture : {sum(1 for r in rapport['ecriture'] if r.get('depose'))}"
+          f"/{len(rapport['ecriture'])} candidate(s) deposees")
+    for r in rapport["ecriture"]:
+        if not r.get("depose"):
+            print(f"  {r['module']:<24} REFUSEE — {'; '.join(r.get('refus') or ['?'])}")
+
+    verdicts = rapport.get("verdicts") or {}
+    if not verdicts:
+        print(rapport.get("motif", "aucun verdict rendu"))
+        return 1
+
+    print(f"\n{'candidate':<24} {'issue':<12} {'n':>6} {'R moyen':>9} {'MDE':>8}  "
+          "portes echouees")
+    for nom, verdict in sorted(verdicts.items()):
+        m = verdict.metriques
+        echouees = ", ".join(verdict.portes_echouees) or "-"
+        print(f"{nom:<24} {verdict.issue:<12} {m.get('n', 0):>6} "
+              f"{m.get('r_moyen', float('nan')):>9.4f} {m.get('mde_r', float('nan')):>8.4f}"
+              f"  {echouees}")
+
+    print(f"\ncompteur d'essais : {rapport['compteur_avant']} -> "
+          f"{rapport['compteur_apres']}  (famille declaree : "
+          f"{rapport.get('famille_declaree')})")
+    print("Ce que le modele a ecrit est a RELIRE : le sas attrape des erreurs, pas un "
+          "adversaire.")
+    return 0
+
+
+def _intentions(args) -> list[str]:
+    """Une intention par ligne, depuis un fichier ou depuis --intention repete.
+
+    Passer par un fichier plutot que par la ligne de commande n'est pas un confort : les
+    intentions d'un lot doivent pouvoir etre RELUES telles qu'elles ont ete soumises, et
+    un historique de shell n'est pas une trace.
+    """
+    lignes = list(args.intention or [])
+    if args.intentions:
+        chemin = pathlib.Path(args.intentions)
+        try:
+            lignes += [ligne.strip() for ligne
+                       in chemin.read_text(encoding="utf-8").splitlines()]
+        except OSError as exc:
+            print(f"{chemin} illisible : {exc}")
+            return []
+    return [ligne for ligne in lignes if ligne and not ligne.startswith("#")]
+
+
 def cmd_doctor(_args) -> int:
     from beta import config
     from beta.lake import catalogue, strategie
@@ -259,15 +358,14 @@ def cmd_doctor(_args) -> int:
     print(f"essais cumules {experiences.compteur()} "
           f"(dont {experiences.ESSAIS_INITIAUX} de dette initiale)")
 
-    # Deux nombres, pas un. Le compteur porte les HYPOTHESES ; le journal porte les MESURES.
-    # Tant qu'il y a une candidate par hypothese ils coincident ; des que l'atelier en
-    # produit plusieurs sous la meme hypothese, l'ecart est la quantite de tests que la
-    # correction de tests multiples ignore. Cf. DECISIONS.md § A1.
+    # Depuis A1 (20/08), l'ecart entre les deux nombres n'est plus une alerte : le compteur
+    # PORTE les mesures. Les deux restent affiches parce qu'ils ne disent pas la meme chose
+    # — combien de tests ont ete faits, et sous combien d'hypotheses distinctes.
     mesures = experiences.compteur_runs()
-    hypotheses = experiences.compteur() - experiences.ESSAIS_INITIAUX
-    print(f"runs mesures  {mesures} pour {hypotheses} hypothese(s) declaree(s)"
-          + ("   <- ECART : N sous-estime les tests reellement faits"
-             if mesures > hypotheses else ""))
+    hypotheses = len(experiences.etat())
+    en_attente = experiences.compteur() - experiences.ESSAIS_INITIAUX - mesures
+    print(f"runs mesures  {mesures} sous {hypotheses} hypothese(s) declaree(s)"
+          f"  ·  {en_attente} hypothese(s) comptee(s) d'avance, jamais mesuree(s)")
 
     etat = catalogue.etat()
     if etat.empty:
@@ -333,6 +431,7 @@ def parseur() -> argparse.ArgumentParser:
 
     from beta.moteur.contrats import Run
     from beta.protocole import holdout
+    from beta.recherche import auto as recherche_auto
     defauts = Run.__dataclass_fields__
     cribler = subs.add_parser("cribler", help="passe des candidates a la batterie S1-S9")
     cribler.add_argument("--candidates", default="",
@@ -377,6 +476,37 @@ def parseur() -> argparse.ArgumentParser:
 
     ateliers.add_parser("modeles", help="quels serveurs locaux repondent, et avec quoi")
     atelier.set_defaults(fonction=cmd_atelier)
+
+    # L'auto-recherche a deux etages qui ne se melangent pas : proposer est gratuit,
+    # cribler paie. La separation est celle du pont MCP, pour la meme raison.
+    auto_p = subs.add_parser("auto", help="l'auto-recherche : proposer des idees, "
+                                          "ou faire ecrire et cribler un lot")
+    autos = auto_p.add_subparsers(dest="sous_commande", required=True)
+
+    prop = autos.add_parser("proposer", help="le modele local note des idees — GRATUIT, "
+                                             "le compteur d'essais ne bouge pas")
+    prop.add_argument("--sujet", default=recherche_auto.SUJET_LIBRE)
+    prop.add_argument("--combien", type=int, default=5)
+    prop.add_argument("--backend", default="auto", choices=["auto", "ollama", "lmstudio"])
+    prop.add_argument("--modele", default="")
+
+    crib = autos.add_parser("cribler", help="ecrit une candidate par intention et crible "
+                                            "le lot ENTIER — un cran de compteur chacune")
+    crib.add_argument("--experience", required=True,
+                      help="id d'une hypothese DEJA preenregistree, ex: R7")
+    crib.add_argument("--intentions", default="",
+                      help="fichier, une intention par ligne (# pour commenter)")
+    crib.add_argument("--intention", action="append", default=[],
+                      help="une intention en clair, repetable")
+    crib.add_argument("--paires", default="")
+    crib.add_argument("--timeframe", default="4h")
+    crib.add_argument("--backend", default="auto", choices=["auto", "ollama", "lmstudio"])
+    crib.add_argument("--modele", default="")
+    crib.add_argument("--take-profit-r", type=float,
+                      default=defauts["take_profit_r"].default)
+    crib.add_argument("--stop-atr", type=float, default=defauts["stop_atr"].default)
+    crib.add_argument("--horizon", type=int, default=defauts["horizon_bougies"].default)
+    auto_p.set_defaults(fonction=cmd_auto)
 
     idee = subs.add_parser("idee", help="la boite a idees : noter est gratuit, "
                                         "promouvoir avance le compteur d'essais")

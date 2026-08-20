@@ -102,9 +102,42 @@ def exiger(id_exp: str, chemin: pathlib.Path | None = None) -> dict:
     return entree
 
 
-def compteur(chemin: pathlib.Path | None = None) -> int:
-    """Le nombre d'essais cumules, dette initiale comprise. Jamais remis a zero."""
-    return ESSAIS_INITIAUX + len({e["id"] for e in _lignes(chemin) if "id" in e})
+def compteur(chemin: pathlib.Path | None = None,
+             chemin_runs: pathlib.Path | None = None) -> int:
+    """Le nombre d'essais cumules, dette initiale comprise. Jamais remis a zero.
+
+    **Arbitrage A1, tranche par Jonas le 2026-08-20 : N porte les MESURES, pas les
+    hypotheses.** Jusque-la, N valait 30 + le nombre d'hypotheses preenregistrees. Tant
+    qu'il y avait une candidate par hypothese les deux nombres coincidaient ; l'atelier
+    casse l'egalite — dix candidates sous R7, c'etait dix tests et un seul point de
+    compteur, donc des seuils S1/S2 trop genereux et des verdicts trop flatteurs.
+
+    Un essai est desormais l'un ou l'autre, jamais compte deux fois :
+
+        - une MESURE reellement effectuee (un run distinct de `RUNS.jsonl`) ;
+        - une hypothese preenregistree dont aucune mesure n'existe encore — elle a
+          consomme un droit de regard, et le compter d'avance est le sens conservateur.
+
+    La formule est monotone : elle ne peut que croitre, et elle vaut **36 le jour du
+    changement**, exactement ce que valait l'ancienne. Les trois verdicts du 19/08 ont donc
+    ete rendus au bon N — on ne reecrit rien, ce qui etait l'objection principale a (b)
+    dans `DECISIONS.md` § A1. Ce qui change commence au premier lot de l'atelier : dix
+    candidates sous une meme hypothese comptent desormais pour dix.
+
+    Limite residuelle assumee : une mesure qui ne passe pas par `enregistrer_run` reste
+    invisible ici. C'est pourquoi `scripts/mesurer.py` journalise depuis le 20/08 lui aussi.
+    """
+    # Le journal de runs se deduit du registre quand il n'est pas donne : les deux fichiers
+    # vivent cote a cote a la racine par construction. Sans cette ligne, un registre isole
+    # (un test, une copie de travail) lirait quand meme le journal REEL du depot, et
+    # compterait des mesures qui ne correspondent a aucune de ses hypotheses.
+    if chemin_runs is None and chemin is not None:
+        chemin_runs = chemin.parent / JOURNAL_RUNS.name
+    runs = runs_journalises(chemin_runs)
+    mesures = {e["run_id"] for e in runs if e.get("run_id")}
+    deja_mesurees = {e.get("experience") for e in runs if e.get("experience")}
+    hypotheses = {e["id"] for e in _lignes(chemin) if "id" in e}
+    return ESSAIS_INITIAUX + len(mesures) + len(hypotheses - deja_mesurees)
 
 
 def enregistrer_run(run_id: str, id_experience: str, candidate: str, empreinte: str,
@@ -118,10 +151,10 @@ def enregistrer_run(run_id: str, id_experience: str, candidate: str, empreinte: 
     compteur. L'ecart est exactement la quantite de p-hacking qu'un banc rapide rend
     possible sans qu'elle se voie.
 
-    Ce journal MESURE l'ecart ; il ne change encore aucun seuil. Faire porter N par les runs
-    plutot que par les hypotheses durcirait retroactivement tous les verdicts deja rendus :
-    c'est un arbitrage de Jonas, inscrit dans `DECISIONS.md`, pas une correction a glisser
-    dans un commit.
+    Depuis l'arbitrage A1 (20/08), ce journal ne mesure plus l'ecart : il **porte N**.
+    Chaque ligne ecrite ici durcit S1 et S2 pour toutes les candidates suivantes. C'est le
+    prix d'une mesure, et c'est ce qui permet de lancer l'atelier en serie sans que la
+    batterie perde son sens.
 
     Il vit a la RACINE, pas dans `data/` : `data/` est jetable (invariant n° 7), et un
     compteur qu'un nettoyage remet a zero est un compteur qui ment.
@@ -145,6 +178,42 @@ def runs_journalises(chemin: pathlib.Path | None = None) -> list[dict]:
 def compteur_runs(chemin: pathlib.Path | None = None) -> int:
     """Le nombre de mesures distinctes reellement effectuees. A comparer a `compteur()`."""
     return len({e["run_id"] for e in runs_journalises(chemin) if e.get("run_id")})
+
+
+def marquer_mesuree(id_exp: str, run_id: str, issue: str,
+                    chemin: pathlib.Path | None = None) -> dict | None:
+    """T10 — dit au registre qu'une mesure a eu lieu, sans CLORE l'experience.
+
+    Le statut `mesure` existait dans `STATUTS` depuis l'ouverture du registre et rien ne le
+    posait jamais : `pipeline` ecrivait son verdict dans `data/runs/` et `RUNS.jsonl`, donc
+    `EXPERIMENTS.jsonl` continuait d'annoncer `preenregistre` une hypothese deja mesuree.
+    R2 l'a montre le 19/08 — infirmee, et toujours affichee comme en attente.
+
+    Pourquoi `mesure` et non `clos` : une hypothese se clot quand on decide qu'elle est
+    finie, pas quand un run tourne. Sous une meme hypothese, l'atelier en mesure dix ; clore
+    a la premiere interdirait les neuf autres, ou obligerait a rouvrir a chaque fois. La
+    cloture reste un geste explicite (`clore()`), pris en fin de lot.
+
+    Ne fait jamais echouer le run appelant : une mesure qui a tourne ne doit pas etre
+    perdue parce que son registre est en lecture seule.
+    """
+    chemin = chemin or REGISTRE
+    try:
+        origine = exiger(id_exp, chemin)
+    except ProtocoleError as exc:
+        log.warning("'%s' non marquee mesuree : %s", id_exp, exc)
+        return None
+    if origine.get("statut") in ("clos", "abandonne"):
+        return None
+    entree = {"id": id_exp, "date": datetime.now(UTC).date().isoformat(),
+              "statut": "mesure", "dernier_run": run_id, "derniere_issue": issue,
+              "n_essais_cumules": compteur(chemin)}
+    try:
+        _ajouter(entree, chemin)
+    except ProtocoleError as exc:
+        log.warning("'%s' non marquee mesuree : %s", id_exp, exc)
+        return None
+    return entree
 
 
 def preenregistrer(id_exp: str, hypothese: str, metrique_primaire: str,
@@ -191,7 +260,10 @@ def amender(id_exp: str, raison: str, chemin: pathlib.Path | None = None,
     """
     chemin = chemin or REGISTRE
     dernier = etat(chemin).get(id_exp)
-    if dernier and dernier.get("statut") in ("clos", "abandonne"):
+    # `mesure` fait partie de la liste depuis le 20/08 : le statut n'etait pose par rien
+    # avant `marquer_mesuree()`, donc amender apres une mesure passait sans que le registre
+    # puisse le savoir. C'est exactement ce que cette fonction dit ne pas vouloir permettre.
+    if dernier and dernier.get("statut") in ("mesure", "clos", "abandonne"):
         raise ProtocoleError(f"'{id_exp}' est {dernier['statut']} : on n'amende pas "
                              "un preenregistrement apres avoir vu le resultat")
     origine = exiger(id_exp, chemin)

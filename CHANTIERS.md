@@ -370,9 +370,9 @@ gagnante glissée dedans, il la **voit** (p ≤ 0,05, et c'est bien elle qu'il n
 | **T4** | **`ts_utc` du journal d'ARIT ment** sur les événements `gestion` (heure d'exécution du backtest, pas de la bougie). Contourné côté BETA par `signal_id`. ⚠️ **La correction appartient à ARIT** : inscrite là-bas le 19/08 sous **T4-ARIT** (`ARIT2.0/research/pistes_2026-07-31/CHANTIERS.md` § MISE À JOUR DU 2026-08-19) — cause exacte : `ev_gestion()` ne pose pas de `ts_utc`, `write()` retombe sur `_now_iso()` | 🔴 ouverte (contournée ici, **non corrigée** à la source) | à corriger **à la source**, côté ARIT, sinon chaque nouveau consommateur retombera dedans |
 | **T5** | **Le pont freqtrade n'a pas ses données** — `--datadir` pointe sur `data/raw`, où seuls LINK et XRP sont en feather ; BTC/ETH/SOL/BNB ne vivent qu'en parquet dans le lake | 🔴 ouverte | la confirmation portefeuille (M3) ne peut tourner que sur 2 paires sur 6. Faire lire `ARIT2.0/user_data/data/` à freqtrade lui ferait écrire dans le dossier d'ARIT — **interdit par l'invariant n° 1** — donc à résoudre par un export feather depuis le lake |
 | **T6** | **Chemins synthétiques rejoués sur une seule paire** (la première du run) | 🟠 ouverte, assumée | le coût est linéaire en nombre de paires ; la réserve est écrite dans chaque verdict, elle n'est donc pas silencieuse |
-| **T9** | **S1 n'est JAMAIS exécutée par le pipeline.** `pipeline.executer` ne passe pas `famille=` à `batterie.evaluer`, donc `portes["S1_benjamini_hochberg"]` reste `None`. Or `issue()` n'accorde CONFIRMEE que si **les neuf** portes ont tourné. ⇒ **aucune candidate ne peut être confirmée aujourd'hui : le plafond du banc est INDECIDABLE.** Vérifié sur le run `e9238689db9b`. Corriger demande de décider ce qu'est la famille pour un criblage — le lot du run, ou les hypothèses déclarées (`famille_taille`) comme le fait `scripts/mesurer.py`. Deux seuils différents, donc un arbitrage, cousin de A1 | 🔴 ouverte, **mesurée** | le banc ne peut que tuer ou dire « indécidable ». Sûr par défaut, mais le chemin de la confirmation est inatteignable |
-| **T10** | **Le criblage ne clôt pas l'expérience.** R2 est mesurée (INFIRMEE) mais `EXPERIMENTS.jsonl` la dit toujours `preenregistre` : `pipeline` écrit le verdict dans `data/runs/` et `RUNS.jsonl`, jamais `experiences.clore()`. R1 et R6 ne sont closes que parce que `scripts/mesurer.py` le fait à la main | 🔴 ouverte | contredit ce que `beta_publish` exige de tout agent — publier **surtout** quand c'est indécidable. Le registre donne une image fausse de ce qui a été mesuré |
-| **T8** | **Le compteur d'essais compte les HYPOTHÈSES, pas les MESURES.** `compteur()` = 30 + nombre d'ids distincts dans `EXPERIMENTS.jsonl`. Tant qu'il y avait une candidate par hypothèse les deux nombres coïncidaient ; l'atelier casse l'égalité — dix candidates sous R7, c'est dix tests et **un seul point de compteur**. `RUNS.jsonl` (racine, append-only, ajouté le 19/08) **mesure** l'écart, `beta.py doctor` l'affiche, et **rien ne change encore** : faire porter N par les runs durcirait rétroactivement tous les verdicts déjà rendus. ⇒ arbitrage de Jonas, `DECISIONS.md` § A1 | 🔴 ouverte, **mesurée** | S1 et S2 corrigent sur un N trop petit dès qu'il y a plusieurs candidates par hypothèse : les seuils sont trop généreux, donc les verdicts trop flatteurs |
+| ~~T9~~ | ~~**S1 n'est JAMAIS exécutée par le pipeline.**~~ `pipeline.executer` ne passe pas `famille=` à `batterie.evaluer`, donc `portes["S1_benjamini_hochberg"]` reste `None`. Or `issue()` n'accorde CONFIRMEE que si **les neuf** portes ont tourné. ⇒ **aucune candidate ne peut être confirmée aujourd'hui : le plafond du banc est INDECIDABLE.** Vérifié sur le run `e9238689db9b`. Corriger demande de décider ce qu'est la famille pour un criblage — le lot du run, ou les hypothèses déclarées (`famille_taille`) comme le fait `scripts/mesurer.py`. Deux seuils différents, donc un arbitrage, cousin de A1 | ✅ **fermée 20/08** — `cribler()` construit la famille du lot et la passe à `batterie.evaluer` | — |
+| ~~T10~~ | ~~**Le criblage ne clôt pas l'expérience.**~~ R2 est mesurée (INFIRMEE) mais `EXPERIMENTS.jsonl` la dit toujours `preenregistre` : `pipeline` écrit le verdict dans `data/runs/` et `RUNS.jsonl`, jamais `experiences.clore()`. R1 et R6 ne sont closes que parce que `scripts/mesurer.py` le fait à la main | ✅ **fermée 20/08** — `pipeline` appelle `marquer_mesuree()` : statut `mesure`, la clôture reste un geste explicite | — |
+| ~~T8~~ | ~~**Le compteur d'essais compte les HYPOTHÈSES, pas les MESURES.**~~ `compteur()` = 30 + nombre d'ids distincts dans `EXPERIMENTS.jsonl`. Tant qu'il y avait une candidate par hypothèse les deux nombres coïncidaient ; l'atelier casse l'égalité — dix candidates sous R7, c'est dix tests et **un seul point de compteur**. `RUNS.jsonl` (racine, append-only, ajouté le 19/08) **mesure** l'écart, `beta.py doctor` l'affiche, et **rien ne change encore** : faire porter N par les runs durcirait rétroactivement tous les verdicts déjà rendus. ⇒ arbitrage de Jonas, `DECISIONS.md` § A1 | ✅ **fermée 20/08** — arbitrage A1 tranché (b), `compteur()` porte les mesures. N vaut toujours 36 : rien n'est réécrit | — |
 | **T7** | **L'équity à risque fixe non composé peut passer sous zéro** — R2 finit à −83 750 sur 100 000 | 🟠 ouverte, assumée | mathématiquement cohérent, physiquement impossible. Le choix rend deux candidates comparables entre elles ; le compounding se mesure côté freqtrade (M3), une seule fois |
 
 
@@ -394,14 +394,76 @@ faute de séries, et aucune ne peut être mesurée en attendant.
 c'est le seul des trois qui ne demande aucun appel réseau. À faire en premier pour cette
 seule raison.
 
+## AR — l'auto-recherche (ouverte et fermée le 20/08, demande de Jonas)
+
+Demande, mot pour mot : « j'aimerais connecter une première auto-recherche ».
+
+L'outillage était déjà là — atelier (A1-A6), pont MCP (P1-P5), moteur, batterie. Ce qui
+manquait n'était pas de la plomberie : **trois dettes rendaient la première boucle
+malhonnête**, et elles ont été fermées d'abord (T8, T9, T10 ci-dessus). Lancer la boucle
+avant, c'était produire des verdicts à jeter.
+
+| # | Chantier | Statut | Effort | Ce que ça fait |
+|---|---|---|---|---|
+| ~~AR1~~ | ~~`recherche/auto.py` — étage GRATUIT (`proposer`)~~ | ✅ fermé 20/08 | S | le modèle local note des hypothèses dans `IDEES.jsonl`, **le compteur ne bouge pas**. Rien n'est mesuré, rien n'est préenregistré |
+| ~~AR2~~ | ~~`recherche/auto.py` — étage COÛTEUX (`lancer`)~~ | ✅ fermé 20/08 ⚠️ **jamais exécuté de bout en bout** (réserve ci-dessous) | M | une candidate écrite par intention, sas + épreuve + dépôt, puis criblage du **lot entier** en une fois |
+| ~~AR3~~ | ~~`beta.py auto proposer` / `auto cribler`~~ | ✅ fermé 20/08 | S | les deux étages séparés jusque dans la ligne de commande |
+| ~~AR4~~ | ~~`tests/test_auto.py`~~ | ✅ fermé 20/08 | M | 30 tests, dont **8 sur ce que la boucle refuse** |
+
+### Les trois verrous, et pourquoi ils sont dans le code plutôt que dans la doctrine
+
+1. **La boucle ne préenregistre JAMAIS.** Elle exige une hypothèse déjà écrite et refuse de
+   démarrer sinon. C'est la séparation que le pont MCP fait déjà entre `beta_suggest_idea`
+   (gratuit) et `beta_register_edge` (coûteux) : il n'y a aucune raison que la boucle locale
+   dispose d'un chemin que l'agent distant n'a pas. Un test lit le source du module et
+   vérifie qu'aucun appel à `preenregistrer()` n'y figure.
+2. **Le budget est déclaré AVANT de générer**, borné par la `famille_taille` du
+   préenregistrement. Écrire dix candidates puis déclarer une famille de dix revient à ne
+   pas corriger du tout : le *m* de Benjamini-Hochberg doit être fixe avant de voir les
+   p-values, sinon il s'ajuste tout seul à ce qui arrange.
+3. **Le modèle local n'invente pas les hypothèses, il écrit des variantes.** L'intention
+   vient de Jonas ou d'une idée promue ; ce que la boucle automatise, c'est le passage de
+   l'intention au code — la partie où une machine est utile et où elle ne décide rien.
+
+⚠️ **Le sas n'est toujours pas un bac à sable** (§ A). Ce qu'un modèle a écrit et que la
+boucle a déposé dans `beta/candidates/` est **à relire**. La commande le rappelle à chaque
+fin de lot.
+
+### Ce qui n'a PAS encore tourné pour de vrai
+
+`proposer` a réellement tourné (I4-I7, ollama/qwen2.5:7b) et R2 a réellement été re-criblée.
+**`auto cribler` de bout en bout, non** : aucun module `auto_*` n'a encore été déposé, et
+`ecrire_le_lot()` n'a pas de test. AR2 est fermé sur la foi de tests unitaires et de ses
+refus, pas d'un lot mesuré. Deux réserves à lever en même temps :
+
+- `lancer()` crible `registre.par_hypothese()`, donc **toutes** les candidates de
+  l'hypothèse, pas seulement le lot qu'elle vient d'écrire. Le contrôle
+  `budget <= famille_taille` ne borne donc pas ce qui est réellement criblé. Le sens reste
+  conservateur — `_famille_du_lot` remonte *m* à la taille du lot, donc BH durcit — mais le
+  verrou n'est pas aussi strict que le README l'annonce.
+- le `run_id` de `scripts/mesurer.py` n'est déterministe que **dans la journée**
+  (`{id}-mesure-{date}`) : remesurer R1 demain coûterait un cran de compteur sans que rien
+  n'ait changé. Le pipeline, lui, a un `run_id` haché, donc stable.
+
+### Ce que la fermeture de T9 a changé, concrètement
+
+Vérifié sur un re-criblage réel de R2 le 20/08 : premier passage `[non exécutée]
+S1_benjamini_hochberg`, second passage `[ÉCHEC]`. **La porte tourne enfin** — R2 reste
+infirmée, mais pour la première fois le banc a un chemin vers CONFIRMEE au lieu d'un
+plafond à INDÉCIDABLE. Le criblage a aussi fait passer R2 de `preenregistre` à `mesure` au
+registre (T10), et le compteur est resté à 36 — `run_id` déterministe, donc pas d'essai
+fabriqué par une remesure à l'identique (A1).
+
+---
+
 ## Ce qui reste, après le 19/08 (soir)
 
-1. **T8 / `DECISIONS.md` § A1** — l'arbitrage sur ce que compte N. À trancher **avant** de
-   lancer l'atelier en série, pas après : mesurer vingt candidates puis découvrir que le
-   seuil était trop généreux, c'est vingt mesures à refaire ou à jeter.
+1. ~~**T8 / `DECISIONS.md` § A1**~~ — ✅ **tranché le 20/08 : (b), N porte les mesures.**
+   L'atelier peut tourner en série sans que la batterie perde son sens.
 2. **D5-D7** — sans quoi R3, R4 et R5 restent à l'arrêt.
 3. **T5** — sans quoi le verdict portefeuille ne couvre que 2 paires sur 6.
-4. **T9** — sans quoi le banc ne peut structurellement **rien confirmer**.
+4. ~~**T9 / T10**~~ — ✅ **fermées le 20/08.** S1 s'exécute sur la famille du lot, et
+   le registre dit enfin ce qui a été mesuré. Le banc a un chemin vers CONFIRMEE.
 5. **Une DEUXIÈME candidate.** Le moteur en accepte autant qu'on veut, l'atelier sait les
    écrire, le banc comparatif sait les mettre en regard — et il n'en existe toujours
    **qu'une**. Tant que c'est le cas, S7 n'a pas d'objet, S9 non plus, et la moitié

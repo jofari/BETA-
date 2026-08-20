@@ -77,7 +77,7 @@ présentes, sans écrire une seule candidate : ce sont les deux premières à pr
 
 ---
 
-## A1 — ce que compte N : les hypothèses, ou les mesures ? **OUVERTE, en attente de Jonas**
+## A1 — ce que compte N : les hypothèses, ou les mesures ? **TRANCHÉE le 20/08 — (b)**
 
 **Découvert le 19/08 en construisant l'atelier.** `experiences.compteur()` vaut
 `30 + nombre d'ids distincts dans EXPERIMENTS.jsonl` : il compte les **hypothèses
@@ -105,12 +105,35 @@ hypothèse *nouvelle* est exactement le compteur que le fléau des tests multipl
 Les verdicts déjà rendus resteraient publiés **avec leur N d'époque**, écrit à côté — on ne
 réécrit pas un résultat, on date sa sévérité.
 
-**Ce qui est déjà fait, quelle que soit la réponse** : `RUNS.jsonl` existe à la racine
-(append-only, hors de `data/` qui est jetable), `beta.py doctor` affiche les deux nombres et
-signale l'écart. **Aucun seuil n'a été touché** — c'est un arbitrage, pas un commit.
+### Décision de Jonas, 20/08 : **(b) — N porte les mesures**
 
-⚠️ **À trancher avant de lancer l'atelier en série.** Mesurer vingt candidates puis
-découvrir que le seuil était trop généreux, c'est vingt mesures à refaire ou à jeter.
+Appliquée dans `experiences.compteur()`. La formule retenue est un raffinement de (b), et
+il lève l'objection qui rendait (b) coûteuse :
+
+    N = 30  +  mesures distinctes (RUNS.jsonl)  +  hypothèses préenregistrées sans aucune mesure
+
+Un essai est **l'un ou l'autre, jamais compté deux fois** : une hypothèse en attente a
+consommé un droit de regard (on la compte d'avance, c'est le sens conservateur) ; dès
+qu'elle est mesurée, ce sont ses mesures qui comptent, et il peut y en avoir dix.
+
+**Conséquence numérique le jour du changement : N = 36, exactement ce que valait l'ancienne
+formule.** Les trois verdicts du 19/08 ont donc été rendus au bon N — *rien n'est réécrit,
+rien n'est rétroactivement durci*, ce qui était le seul vrai coût de (b) au tableau
+ci-dessus. Ce qui change commence au premier lot de l'atelier : dix candidates sous une même
+hypothèse comptent désormais pour dix, et non pour une.
+
+Deux propriétés vérifiées par des tests (`tests/test_auto.py`) :
+- **monotone** — le compteur ne redescend jamais, quel que soit l'ordre des écritures ;
+- **stable au re-criblage** — `run_id` est déterministe, donc relancer le même criblage à
+  l'identique ne fabrique pas un essai de plus. Seul un vrai nouveau test coûte un cran.
+
+Deux effets de bord assumés, tous deux dans le sens sévère :
+- pendant un criblage, **N est figé à `compteur() + taille du lot`** : le lot est payé
+  d'avance, avant qu'aucun résultat ne soit connu, et les dix candidates d'un même lot sont
+  jugées au même seuil. Sans ce gel, la dernière du lot serait jugée plus durement que la
+  première pour la seule raison qu'elle est passée après ;
+- `scripts/mesurer.py` journalise désormais ses mesures (R1, R6) : une mesure hors pipeline
+  était gratuite au compteur alors qu'elle consommait bien un essai.
 
 ---
 
@@ -118,4 +141,4 @@ découvrir que le seuil était trop généreux, c'est vingt mesures à refaire o
 
 | # | Objet | État | Depuis |
 |---|---|---|---|
-| **A1** | Ce que compte N : hypothèses ou mesures (ci-dessus) | **à trancher** — recommandation : (b) | 19/08 |
+| ~~**A1**~~ | ~~Ce que compte N : hypothèses ou mesures~~ | ✅ **tranchée 20/08 — (b)**, appliquée | 19/08 |

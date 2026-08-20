@@ -17,6 +17,7 @@ import json
 import logging
 import pathlib
 import sys
+from datetime import UTC, datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
@@ -58,6 +59,14 @@ def main() -> int:
 
     for id_exp, resultat in resultats.items():
         verdict, motif = _apres_correction(resultat, corrigee)
+        # Depuis A1 (20/08), N porte les MESURES. Une mesure qui ne passe pas par le
+        # pipeline doit donc se journaliser elle-meme, sinon elle est gratuite au
+        # compteur alors qu'elle a bel et bien consomme un essai. L'id est
+        # deterministe : remesurer la meme hypothese le meme jour ne fabrique pas un
+        # essai de plus.
+        experiences.enregistrer_run(
+            f"{id_exp}-mesure-{datetime.now(UTC).date().isoformat()}", id_exp,
+            MESURES[id_exp].__name__.rsplit(".", 1)[-1], "", verdict)
         experiences.clore(id_exp, verdict, motif)
         print(f"\n{id_exp} : {verdict.upper()}\n  {motif}")
 
