@@ -319,7 +319,7 @@ async function chargerIdees() {
         id: i.id, date: i.date, etat: i.etat, texte: i.texte,
         suite: i.id_experience || i.motif || "",
       })), ["id", "date", "etat", "texte", "suite"])
-    : '<p class="vide">Aucune idée notée. La boîte est gratuite : rien ne coûte tant qu'on ne promeut pas.</p>';
+    : `<p class="vide">Aucune idée notée. La boîte est gratuite : rien ne coûte tant qu'on ne promeut pas.</p>`;
   $("#idee-message").textContent =
     `${d.resume.nouvelle} nouvelle(s) · compteur d'essais : ${d.resume.compteur_essais} (inchangé)`;
 }
