@@ -1,4 +1,11 @@
-"""liquidity_session_newyork — R? : fader la premiere bougie de l'open New York.
+"""liquidity_ny_stop_050 — R8 : fader la premiere bougie de l'open New York.
+
+Variante du balayage de la distance de stop : ce que la regle decrit au depart
+— un stop a la moitie de l'amplitude de la fenetre.
+
+Les trois variantes du lot sont IDENTIQUES sauf `FRACTION_STOP`, et generees d'un meme
+gabarit. C'est ce qui permet de lire l'ecart entre elles comme un effet de la distance de
+stop, et pas comme une difference de code qui aurait derive en cours de route.
 
 Hypothese de mecanisme : les 45 premieres minutes de la seance americaine sont le moment ou
 le carnet est le plus epais et ou les clusters de stops accumules pendant la nuit asiatique
@@ -91,12 +98,12 @@ def signaux(df: pd.DataFrame, fraction_stop: float = FRACTION_STOP,
 
 def creer() -> Candidate:
     return Candidate(
-        nom="liquidity_session_newyork",
-        titre="Fade de l'open New York",
-        hypothese="R?",
+        nom="liquidity_ny_stop_050",
+        titre="Fade open NY — stop 0,5x amplitude",
+        hypothese="R8",
         signaux=signaux,
         parametres={"fuseau": FUSEAU, "minute_debut": MINUTE_DEBUT,
                     "minute_fin": MINUTE_FIN, "bougies_attendues": BOUGIES_ATTENDUES,
                     "fraction_stop": FRACTION_STOP},
         description="entrer a 10:15 New York dans le sens oppose au corps de la fenetre "
-                    "09:30-10:15, stop a 50 % de son amplitude")
+                    "09:30-10:15, stop a 0.5x son amplitude")

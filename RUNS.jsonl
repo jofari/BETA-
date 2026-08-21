@@ -3,3 +3,6 @@
 {"run_id": "e9238689db9b", "experience": "R2", "candidate": "mean_reversion_z", "empreinte": "c14fe46f8aa6", "issue": "infirmee", "date": "2026-08-19T23:15:45.081095+00:00"}
 {"run_id": "66b2d667ade9", "experience": "R7", "candidate": "auto_r7_01", "empreinte": "4d3a1029c575", "issue": "infirmee", "date": "2026-08-20T18:23:55.497791+00:00"}
 {"run_id": "331234fd64d4", "experience": "R7", "candidate": "auto_r7_03", "empreinte": "5fc89bfd5ff7", "issue": "infirmee", "date": "2026-08-20T18:24:00.204952+00:00"}
+{"run_id": "05a4f0a87989", "experience": "R8", "candidate": "liquidity_ny_stop_050", "empreinte": "b8dcacb10d31", "issue": "infirmee", "date": "2026-08-21T15:17:20.659036+00:00"}
+{"run_id": "7bf381b71f72", "experience": "R8", "candidate": "liquidity_ny_stop_100", "empreinte": "8ca359af2b7d", "issue": "infirmee", "date": "2026-08-21T15:21:48.698167+00:00"}
+{"run_id": "a9eef405cb08", "experience": "R8", "candidate": "liquidity_ny_stop_150", "empreinte": "9d915baf7cfd", "issue": "infirmee", "date": "2026-08-21T15:26:18.768574+00:00"}
