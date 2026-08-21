@@ -21,11 +21,24 @@ const COMPARAISON = (() => {
   const teinte = (i) => couleur(TEINTES[i % TEINTES.length]);
   const EST_ARIT = (nom) => nom.startsWith("AritV1");
 
+  /** Le titre lisible d'une candidate, a partir de l'annuaire rendu par le serveur.
+   *
+   *  Les CLES restent les modules partout — tableau, matrice, courbes, redondances : ce
+   *  sont elles qui portent l'identite statistique, et deux libelles identiques pour deux
+   *  candidates differentes fusionneraient deux mesures en une. On traduit donc a
+   *  l'affichage seulement, et le module reste visible a cote. */
+  const titreDe = (nom) => {
+    if (EST_ARIT(nom)) return nom;
+    const i = (etat.vue && etat.vue.titres && etat.vue.titres[nom]) || {};
+    return i.titre || nom;
+  };
+
   /* ---------- classement -------------------------------------------------------------- */
 
   const COLONNES = [
     ["rang", "#", (v) => v],
-    ["candidate", "candidate", echapper],
+    ["candidate", "stratégie",
+     (v) => `${echapper(titreDe(v))}<br><code class="comp-module">${echapper(v)}</code>`],
     ["issue", "issue", (v) => `<span class="puce ${v === "confirmee" ? "ok" : "alerte"}">${echapper(v)}</span>`],
     ["n", "n", entier],
     ["r_moyen", "R moyen", (v) => signe(v)],
@@ -89,7 +102,7 @@ const COMPARAISON = (() => {
 
     $$("#comparaison-legende").innerHTML = noms.map((nom, i) =>
       `<span class="comp-legende"><i style="background:${
-        EST_ARIT(nom) ? couleur("--text-muted") : teinte(i)}"></i>${echapper(nom)}</span>`
+        EST_ARIT(nom) ? couleur("--text-muted") : teinte(i)}"></i>${echapper(titreDe(nom))}</span>`
     ).join("");
   }
 
@@ -103,8 +116,9 @@ const COMPARAISON = (() => {
         + 'se recouvrent pour qu\'une corrélation existe.</p>';
       return;
     }
-    const th = m.noms.map((n) => `<th>${echapper(n)}</th>`).join("");
-    const tr = m.valeurs.map((ligne, i) => `<tr><th>${echapper(m.noms[i])}</th>` +
+    const th = m.noms.map((n) => `<th title="${echapper(n)}">${echapper(titreDe(n))}</th>`).join("");
+    const tr = m.valeurs.map((ligne, i) =>
+      `<tr><th title="${echapper(m.noms[i])}">${echapper(titreDe(m.noms[i]))}</th>` +
       ligne.map((v, j) => {
         if (v === null) return '<td class="muet">—</td>';
         const fort = i !== j && Math.abs(v) >= 0.70;
@@ -115,7 +129,7 @@ const COMPARAISON = (() => {
     const doublons = etat.vue.redondances;
     if (doublons.length) {
       cible.innerHTML += doublons.map((d) =>
-        `<p class="erreur">${echapper(d.a)} et ${echapper(d.b)} corrélées à ${nb(d.correlation, 2)}
+        `<p class="erreur">${echapper(titreDe(d.a))} et ${echapper(titreDe(d.b))} corrélées à ${nb(d.correlation, 2)}
          — elles n'en font qu'une.</p>`).join("");
     }
   }

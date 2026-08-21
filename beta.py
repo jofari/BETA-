@@ -91,10 +91,10 @@ def cmd_candidates(_args) -> int:
     if not inventaire:
         print("Aucune candidate. `python beta.py atelier nouveau <module> --hypothese R7`")
         return 0
-    print(f"{'module':<28} {'hypothese':<10} {'empreinte':<12} nom")
+    print(f"{'module':<28} {'hypothese':<10} {'empreinte':<12} strategie")
     for ligne in inventaire:
         print(f"{ligne['module']:<28} {ligne['hypothese']:<10} "
-              f"{ligne['empreinte']:<12} {ligne['nom']}")
+              f"{ligne['empreinte']:<12} {ligne['titre']}")
     print(f"\n{len(inventaire)} candidate(s). Chacune mesuree AUGMENTE le compteur d'essais,")
     print("donc durcit le seuil de toutes les autres. C'est voulu.")
     return 0

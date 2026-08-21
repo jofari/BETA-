@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from beta.moteur.pipeline import RESULTATS
+from beta.rapport import identite
 from beta.stats import descriptif
 
 log = logging.getLogger("beta.rapport.runs")
@@ -56,7 +57,8 @@ def liste() -> list[dict]:
                       "paires", "lance_le", "n_essais_cumules", "portes_echouees",
                       "portes_non_executees")}
                     | {"r_moyen": verdict.get("metriques", {}).get("r_moyen"),
-                       "n": verdict.get("metriques", {}).get("n")})
+                       "n": verdict.get("metriques", {}).get("n"),
+                       "identite": identite.resoudre(verdict)})
     return sorted(runs, key=lambda r: r.get("lance_le") or "", reverse=True)
 
 
@@ -112,6 +114,61 @@ def _histogramme(valeurs, n_classes: int = 40) -> dict:
             "effectifs": [int(e) for e in effectifs]}
 
 
+def _texte_hypothese(id_experience: str) -> dict:
+    """Le preenregistrement en clair : ce qu'on a ecrit AVANT de mesurer.
+
+    C'est la moitie de l'explication d'une candidate, et c'est celle qui manque partout
+    ailleurs. Le code dit ce que la regle CALCULE ; le preenregistrement dit ce qu'on
+    attendait d'elle et a quelle condition on avait accepte de se declarer battu.
+    """
+    try:
+        from beta.protocole import experiences
+        preenr = experiences.etat().get(id_experience) or {}
+    except Exception as exc:                          # noqa: BLE001 - decor, jamais fatal
+        log.debug("preenregistrement '%s' illisible (%s)", id_experience, exc)
+        return {}
+    return {cle: preenr.get(cle) for cle in
+            ("hypothese", "metrique_primaire", "regle_de_decision", "statut",
+             "deja_connu", "mde_attendu", "famille_taille")}
+
+
+def _code_source(module: str) -> str:
+    """Le fichier de la candidate, s'il existe encore. Chaine vide sinon, jamais d'erreur.
+
+    Un run garde son verdict quand le fichier disparait — c'est voulu — donc l'absence de
+    code n'est pas une panne, c'est une information que l'interface affiche telle quelle.
+    """
+    try:
+        from beta.rapport import atelier
+        return atelier.code_de(module).get("code", "")
+    except Exception as exc:                          # noqa: BLE001 - decor, jamais fatal
+        log.debug("code de '%s' indisponible (%s)", module, exc)
+        return ""
+
+
+def explication(verdict: dict) -> dict:
+    """Ce qu'il faut pour repondre a « cette strategie, elle fait quoi, concretement ? ».
+
+    Trois etages, et aucun ne suffit seul : ce que la regle DECIDE (la candidate), ce
+    qu'on en attendait (le preenregistrement), et comment le trade est SORTI (la triple
+    barriere du moteur, qui n'appartient pas a la candidate et qui explique pourtant une
+    grande part de son R). Les sorties ne se lisent nulle part dans le code d'une
+    candidate : elles sont imposees par le Run, et les omettre ici laisserait croire que la
+    regle d'entree explique tout le resultat.
+    """
+    identifiants = identite.resoudre(verdict)
+    return {
+        "identite": identifiants,
+        "parametres": verdict.get("parametres") or {},
+        "preenregistrement": _texte_hypothese(verdict.get("experience") or ""),
+        "execution": {cle: verdict.get(cle) for cle in
+                      ("timeframe", "paires", "split", "stop_atr", "take_profit_r",
+                       "horizon_bougies", "cout_aller_retour_pct", "empreinte",
+                       "debut", "fin")},
+        "code": _code_source(identifiants.get("module") or ""),
+    }
+
+
 def fiche(run_id: str) -> dict:
     """Tout ce qu'il faut pour dessiner la fiche d'une candidate. Rien de plus.
 
@@ -134,6 +191,7 @@ def fiche(run_id: str) -> dict:
 
     return {
         "verdict": verdict,
+        "explication": explication(verdict),
         "courbe": _courbe(equity),
         "hold": {"courbe": {
             "ts": _echantillonner(hold.get("hold", {}).get("courbe", {}).get("ts", [])),

@@ -67,6 +67,11 @@ def creer() -> Candidate:
     """La seule fonction que le registre cherche. Une candidate par fichier."""
     return Candidate(
         nom="{nom}",
+        # Le nom LISIBLE de la regle, celui qu'affiche le dashboard. Il doit nommer le
+        # mecanisme — « Cassure de range 20 bougies », « Mean-reversion z-score » — jamais
+        # repeter l'identifiant du fichier : un tableau plein de `auto_r7_03` oblige a
+        # rouvrir le code pour savoir ce qu'on compare.
+        titre="{titre_lisible}",
         hypothese="{hypothese}",
         signaux=signaux,
         parametres={{"fenetre": FENETRE}},
@@ -103,6 +108,7 @@ def signaux(df: pd.DataFrame, fenetre: int = FENETRE,
 def creer() -> Candidate:
     return Candidate(
         nom="mean_reversion_z",
+        titre="Mean-reversion sur z-score",
         hypothese="R2",
         signaux=signaux,
         parametres={"fenetre": FENETRE, "seuil_z": SEUIL_Z},
@@ -110,9 +116,15 @@ def creer() -> Candidate:
 '''
 
 
-def ecrire(module: str, hypothese: str, nom: str = "", intention: str = "") -> str:
+def ecrire(module: str, hypothese: str, nom: str = "", intention: str = "",
+           titre_lisible: str = "") -> str:
     """Rend le code d'un squelette. N'ecrit rien sur le disque : c'est l'appelant qui pose."""
     nom = nom or module
     intention = intention or "a decrire en une phrase falsifiable"
-    titre = f"{hypothese} — {nom}"
-    return GABARIT.format(titre=titre, hypothese=hypothese, nom=nom, intention=intention)
+    # Un titre absent n'est pas invente ici : le squelette porte une consigne visible a
+    # remplir, que le dashboard affichera telle quelle si personne ne la remplace. Mieux
+    # vaut un « A NOMMER » a l'ecran qu'un titre plausible qui ne decrit rien.
+    titre_lisible = titre_lisible.strip() or "A NOMMER — le mecanisme, pas le fichier"
+    titre = f"{hypothese} — {titre_lisible}"
+    return GABARIT.format(titre=titre, hypothese=hypothese, nom=nom, intention=intention,
+                          titre_lisible=titre_lisible)

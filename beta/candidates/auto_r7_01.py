@@ -31,6 +31,7 @@ def signaux(df: pd.DataFrame, fenetre: int = FENETRE,
 def creer() -> Candidate:
     return Candidate(
         nom="auto_r7_01",
+        titre="Rejet de meche vs ATR",
         hypothese="R7",
         signaux=signaux,
         parametres={"fenetre": FENETRE, "seuil_basse": SEUIL_MECHE_BASSE, "seuil_haute": SEUIL_MECHE_HAUTE},

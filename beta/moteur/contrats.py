@@ -77,12 +77,23 @@ class Candidate:
     signaux: Callable[[pd.DataFrame], pd.DataFrame]
     parametres: dict = field(default_factory=dict)
     description: str = ""
+    # Le nom LISIBLE de la regle, pas son identifiant de fichier : « Mean-reversion sur
+    # z-score », pas `auto_r7_03`. Un tableau de bord qui n'affiche que des identifiants
+    # oblige a rouvrir le code pour savoir ce qu'on regarde, et c'est exactement au moment
+    # ou l'on compare dix candidates qu'on ne peut plus se le permettre.
+    # Hors empreinte, volontairement : renommer une regle ne la transforme pas en une autre.
+    titre: str = ""
 
     def __post_init__(self) -> None:
         if not self.nom or not self.nom.strip():
             raise ContratError("une candidate sans nom ne peut pas etre tracee")
         if not callable(self.signaux):
             raise ContratError(f"{self.nom} : `signaux` n'est pas appelable")
+
+    @property
+    def etiquette(self) -> str:
+        """Ce qu'un humain doit lire. Le titre s'il existe, le nom sinon — jamais rien."""
+        return self.titre.strip() or self.nom
 
     @property
     def empreinte(self) -> str:
@@ -190,6 +201,11 @@ class Run:
     def resume(self) -> dict:
         return {"run_id": self.id, "experience": self.id_experience,
                 "candidate": self.candidate.nom, "empreinte": self.candidate.empreinte,
+                # Recopies dans le verdict plutot que relus du code au moment de
+                # l'affichage : une candidate supprimee ou reecrite depuis ne doit pas
+                # changer retroactivement le titre d'une mesure deja rendue.
+                "titre": self.candidate.etiquette,
+                "description": self.candidate.description,
                 "paires": list(self.paires), "timeframe": self.timeframe,
                 "split": self.split, "debut": self.debut, "fin": self.fin,
                 "stop_atr": self.stop_atr, "take_profit_r": self.take_profit_r,
@@ -250,7 +266,7 @@ class Verdict:
 
     def texte(self) -> str:
         """Le verdict en clair, reserves comprises. Destine a etre lu, pas parse."""
-        lignes = [f"{self.run.candidate.nom} ({self.run.id_experience}) : "
+        lignes = [f"{self.run.candidate.etiquette} ({self.run.id_experience}) : "
                   f"{self.issue.upper()}",
                   f"  run {self.run.id} — {self.run.split} — essai cumule "
                   f"n° {self.n_essais_cumules}"]

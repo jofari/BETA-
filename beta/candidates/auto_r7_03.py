@@ -32,6 +32,7 @@ def signaux(df: pd.DataFrame, fenetre_atr: int = FENETRE_ATR,
 def creer() -> Candidate:
     return Candidate(
         nom="auto_r7_03",
+        titre="Impulsion 3xATR sur volume double",
         hypothese="R7",
         signaux=signaux,
         parametres={"fenetre_atr": FENETRE_ATR, "fenetre_vol": FENETRE_VOL},

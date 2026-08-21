@@ -28,8 +28,9 @@ const ATELIER = (() => {
     }
     liste.innerHTML = d.candidates.map((c) => `
       <button class="run-item" data-module="${echapper(c.module)}">
-        <span class="run-nom">${echapper(c.nom)}</span>
+        <span class="run-nom">${echapper(c.titre || c.nom)}</span>
         <span class="run-meta">${echapper(c.module)} · ${echapper(c.hypothese)} · ${echapper(c.empreinte)}</span>
+        ${c.description ? `<span class="run-meta">${echapper(c.description)}</span>` : ""}
       </button>`).join("");
   }
 

@@ -102,7 +102,7 @@ def toutes() -> dict[str, Candidate]:
 
 def inventaire() -> list[dict]:
     """De quoi afficher le registre sans instancier de run."""
-    return [{"module": nom, "nom": c.nom, "hypothese": c.hypothese,
+    return [{"module": nom, "nom": c.nom, "titre": c.etiquette, "hypothese": c.hypothese,
              "empreinte": c.empreinte, "parametres": c.parametres,
              "description": c.description}
             for nom, c in sorted(toutes().items())]

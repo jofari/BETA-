@@ -45,6 +45,7 @@ def signaux(df: pd.DataFrame, fenetre: int = FENETRE, seuil: float = SEUIL_Z
 def creer() -> Candidate:
     return Candidate(
         nom="mean_reversion_z",
+        titre="Mean-reversion sur z-score",
         hypothese="R2",
         signaux=signaux,
         parametres={"fenetre": FENETRE, "seuil_z": SEUIL_Z},

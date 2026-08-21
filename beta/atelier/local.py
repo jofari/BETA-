@@ -187,6 +187,11 @@ DEMANDE = """Ecris la candidate suivante.
   hypothese (id)  : {hypothese}
   regle voulue    : {intention}
 
+`Candidate` prend aussi un `titre=` : trois a cinq mots qui nomment le MECANISME, en
+francais, et qui se lisent dans un tableau a cote de dix autres. « Cassure de range 20
+bougies », « Mean-reversion z-score », « Rejet de meche haute ». Jamais l'identifiant du
+module, jamais une phrase, jamais un nom d'indicateur seul.
+
 Rends le fichier complet dans un seul bloc ```python."""
 
 REPARATION = """Ton fichier a ete REFUSE par le controle automatique. Motifs, mot pour mot :

@@ -229,11 +229,19 @@ const FICHE = (() => {
     const v = d.verdict;
     const m = v.metriques || {};
     const ton = TONS[v.issue] || "";
+    const ident = identiteDe(d.explication);
+    // Un titre reconstitue du nom de fichier se signale. La regle « rien n'est comble »
+    // vaut pour les libelles autant que pour les chiffres : un titre plausible mais
+    // fabrique serait pire que l'identifiant brut qu'il remplace.
+    const reconstitue = ident.source === "aucune"
+      ? ' <span class="badge" title="Cette candidate ne déclare pas de titre : '
+        + 'ce libellé est reconstitué du nom de fichier.">titre reconstitué</span>' : "";
     return `
       <div class="verdict-bandeau" data-tone="${ton}">
         <div>
-          <h2>${v.candidate} <span class="badge">${v.experience}</span></h2>
-          <p class="sous">run ${v.run_id} · ${v.timeframe} · ${(v.paires || []).join(" ")}
+          <h2>${echapper(ident.titre)} <span class="badge">${v.experience}</span></h2>
+          <p class="sous"><code>${echapper(ident.module)}</code>${reconstitue}
+             · run ${v.run_id} · ${v.timeframe} · ${(v.paires || []).join(" ")}
              · split ${v.split} · essai cumulé n° ${v.n_essais_cumules}</p>
         </div>
         <div class="verdict-issue" data-tone="${ton}">${(v.issue || "").toUpperCase()}</div>
@@ -256,6 +264,15 @@ const FICHE = (() => {
       ${(v.reserves || []).length
         ? `<div class="reserves"><h3>Réserves</h3><ul>${
           v.reserves.map((r) => `<li>${echapper(r)}</li>`).join("")}</ul></div>` : ""}`;
+  }
+
+  /** L'identite d'un run, quelle que soit l'ancienneté du verdict qui la porte.
+   *  Le serveur la resout deja ; ce repli couvre le cas d'une reponse tronquee, jamais
+   *  celui d'une candidate sans titre — ca, c'est `source: "aucune"` et ca se dit. */
+  function identiteDe(source) {
+    const i = (source || {}).identite || {};
+    return { titre: i.titre || i.module || "—", module: i.module || "—",
+             description: i.description || "", source: i.source || "aucune" };
   }
 
   function tuileF(valeur, libelle, ton = "", note = "") {
@@ -286,10 +303,107 @@ const FICHE = (() => {
     return `<table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
   }
 
+  /* ---------- « cette stratégie, elle fait quoi ? » ------------------------------------ */
+
+  /** L'horizon en bougies ne se lit pas. Le meme nombre en jours, si : 96 bougies 4h, ce
+   *  sont 16 jours de detention maximale, et c'est ce chiffre-la qui dit si la barriere de
+   *  temps mord ou non. Rend "" si le timeframe n'est pas interpretable — jamais un faux. */
+  function enJours(bougies, timeframe) {
+    const t = /^(\d+)([mhd])$/.exec(String(timeframe || ""));
+    if (!t || !Number.isFinite(bougies)) return "";
+    const heures = { m: 1 / 60, h: 1, d: 24 }[t[2]] * Number(t[1]) * Number(bougies);
+    return heures < 48 ? ` (${n2(heures)} h)` : ` (${n2(heures / 24)} jours)`;
+  }
+
+  function listeDefinitions(paires) {
+    const lignes = paires.filter(([, v]) => v !== null && v !== undefined && v !== "");
+    if (!lignes.length) return '<p class="vide">—</p>';
+    return `<dl class="explique-dl">${lignes.map(([cle, valeur]) =>
+      `<dt>${echapper(cle)}</dt><dd>${valeur}</dd>`).join("")}</dl>`;
+  }
+
+  /** La carte qui repond avant toutes les autres. Trois etages, dans cet ordre :
+   *  ce que la regle DECIDE, ce qu'on en ATTENDAIT, comment le trade SORT.
+   *
+   *  Le troisieme etage n'est pas un detail de mise en page. Les sorties n'appartiennent
+   *  pas a la candidate — la triple barriere est imposee par le Run — et elles expliquent
+   *  une grande part du R. Les omettre laisserait croire que la regle d'entree explique
+   *  tout le resultat, ce qui est la lecture fausse la plus facile a faire ici. */
+  function explicationHtml(d) {
+    const e = d.explication || {};
+    const ident = identiteDe(e);
+    const ex = e.execution || {};
+    const pre = e.preenregistrement || {};
+    const decision = pre.regle_de_decision || {};
+    const params = Object.entries(e.parametres || {});
+
+    const regle = ident.description
+      ? `<p class="explique-phrase">${echapper(ident.description)}</p>`
+      : `<p class="vide">Cette candidate ne décrit pas sa règle. Le code ci-dessous est
+         alors la seule source — et c'est un défaut à corriger dans le fichier.</p>`;
+
+    const hypothese = pre.hypothese
+      ? `<p class="explique-phrase">${echapper(pre.hypothese)}</p>
+         ${listeDefinitions([
+           ["Métrique primaire", echapper(pre.metrique_primaire || "—")],
+           ["Confirmée si", echapper(decision.confirmee || "—")],
+           ["Infirmée si", echapper(decision.infirmee || "—")],
+           ["Indécidable si", echapper(decision.indecidable || "—")],
+           ["Déjà connu avant", echapper(pre.deja_connu || "—")],
+         ])}`
+      : `<p class="vide">Préenregistrement « ${echapper(d.verdict.experience)} » introuvable
+         dans <code>EXPERIMENTS.jsonl</code>.</p>`;
+
+    return `
+      <h2>Ce que la stratégie fait, concrètement</h2>
+      <p class="sous">Le code dit ce que la règle calcule ; le préenregistrement dit ce
+        qu'on en attendait ; la barrière dit comment le trade se termine. Aucun des trois
+        ne suffit seul à comprendre un R moyen.</p>
+
+      <div class="explique">
+        <section>
+          <h3>La règle d'entrée</h3>
+          ${regle}
+          ${params.length ? listeDefinitions(params.map(([c, v]) =>
+            [c, `<code>${echapper(v)}</code>`])) : ""}
+        </section>
+
+        <section>
+          <h3>L'hypothèse préenregistrée · ${echapper(d.verdict.experience)}</h3>
+          ${hypothese}
+        </section>
+
+        <section>
+          <h3>La sortie, imposée par le moteur</h3>
+          <p class="sous">Triple barrière identique pour toutes les candidates : c'est ce
+            qui rend deux règles d'entrée comparables entre elles.</p>
+          ${listeDefinitions([
+            ["Stop", `${n2(ex.stop_atr)} × ATR`],
+            ["Take-profit", `${n2(ex.take_profit_r)} R`],
+            ["Horizon maximal", `${ent(ex.horizon_bougies)} bougies${
+              enJours(ex.horizon_bougies, ex.timeframe)}`],
+            ["Coût aller-retour", `${n2(ex.cout_aller_retour_pct)} %`],
+            ["Univers", echapper((ex.paires || []).join(" · ") || "—")],
+            ["Unité de temps", echapper(ex.timeframe || "—")],
+            ["Empreinte du code", `<code>${echapper(ex.empreinte || "—")}</code>`],
+          ])}
+        </section>
+      </div>
+
+      ${e.code
+        ? `<details class="explique-code"><summary>Le code exécuté —
+             <code>${echapper(ident.module)}.py</code></summary>
+           <pre>${echapper(e.code)}</pre></details>`
+        : `<p class="vide">Le fichier <code>${echapper(ident.module)}.py</code> n'existe
+           plus. Le verdict reste valable : c'est l'empreinte du code, pas le fichier, qui
+           identifie ce qui a été mesuré.</p>`}`;
+  }
+
   function rendreDetail() {
     const d = etatFiche.donnees;
     if (!d) return;
     q("#fiche-entete").innerHTML = enTete(d);
+    q("#fiche-explication").innerHTML = explicationHtml(d);
 
     const mc = d.monte_carlo;
     q("#fiche-mc-chiffres").innerHTML = `
@@ -375,7 +489,8 @@ const FICHE = (() => {
     cible.innerHTML = etatFiche.liste.map((r) => `
       <button class="run-item ${r.run_id === etatFiche.courant ? "is-active" : ""}"
               data-run="${r.run_id}">
-        <span class="run-nom">${echapper(r.candidate)}</span>
+        <span class="run-nom">${echapper(identiteDe({ identite: r.identite }).titre)}</span>
+        <span class="run-meta"><code>${echapper(r.candidate)}</code></span>
         <span class="run-meta">${r.experience} · ${r.timeframe} · ${ent(r.n)} trades</span>
         <span class="run-issue" data-tone="${TONS[r.issue] || ""}">${r.issue}</span>
       </button>`).join("");

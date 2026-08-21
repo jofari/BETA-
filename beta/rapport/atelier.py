@@ -80,7 +80,8 @@ def executer(geste: str, charge: dict) -> dict:
         return {"ok": True, "module": module,
                 "code": gabarit.ecrire(module, str(charge.get("hypothese") or "R?"),
                                        nom=str(charge.get("nom") or ""),
-                                       intention=str(charge.get("intention") or ""))}
+                                       intention=str(charge.get("intention") or ""),
+                                       titre_lisible=str(charge.get("titre") or ""))}
 
     if geste == "valider":
         return depot.valider(_code(charge), module)

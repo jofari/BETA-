@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from beta.moteur.pipeline import RESULTATS
+from beta.rapport import identite
 from beta.rapport.runs import MAX_POINTS_COURBE, _lire_json, _lire_parquet
 from beta.stats import comparaison as stats_comparaison
 
@@ -83,8 +84,9 @@ def charger_lot(split: str = "train") -> dict:
     correlation a 1,00 avec soi-meme, qu'on mettrait longtemps a comprendre.
     """
     runs = _runs_a_comparer(split)
-    verdicts, equities, univers = {}, {}, {}
+    verdicts, equities, univers, titres = {}, {}, {}, {}
     for nom, verdict in runs.items():
+        titres[nom] = identite.resoudre(verdict)
         dossier = verdict["_dossier"]
         verdicts[nom] = _VerdictLu(verdict)
         equity = _lire_parquet(dossier / "equity.parquet")
@@ -96,6 +98,7 @@ def charger_lot(split: str = "train") -> dict:
             if len(serie) >= 3:
                 univers[nom] = serie
     return {"verdicts": verdicts, "equities": equities, "univers": univers,
+            "titres": titres,
             "arit": stats_comparaison.equity_arit(train_seulement=(split == "train")),
             "n": len(runs)}
 
@@ -114,7 +117,7 @@ def vue(split: str = "train") -> dict:
     if not lot["n"]:
         return {"n": 0, "tableau": [], "courbes": {}, "matrice": {"noms": [], "valeurs": []},
                 "reality_check": {}, "redondances": [], "arit_present": False,
-                "split": split,
+                "titres": {}, "split": split,
                 "reserves": ["aucun run enregistre : lancer `python beta.py cribler`"]}
     equities, arit = lot["equities"], lot["arit"]
 
@@ -126,6 +129,7 @@ def vue(split: str = "train") -> dict:
     return {
         "n": lot["n"],
         "split": split,
+        "titres": lot["titres"],
         "tableau": _table(classement["tableau"]),
         "reality_check": _propre_dict(classement["reality_check"]),
         "matrice": {"noms": list(matrice.columns),
