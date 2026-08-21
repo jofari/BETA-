@@ -45,7 +45,8 @@ def verifier_nom(module: str) -> None:
                          "souligne, de 3 a 49 caracteres")
 
 
-def valider(code: str, module: str, timeout: int = epreuve.TIMEOUT_S) -> dict:
+def valider(code: str, module: str, timeout: int = epreuve.TIMEOUT_S,
+            timeframe: str = "") -> dict:
     """Sas statique puis epreuve dynamique, sur une copie temporaire. N'ecrit pas la cible.
 
     Rend un rapport unique : `{ok, refus, reserves, mesures, sas, epreuve}`. Les refus des
@@ -65,7 +66,8 @@ def valider(code: str, module: str, timeout: int = epreuve.TIMEOUT_S) -> dict:
     try:
         DOSSIER.mkdir(parents=True, exist_ok=True)
         cible.write_text(code, encoding="utf-8")
-        rapport_epreuve = epreuve.lancer(essai, timeout=timeout)
+        rapport_epreuve = epreuve.lancer(essai, timeout=timeout,
+                                         timeframe=timeframe)
     except OSError as exc:
         raise DepotError(f"ecriture de l'essai impossible : {exc}") from exc
     finally:
@@ -103,7 +105,7 @@ def reserves_de_protocole(code: str) -> list[str]:
 
 
 def deposer(code: str, module: str, ecraser: bool = False,
-            timeout: int = epreuve.TIMEOUT_S) -> dict:
+            timeout: int = epreuve.TIMEOUT_S, timeframe: str = "") -> dict:
     """Valide puis pose le fichier. Rien n'est ecrit si la validation refuse."""
     verifier_nom(module)
     cible = chemin(module)
@@ -113,7 +115,7 @@ def deposer(code: str, module: str, ecraser: bool = False,
             "l'empreinte de la candidate changera : les verdicts deja rendus ne "
             "s'appliqueront plus a la nouvelle version, et c'est voulu.")
 
-    rapport = valider(code, module, timeout=timeout)
+    rapport = valider(code, module, timeout=timeout, timeframe=timeframe)
     if not rapport["ok"]:
         rapport["depose"] = False
         return rapport

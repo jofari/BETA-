@@ -50,6 +50,16 @@ PAIRE_TEMOIN = "BTC"
 TIMEFRAME_TEMOIN = "4h"
 BOUGIES_TEMOIN = 1500
 
+# Une candidate INTRADAY est structurellement muette sur du 4h : une regle ancree sur
+# 09:30-10:15 New York ne trouve aucune bougie 4h dans sa fenetre, donc ne signale rien, donc
+# est refusee pour « aucun signal » alors qu'elle est juste. Le timeframe d'epreuve se choisit
+# donc, et le defaut ne bouge pas.
+#
+# Le nombre de bougies suit : 1500 bougies 5m ne couvrent que cinq jours, ce qui rendrait une
+# regle a un signal par jour indecidable pour une raison qui n'est pas la sienne. On vise
+# partout le meme ORDRE DE GRANDEUR en temps couvert, pas en nombre de lignes.
+BOUGIES_PAR_TIMEFRAME = {"5m": 20_000, "15m": 8_000, "1h": 4_000}
+
 # Coupures de l'epreuve de causalite, en fraction de la tranche. Trois suffisent : une
 # fonction qui regarde le futur echoue a la premiere, et les deux autres ne servent qu'a
 # distinguer un debordement d'une bougie d'une normalisation globale.
@@ -71,7 +81,7 @@ class EpreuveError(RuntimeError):
 
 # --- cote appelant ----------------------------------------------------------------------
 
-def lancer(module: str, timeout: int = TIMEOUT_S) -> dict:
+def lancer(module: str, timeout: int = TIMEOUT_S, timeframe: str = "") -> dict:
     """Lance l'epreuve dans un sous-processus. Ne leve pas : un echec est un rapport.
 
     Le rapport a toujours la meme forme, quoi qu'il arrive — `{ok, refus, reserves,
@@ -80,7 +90,8 @@ def lancer(module: str, timeout: int = TIMEOUT_S) -> dict:
     """
     try:
         fini = subprocess.run(                                   # noqa: S603
-            [sys.executable, "-m", "beta.atelier.epreuve", module],
+            [sys.executable, "-m", "beta.atelier.epreuve", module]
+            + (["--timeframe", timeframe] if timeframe else []),
             cwd=str(RACINE), capture_output=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired:
         return {"module": module, "ok": False,
@@ -106,13 +117,18 @@ def lancer(module: str, timeout: int = TIMEOUT_S) -> dict:
 
 # --- cote enfant ------------------------------------------------------------------------
 
-def _serie_temoin():
-    """Une tranche reelle de train. Jamais le hold-out : le regarder, c'est le bruler."""
+def _serie_temoin(timeframe_voulu: str = ""):
+    """Une tranche reelle de train. Jamais le hold-out : le regarder, c'est le bruler.
+
+    `timeframe_voulu` place une serie en tete des essais sans retirer les autres : une
+    candidate intraday demande du 5m, et si le lake ne l'a pas, mieux vaut une epreuve sur
+    autre chose qu'une candidate non eprouvee.
+    """
     from beta.lake import catalogue, lecture
     from beta.protocole import holdout
 
     coupure = holdout.DEBUT.date().isoformat()
-    essais = [(PAIRE_TEMOIN, TIMEFRAME_TEMOIN)]
+    essais = [(PAIRE_TEMOIN, timeframe_voulu or TIMEFRAME_TEMOIN)]
     etat = catalogue.etat()
     if not etat.empty:
         essais += [(ligne["paire"], ligne["timeframe"])
@@ -123,7 +139,8 @@ def _serie_temoin():
         except Exception:                                  # noqa: BLE001 - on essaie la
             continue                                       # serie suivante, pas d'arret
         if len(df) >= 200:
-            return df.tail(BOUGIES_TEMOIN).copy(), f"{paire} {timeframe}"
+            combien = BOUGIES_PAR_TIMEFRAME.get(timeframe, BOUGIES_TEMOIN)
+            return df.tail(combien).copy(), f"{paire} {timeframe}"
     raise EpreuveError("aucune serie du lake ne permet d'eprouver une candidate — "
                        "construire le lake d'abord (`python beta.py lake`)")
 
@@ -159,7 +176,7 @@ def _comparer(reference, tronque) -> tuple[int, int | None, float]:
     return int(differences.size), premiere, ecart
 
 
-def eprouver(module: str) -> dict:
+def eprouver(module: str, timeframe: str = "") -> dict:
     """L'epreuve complete, dans le processus courant. Appelee par `main()`."""
     from beta.moteur import registre
 
@@ -172,7 +189,7 @@ def eprouver(module: str) -> dict:
     mesures["hypothese"] = candidate.hypothese
     mesures["empreinte"] = candidate.empreinte
 
-    df, temoin = _serie_temoin()
+    df, temoin = _serie_temoin(timeframe)
     mesures["temoin"] = f"{temoin}, {len(df)} bougies"
 
     signaux = candidate.appliquer(df)                      # contrat : leve si viole
@@ -238,10 +255,13 @@ def main(argv: list[str] | None = None) -> int:
 
     parseur = argparse.ArgumentParser(prog="beta.atelier.epreuve")
     parseur.add_argument("module")
+    parseur.add_argument("--timeframe", default="",
+                         help="unite de temps de la serie temoin (defaut : 4h). "
+                              "Une candidate intraday ne signale rien en 4h.")
     arguments = parseur.parse_args(argv)
 
     try:
-        rapport = eprouver(arguments.module)
+        rapport = eprouver(arguments.module, arguments.timeframe)
     except Exception as exc:                               # noqa: BLE001 - c'est le but
         rapport = {"module": arguments.module, "ok": False,
                    "refus": [f"{type(exc).__name__} : {exc}"], "reserves": [],
