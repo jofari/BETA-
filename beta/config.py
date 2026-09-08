@@ -49,6 +49,15 @@ def chemin_feather_arit(slug: str, timeframe: str) -> pathlib.Path:
     return ARIT_DATA / f"{slug}-{timeframe}-{TRADING_MODE}.feather"
 
 
+def chemin_feather_funding(slug: str) -> pathlib.Path:
+    """Taux de financement 8h d'une paire, telecharge par freqtrade dans ARIT (lecture seule).
+
+    freqtrade depose le funding sous le suffixe `-1h-funding_rate` (une ligne par periode
+    de 8h), a cote des bougies `-{tf}-futures`. Le 1h est trompeur : le pas reel est 8h.
+    """
+    return ARIT_DATA / f"{slug}-1h-funding_rate.feather"
+
+
 def chemin_feather_brut(slug: str, timeframe: str) -> pathlib.Path:
     # `--datadir` designe DEJA le dossier de l'exchange : freqtrade y depose directement
     # `futures/`, sans re-creer un niveau `binance/`. Verifie sur le telechargement du 18/08.

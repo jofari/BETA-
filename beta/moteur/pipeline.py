@@ -51,15 +51,47 @@ def _bornes_du_split(run: Run) -> tuple[str | None, str | None]:
 
 
 def series_du_run(run: Run) -> dict[str, pd.DataFrame]:
-    """OHLCV de chaque paire du run, deja borne au split autorise."""
+    """OHLCV de chaque paire du run, deja borne au split autorise.
+
+    Le funding rate est joint comme colonne `funding_rate` (chantier D5) : la colonne vaut
+    le taux dont le reglement est STRICTEMENT anterieur a l'ouverture de la bougie — donc
+    connu au moment de l'entree, sans look-ahead. Une paire sans funding reste utilisable :
+    la colonne est simplement absente, et les candidates qui n'en ont pas besoin l'ignorent.
+    """
     debut, fin = _bornes_du_split(run)
     series = {}
     for paire in run.paires:
         try:
-            series[paire] = lecture.load(paire, run.timeframe, debut=debut, fin=fin)
+            df = lecture.load(paire, run.timeframe, debut=debut, fin=fin)
+            df = _joindre_funding(df, paire)
+            series[paire] = df
         except lecture.DataError as exc:
             log.error("%s %s indisponible : %s", paire, run.timeframe, exc)
     return series
+
+
+def _joindre_funding(df: pd.DataFrame, paire: str) -> pd.DataFrame:
+    """Joint la colonne funding_rate a l'OHLCV, sans look-ahead.
+
+    merge_asof direction backward + allow_exact_matches=False : pour chaque bougie, le taux
+    retenu est celui dont le reglement est STRICTEMENT avant l'ouverture de la bougie. Un
+    taux regle exactement a l'ouverture est ecarte (il n'est pas encore certain a cet
+    instant). Si le funding est absent, rend df inchange.
+    """
+    try:
+        f = lecture.funding(paire)
+    except lecture.DataError:
+        return df
+    if f.empty or df.empty:
+        return df
+    df = df.sort_values("date")
+    # Le lake (DuckDB) rend du datetime64[us], le feather du [ms] : merge_asof exige le
+    # meme dtype. On aligne le funding sur l'OHLCV.
+    f = f.copy()
+    f["date"] = f["date"].astype(df["date"].dtype)
+    joint = pd.merge_asof(df, f, on="date", direction="backward",
+                          allow_exact_matches=False)
+    return joint
 
 
 def trades_du_run(run: Run, series: dict[str, pd.DataFrame]) -> pd.DataFrame:

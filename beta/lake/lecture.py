@@ -106,6 +106,24 @@ def resample(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
     return out
 
 
+def funding(paire: str) -> pd.DataFrame:
+    """Taux de financement 8h de la paire, lu dans les feathers d'ARIT (lecture seule).
+
+    Rend un DataFrame (date, funding_rate), trie et tz-aware. `date` est l'horodatage de
+    REGLEMENT de la periode — le taux est celui qui a ete paye a cette date, pour la periode
+    [date-8h, date]. Pour une entree a un instant t, le taux SANS look-ahead est donc celui
+    dont le reglement est STRICTEMENT anterieur a t (cf. merge_asof allow_exact_matches=False
+    dans le pipeline).
+    """
+    p = univers.resoudre(paire)
+    chemin = config.chemin_feather_funding(p.slug)
+    if not chemin.exists():
+        raise DataError(f"{p.base} funding absent du lake ARIT ({chemin.name})")
+    df = pd.read_feather(chemin)
+    df["date"] = pd.to_datetime(df["date"], utc=True)
+    return df[["date", "funding_rate"]].sort_values("date").reset_index(drop=True)
+
+
 def _avertir_si_suspect(paire: univers.Paire, timeframe: str) -> None:
     if not config.CATALOGUE.exists():
         return
