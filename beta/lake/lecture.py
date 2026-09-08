@@ -124,6 +124,24 @@ def funding(paire: str) -> pd.DataFrame:
     return df[["date", "funding_rate"]].sort_values("date").reset_index(drop=True)
 
 
+def fear_greed() -> pd.DataFrame:
+    """Fear & Greed Index quotidien, lu dans les donnees macro d'ARIT (lecture seule).
+
+    Rend un DataFrame (date, fng), date = minuit UTC du jour. Le F&G du jour n'est public
+    qu'a la fin de ce jour (source alternative.me) : pour l'utiliser SANS look-ahead, le
+    pipeline le decale d'un jour (voir `_joindre_macro`).
+    """
+    chemin = config.ARIT_MACRO / "fear_greed.json"
+    if not chemin.exists():
+        raise DataError(f"F&G absent ({chemin.name})")
+    import json
+    brut = json.loads(chemin.read_text(encoding="utf-8"))
+    lignes = [(pd.Timestamp(int(x["timestamp"]), unit="s", tz="UTC"), float(x["value"]))
+              for x in brut.get("data", []) if x.get("timestamp")]
+    df = pd.DataFrame(lignes, columns=["date", "fng"])
+    return df.sort_values("date").reset_index(drop=True)
+
+
 def _avertir_si_suspect(paire: univers.Paire, timeframe: str) -> None:
     if not config.CATALOGUE.exists():
         return

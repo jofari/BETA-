@@ -24,6 +24,7 @@ JOURNAL = DATA / "build_lake.log"
 # demenage — mais jamais en dur ailleurs que dans ce fichier.
 ARIT = pathlib.Path(os.environ.get("ARIT_HOME", r"C:\Users\jofar\ARIT2.0"))
 ARIT_DATA = ARIT / "user_data" / "data" / "binance" / "futures"
+ARIT_MACRO = ARIT / "user_data" / "data" / "macro"
 
 EXCHANGE = "binance"
 TRADING_MODE = "futures"

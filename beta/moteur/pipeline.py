@@ -64,6 +64,7 @@ def series_du_run(run: Run) -> dict[str, pd.DataFrame]:
         try:
             df = lecture.load(paire, run.timeframe, debut=debut, fin=fin)
             df = _joindre_funding(df, paire)
+            df = _joindre_macro(df)
             series[paire] = df
         except lecture.DataError as exc:
             log.error("%s %s indisponible : %s", paire, run.timeframe, exc)
@@ -92,6 +93,27 @@ def _joindre_funding(df: pd.DataFrame, paire: str) -> pd.DataFrame:
     joint = pd.merge_asof(df, f, on="date", direction="backward",
                           allow_exact_matches=False)
     return joint
+
+
+def _joindre_macro(df: pd.DataFrame) -> pd.DataFrame:
+    """Joint la colonne `fng` (Fear & Greed) a l'OHLCV, avec un decalage d'un jour.
+
+    Le F&G du jour D n'est public qu'a la fin de D : on decale sa date d'un jour, puis
+    merge_asof backward (allow_exact_matches=False). Une bougie ne voit donc que le F&G de
+    la veille ou d'avant — jamais celui du jour en cours. Macro absente => df inchange.
+    """
+    try:
+        fng = lecture.fear_greed()
+    except lecture.DataError:
+        return df
+    if fng.empty or df.empty:
+        return df
+    fng = fng.copy()
+    fng["date"] = fng["date"] + pd.Timedelta(days=1)
+    fng["date"] = fng["date"].astype(df["date"].dtype)
+    df = df.sort_values("date")
+    return pd.merge_asof(df, fng, on="date", direction="backward",
+                         allow_exact_matches=False)
 
 
 def trades_du_run(run: Run, series: dict[str, pd.DataFrame]) -> pd.DataFrame:
