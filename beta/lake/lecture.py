@@ -142,6 +142,38 @@ def fear_greed() -> pd.DataFrame:
     return df.sort_values("date").reset_index(drop=True)
 
 
+def macro_globales() -> pd.DataFrame:
+    """Series macro GLOBALES quotidiennes (FRED), lues dans ARIT (lecture seule).
+
+    Rend un DataFrame indexe par date (minuit UTC), une colonne par indicateur : vix,
+    tips10y (taux reel), breakeven10y (inflation attendue), hy_oas/ig_oas (spreads credit),
+    dxy (dollar), spread_2s10s (courbe), fedfunds. Les valeurs manquantes FRED ('.') sont
+    NaN. Une serie absente est simplement omise : la jointure reste utilisable.
+    """
+    noms = {
+        "vix.csv": "vix", "tips10y.csv": "tips10y", "breakeven10y.csv": "breakeven10y",
+        "hy_oas.csv": "hy_oas", "ig_oas.csv": "ig_oas", "dxy.csv": "dxy",
+        "spread_2s10s.csv": "spread_2s10s", "fedfunds.csv": "fedfunds",
+    }
+    morceaux = []
+    for fichier, nom in noms.items():
+        chemin = config.ARIT_MACRO_GLOBAL / fichier
+        if not chemin.exists():
+            continue
+        df = pd.read_csv(chemin, parse_dates=["observation_date"])
+        if len(df.columns) < 2:
+            continue
+        colonne = df.columns[1]
+        df = df.rename(columns={"observation_date": "date", colonne: nom})[["date", nom]]
+        df[nom] = pd.to_numeric(df[nom], errors="coerce")
+        morceaux.append(df.set_index("date"))
+    if not morceaux:
+        return pd.DataFrame()
+    out = pd.concat(morceaux, axis=1)
+    out.index = pd.to_datetime(out.index, utc=True)
+    return out.sort_index()
+
+
 def _avertir_si_suspect(paire: univers.Paire, timeframe: str) -> None:
     if not config.CATALOGUE.exists():
         return

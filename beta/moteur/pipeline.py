@@ -96,23 +96,28 @@ def _joindre_funding(df: pd.DataFrame, paire: str) -> pd.DataFrame:
 
 
 def _joindre_macro(df: pd.DataFrame) -> pd.DataFrame:
-    """Joint la colonne `fng` (Fear & Greed) a l'OHLCV, avec un decalage d'un jour.
+    """Joint les colonnes macro (fng + series globales FRED) a l'OHLCV, decalees d'un jour.
 
-    Le F&G du jour D n'est public qu'a la fin de D : on decale sa date d'un jour, puis
-    merge_asof backward (allow_exact_matches=False). Une bougie ne voit donc que le F&G de
-    la veille ou d'avant — jamais celui du jour en cours. Macro absente => df inchange.
+    Toutes les series macro sont quotidiennes et publiees en fin de journee : on decale leur
+    date d'un jour puis merge_asof backward (allow_exact_matches=False). Une bougie ne voit
+    donc que la valeur de la veille ou d'avant — jamais celle du jour en cours. Macro absente
+    => df inchange.
     """
     try:
         fng = lecture.fear_greed()
     except lecture.DataError:
+        fng = pd.DataFrame({"date": [], "fng": []})
+    globales = lecture.macro_globales()
+    if df.empty or (fng.empty and globales.empty):
         return df
-    if fng.empty or df.empty:
-        return df
-    fng = fng.copy()
-    fng["date"] = fng["date"] + pd.Timedelta(days=1)
-    fng["date"] = fng["date"].astype(df["date"].dtype)
+
+    fng_i = fng.set_index("date") if "date" in fng.columns else fng
+    macro = fng_i.join(globales, how="outer") if not globales.empty else fng_i
+    macro = macro.reset_index()
+    macro["date"] = macro["date"] + pd.Timedelta(days=1)
+    macro["date"] = macro["date"].astype(df["date"].dtype)
     df = df.sort_values("date")
-    return pd.merge_asof(df, fng, on="date", direction="backward",
+    return pd.merge_asof(df, macro, on="date", direction="backward",
                          allow_exact_matches=False)
 
 
