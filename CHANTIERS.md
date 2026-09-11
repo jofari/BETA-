@@ -366,13 +366,14 @@ gagnante glissée dedans, il la **voit** (p ≤ 0,05, et c'est bien elle qu'il n
 |---|---|---|---|
 | ~~T1~~ | ~~Repo distant privé non créé~~ | ✅ fermée 19/08 — `github.com/jofari/BETA-`, rebasé sur le commit initial et poussé | — |
 | **T2** | **venv partagé avec ARIT** (`C:\Users\jofar\venvs\arit`) | 🔴 ouverte | une mise à jour pour ARIT casse BETA, ou l'inverse |
-| **T3** | **Bornes de fin hétérogènes** — LINK/XRP vont au 18/08, les 4 paires d'ARIT s'arrêtent au 04/08 | 🔴 ouverte | un run multi-paires s'arrête à la borne commune sans le dire ; visible dans le dashboard, à ne pas oublier au moment de conclure |
-| **T4** | **`ts_utc` du journal d'ARIT ment** sur les événements `gestion` (heure d'exécution du backtest, pas de la bougie). Contourné côté BETA par `signal_id`. ⚠️ **La correction appartient à ARIT** : inscrite là-bas le 19/08 sous **T4-ARIT** (`ARIT2.0/research/pistes_2026-07-31/CHANTIERS.md` § MISE À JOUR DU 2026-08-19) — cause exacte : `ev_gestion()` ne pose pas de `ts_utc`, `write()` retombe sur `_now_iso()` | 🔴 ouverte (contournée ici, **non corrigée** à la source) | à corriger **à la source**, côté ARIT, sinon chaque nouveau consommateur retombera dedans |
+| **T3** | **Bornes de fin hétérogènes** — ~~LINK/XRP au 18/08, les 4 paires d'ARIT au 04/08~~ ⇒ **mise à jour 11/09 : LINK/XRP au 11/09, les 4 paires d'ARIT au 24/08** (écart de 18 jours, contre 14 avant) | 🔴 ouverte | un run multi-paires s'arrête à la borne commune sans le dire ; visible dans le dashboard, à ne pas oublier au moment de conclure |
+| **T4** | **`ts_utc` du journal d'ARIT ment** sur les événements `gestion` (heure d'exécution du backtest, pas de la bougie). Contourné côté BETA par `signal_id`. ⚠️ **La correction appartient à ARIT** : inscrite là-bas le 19/08 sous **T4-ARIT** (`ARIT2.0/research/pistes_2026-07-31/CHANTIERS.md` § MISE À JOUR DU 2026-08-19) — cause exacte : `ev_gestion()` ne pose pas de `ts_utc`, `write()` retombe sur `_now_iso()` | 🔴 ouverte (contournée ici, **non corrigée** à la source) — **revérifiée le 11/09 dans `journal.py` d'ARIT : `ev_gestion` ne pose toujours pas de `ts_utc`** | à corriger **à la source**, côté ARIT, sinon chaque nouveau consommateur retombera dedans |
 | **T5** | **Le pont freqtrade n'a pas ses données** — `--datadir` pointe sur `data/raw`, où seuls LINK et XRP sont en feather ; BTC/ETH/SOL/BNB ne vivent qu'en parquet dans le lake | 🔴 ouverte | la confirmation portefeuille (M3) ne peut tourner que sur 2 paires sur 6. Faire lire `ARIT2.0/user_data/data/` à freqtrade lui ferait écrire dans le dossier d'ARIT — **interdit par l'invariant n° 1** — donc à résoudre par un export feather depuis le lake |
 | **T6** | **Chemins synthétiques rejoués sur une seule paire** (la première du run) | 🟠 ouverte, assumée | le coût est linéaire en nombre de paires ; la réserve est écrite dans chaque verdict, elle n'est donc pas silencieuse |
 | ~~T9~~ | ~~**S1 n'est JAMAIS exécutée par le pipeline.**~~ `pipeline.executer` ne passe pas `famille=` à `batterie.evaluer`, donc `portes["S1_benjamini_hochberg"]` reste `None`. Or `issue()` n'accorde CONFIRMEE que si **les neuf** portes ont tourné. ⇒ **aucune candidate ne peut être confirmée aujourd'hui : le plafond du banc est INDECIDABLE.** Vérifié sur le run `e9238689db9b`. Corriger demande de décider ce qu'est la famille pour un criblage — le lot du run, ou les hypothèses déclarées (`famille_taille`) comme le fait `scripts/mesurer.py`. Deux seuils différents, donc un arbitrage, cousin de A1 | ✅ **fermée 20/08** — `cribler()` construit la famille du lot et la passe à `batterie.evaluer` | — |
 | ~~T10~~ | ~~**Le criblage ne clôt pas l'expérience.**~~ R2 est mesurée (INFIRMEE) mais `EXPERIMENTS.jsonl` la dit toujours `preenregistre` : `pipeline` écrit le verdict dans `data/runs/` et `RUNS.jsonl`, jamais `experiences.clore()`. R1 et R6 ne sont closes que parce que `scripts/mesurer.py` le fait à la main | ✅ **fermée 20/08** — `pipeline` appelle `marquer_mesuree()` : statut `mesure`, la clôture reste un geste explicite | — |
 | ~~T8~~ | ~~**Le compteur d'essais compte les HYPOTHÈSES, pas les MESURES.**~~ `compteur()` = 30 + nombre d'ids distincts dans `EXPERIMENTS.jsonl`. Tant qu'il y avait une candidate par hypothèse les deux nombres coïncidaient ; l'atelier casse l'égalité — dix candidates sous R7, c'est dix tests et **un seul point de compteur**. `RUNS.jsonl` (racine, append-only, ajouté le 19/08) **mesure** l'écart, `beta.py doctor` l'affiche, et **rien ne change encore** : faire porter N par les runs durcirait rétroactivement tous les verdicts déjà rendus. ⇒ arbitrage de Jonas, `DECISIONS.md` § A1 | ✅ **fermée 20/08** — arbitrage A1 tranché (b), `compteur()` porte les mesures. N vaut toujours 36 : rien n'est réécrit | — |
+| **T11** | **Les runs de `data/runs/` ne couvrent pas tous la même fenêtre** — ceux d'avant le 11/09 ont été mesurés sur un lake qui s'arrêtait au 04/08 (4 paires) et au 18/08 (LINK/XRP) | 🟠 ouverte, assumée | aucune mesure ne ment — la comparaison de courbes aligne sur la période commune (`stats/comparaison.py:_ecart_contre`) et S7 tronque à la plus courte (`stats/multitest.py:_matrice`, **par index, pas par date**) — mais un run rejoué aujourd'hui n'est plus le jumeau exact de celui d'août, alors que `run_id` est déterministe sur l'hypothèse et le code |
 | **T7** | **L'équity à risque fixe non composé peut passer sous zéro** — R2 finit à −83 750 sur 100 000 | 🟠 ouverte, assumée | mathématiquement cohérent, physiquement impossible. Le choix rend deux candidates comparables entre elles ; le compounding se mesure côté freqtrade (M3), une seule fois |
 
 
@@ -386,8 +387,8 @@ faute de séries, et aucune ne peut être mesurée en attendant.
 
 | # | Chantier | Débloque | Effort | Comment |
 |---|---|---|---|---|
-| **D5** | **Taux de financement** des perpétuels, 6 paires, même profondeur d'historique que l'OHLCV | **R3** (portage / funding) | M | `ccxt.fetch_funding_rate_history`, à verser au lake comme une table de plus, avec son catalogue de trous |
-| **D6** | **Séries macro** (DXY, taux, fear & greed) au pas journalier | **R4** (macro seule) | M | ARIT les calcule déjà dans ses évaluations (`regime_inputs.*`) : commencer par les **extraire du journal** plutôt que les retélécharger |
+| **D5** | **Taux de financement** des perpétuels, 6 paires, même profondeur d'historique que l'OHLCV | **R3** (portage / funding) | M → **S/M depuis le 11/09** | ⚡ **4 paires sur 6 sont déjà sur le disque d'ARIT** : `{BTC,ETH,SOL,BNB}_USDT_USDT-1h-funding_rate.feather`, même dossier que l'OHLCV importé ⇒ import en lecture seule, zéro réseau. Restent LINK et XRP par `ccxt.fetch_funding_rate_history`. Table de plus au lake, avec son catalogue de trous |
+| **D6** | **Séries macro** (DXY, taux, fear & greed) au pas journalier | **R4** (macro seule) | ~~M~~ → **S depuis le 11/09** | ⚡ **plus besoin de les extraire du journal** : ARIT les a **en clair sur disque** depuis le 24/08 dans `ARIT2.0/user_data/data/macro/` (`dxy.csv`, `taux_fed.csv`, `fear_greed.json`, `nasdaq100.csv`, `stablecoins.json`, `funding_BTCUSDT.json`, `funding_ETHUSDT.json`, `btc_daily.json`). Lecture seule, aucun réseau, invariant n° 1 intact |
 | **D7** | **Séries spot** des mêmes 6 paires | **R5** (spot vs perpétuel) | S | `freqtrade download-data --trading-mode spot`, le chemin existe déjà dans `lake/telechargement.py` |
 
 ⚠️ **D6 avant D5.** Les features macro sont déjà sur le disque, dans le journal d'ARIT :
@@ -568,3 +569,121 @@ exposer.
 | **O-a** | **Le canal.** Push Discord seul (rien d'exposé), ou aussi une page joignable de l'extérieur ? | **Discord seul** tant qu'il n'y a pas de VPS |
 | **O-b** | **La cadence du battement.** Toutes les heures ? 4 h ? Une fois par jour ? | **4 h**, + une alerte immédiate sur événement (entrée, sortie, circuit breaker) |
 | **O-c** | **Où tourne O1** tant qu'il n'y a pas de VPS — sur le PC (meurt avec lui, mais son silence devient un signal) ou dans une routine cloud ? | **Sur le PC**, avec le silence traité comme une panne côté lecteur |
+
+---
+
+## MISE À JOUR DU 2026-09-11 — ce qu'ARIT a appris pendant que BETA dormait
+
+BETA est figé depuis le 21/08 (dernier commit `c03f5ab`, R8 infirmée). ARIT, lui, a produit
+**20 commits entre le 20/08 et le 07/09**, dont quatre sessions de recherche qui touchent
+directement des hypothèses préenregistrées ici. Ce bloc verse ces données dans BETA : le lake
+d'abord, les hypothèses ensuite, les dettes pour finir.
+
+⚠️ **Rien de ce qui suit n'est une mesure BETA.** Ce sont des résultats obtenus **ailleurs**,
+sur 4 actifs (jamais LINK ni XRP), avec des sorties qui ne sont pas la triple barrière du
+moteur. Ils déplacent ce qu'on **croit**, pas ce qu'on a **établi** — et ils ne consomment
+aucun cran de compteur, qui reste à **41**.
+
+### 1. Le lake a été rafraîchi (11/09)
+
+`scripts/build_lake.py`, import ARIT + delta réseau. Ce qui change :
+
+| paires | borne de fin avant | borne de fin après | d'où |
+|---|---|---|---|
+| BTC · ETH · SOL · BNB | 2026-08-04 | **2026-08-24** | ARIT a re-téléchargé ses feathers le 24/08 (import, zéro réseau) |
+| LINK · XRP | 2026-08-18 | **2026-09-11** | `freqtrade download-data`, delta seulement |
+
+Couverture **100 % partout, aucune série suspecte**, aucun trou. Repères : BTC 4h passe de
+15 131 à 15 251 bougies, BTC 5m de 726 304 à 732 054.
+
+⚠️ **T3 n'est pas fermée, elle a bougé** : l'écart entre les deux groupes passe de 14 à
+**18 jours** (24/08 contre 11/09). Un run multi-paires s'arrête toujours à la borne commune —
+`beta.py doctor` l'affiche désormais au **2026-08-23**, la veille de la borne intraday, parce
+que c'est la série `1d` d'ARIT qui s'arrête là.
+
+⚠️ Tout ce qui vient d'entrer est postérieur au **01/01/2025**, donc tombe en **hold-out**.
+Le hold-out n'est pas brûlé pour autant — personne ne l'a regardé — mais les runs de
+`data/runs/` mesurés avant aujourd'hui l'ont été sur une fenêtre plus courte (⇒ **T11**).
+
+### 2. Ce que les mesures d'ARIT font aux hypothèses préenregistrées ici
+
+**R3 — portage / funding : sa prémisse est attaquée.** R3 a été préenregistrée sur « 86 % du
+profit de MacroFlip venait du funding ». ARIT a mesuré le funding sur 4 actifs, 2019-2026
+(`research/pertinence_donnees_2026-09-05/RAPPORT.md` § 2) : **IC Spearman funding → retour
+futur entre −0,06 et +0,001**, soit inerte. Le seul effet net est le squeeze des shorts aux
+extrêmes négatifs, **visible sur BTC seul** (+1,88 % à 7 j) et estompé ailleurs. Le rapport
+d'ARIT écrit lui-même que le chiffre des 86 % est « à revérifier ». ⇒ arbitrage **B-a**
+(`DECISIONS.md`) — R3 reste préenregistrée tant que Jonas n'a pas tranché : on ne retire pas
+une hypothèse du registre sur un résultat obtenu ailleurs.
+
+**R4 — macro seule : D6 est débloqué, et l'hypothèse devient plus intéressante, pas moins.**
+Les séries macro ne sont plus à extraire du journal : ARIT les a **sur disque en clair**
+depuis le 24/08, dans `ARIT2.0/user_data/data/macro/` — `dxy.csv`, `taux_fed.csv`,
+`fear_greed.json`, `nasdaq100.csv`, `stablecoins.json`, `funding_BTCUSDT.json`,
+`funding_ETHUSDT.json`, `btc_daily.json`. Lecture seule, aucun réseau, invariant n° 1 intact.
+Et le 05/09, ARIT a **retiré son multiplicateur macro** (B1, option (b) : TREND ⇒ ×1,0) au
+motif que la macro est une donnée faible. ⇒ BETA est désormais le seul endroit où la question
+« la macro seule vaut-elle quelque chose ? » peut recevoir une réponse mesurée (arbitrage **B-b**).
+
+**R6 — `news_window` : la boucle s'est fermée côté ARIT.** Le 06/09, ARIT a **neutralisé sa
+porte news en backtest** (`skip_news`), pour deux motifs qui recoupent exactement ce que R6
+avait trouvé le 19/08 : `macro_state` n'est pas point-in-time, et la source est incomplète.
+Le chiffre « 91,75 % de tout ce qui est rejeté » reste à corriger partout où il est cité —
+c'étaient des lignes de journal, pas des signaux.
+
+**D5 — funding : la moitié est gratuite.** ARIT a sur disque
+`{BTC,ETH,SOL,BNB}_USDT_USDT-1h-funding_rate.feather`, même dossier que l'OHLCV importé.
+4 paires sur 6 sans un appel réseau ; LINK et XRP resteraient à télécharger. Ça ne ferme pas
+D5 — un lake à trous déclarés exige le même catalogue pour cette table que pour les autres —
+mais ça en divise le coût.
+
+### 3. Le résultat qui vaut pour le banc, et qu'aucune mesure BETA n'a
+
+**Le momentum de prix 14-60 jours bat le buy-and-hold sur les 4 actifs** (Sharpe ~1,0 contre
+0,55-0,83), **et il survit hors échantillon** (train < 2023 → holdout ≥ 2023 : BTC 1,03 → 0,98,
+ETH 1,30 → 0,83, SOL 1,69 → 0,89, BNB 1,14 → 0,78). Le pic est un **plateau** entre 14 et
+60 jours, pas un point isolé de balayage — c'est ce qui distingue un effet d'un artefact de
+grille.
+
+ARIT en conclut « momentum = beta, pas d'alpha », parce qu'il compare à un buy-and-hold
+long-only. **BETA a exactement l'outil qui tranche autrement** : S8 (B&H imposé), la triple
+barrière, et **6 paires dont 2 qui n'ont jamais servi à cette mesure**. C'est la deuxième
+candidate qui manque au banc depuis le 19/08 — celle sans laquelle S7 et S9 tournent à vide.
+Notée **I12** (gratuit) ; la promouvoir est un geste de Jonas (arbitrage **B-c**).
+
+Trois autres idées versées depuis la même session ARIT, toutes gratuites :
+
+| # | Idée | Pourquoi elle n'est pas promue d'office |
+|---|---|---|
+| **I13** | **Conditionnement de régime** plutôt que chasse à l'indicateur — 6 indicateurs testés, 6 fois le même méta-pattern : IC ≈ 0, contrarien aux extrêmes, régime-dépendant | Multiplie les degrés de liberté, donc les faux gagnants. Exige une partition de régimes **écrite avant**, sinon S1 et S2 ne protègent plus de rien |
+| **I14** | **Croissance de l'offre de stablecoins** — IC +0,11 à 30 j, et **indépendante du prix** (IC partiel +0,117 après contrôle du momentum) | Échoue **déjà** hors échantillon (train +0,223 → holdout −0,094), cause plausible : la supply a plafonné vers 323 Md$. La promouvoir = payer un cran pour re-mesurer un échec connu |
+| **I15** | **Congestion du mempool** — seul on-chain dont l'IC survive au contrôle du momentum (+0,28 brut → **+0,07** partiel) | Probablement sous le MDE du banc à 6 paires. À vérifier avant, c'est le genre d'idée que le MDE tue en une ligne |
+
+⚠️ **Le leurre à retenir de cette session ARIT** : les adresses actives affichent l'IC brut le
+plus fort de toute l'étude (**+0,31**) et tombent à **+0,03** une fois le momentum contrôlé —
+90 % de redondance avec le prix. Tout signal externe candidat ici doit passer ce contrôle
+**avant** de coûter un cran de compteur.
+
+Et la leçon de méthode, qui est la nôtre : l'IC suggérait un filtre de volatilité, le backtest
+l'a **infirmé** (Sharpe 1,22 → 0,55). **Un IC élevé n'est pas un P&L.**
+
+### 4. Dettes — ce qui a été vérifié aujourd'hui
+
+- **T4 est toujours ouverte à la source.** Vérifié dans
+  `ARIT2.0/user_data/strategies/arit_lib/journal.py` le 11/09 : `ev_gestion` ne pose toujours
+  pas de `ts_utc` (« `ts_utc` via `write()` », l. 395), là où `ev_signal`, `ev_gate` et
+  `ev_sortie` le posent. Le contournement BETA par `signal_id` reste nécessaire.
+- **T11 — nouvelle** : les runs de `data/runs/` antérieurs au 11/09 couvrent une fenêtre plus
+  courte que ceux d'après. Vérifié en lisant le code plutôt qu'en le supposant : la comparaison
+  de courbes aligne déjà sur la **période commune** (`stats/comparaison.py:_ecart_contre`) et S7
+  tronque à la plus courte (`stats/multitest.py:_matrice`) — **par index, pas par date**. Donc
+  rien ne ment ; ce qui change, c'est qu'un run rejoué aujourd'hui n'est plus le jumeau exact de
+  celui d'août, alors que `run_id` est déterministe sur l'hypothèse et le code.
+
+### 5. Ce que ça ne change pas
+
+Le banc n'a toujours **qu'une seule candidate mesurée**, S7 et S9 tournent donc toujours à
+vide, et aucune des quatre idées ci-dessus ne change ça tant qu'elle n'est pas promue. Le
+goulot reste ce qu'il était le 20/08 : **le nombre d'hypothèses falsifiables qu'on est prêt à
+écrire avant de regarder les chiffres** — pas l'outillage, et maintenant plus tout à fait les
+données.

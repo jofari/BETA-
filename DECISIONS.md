@@ -140,8 +140,74 @@ Deux effets de bord assumés, tous deux dans le sens sévère :
 
 ---
 
+## B-a / B-b / B-c — ce que les mesures d'ARIT du 05-06/09 mettent sur la table
+
+> Ouverts le 2026-09-11, en versant dans BETA les résultats de la chasse à l'edge d'ARIT
+> (`ARIT2.0/research/pertinence_donnees_2026-09-05/` et `research/resultats_edge_2026-09-06.md`).
+> Détail et chiffres : `CHANTIERS.md` § MISE À JOUR DU 2026-09-11.
+> Lettres et non numéros : `B1` désigne déjà autre chose chez ARIT, et confondre les deux
+> registres coûterait plus cher que la laideur de la notation.
+
+⚠️ **Aucune de ces trois questions ne se tranche par une mesure** — c'est bien pour ça
+qu'elles sont ici. Elles décident **ce qu'on paie**, et ce qu'on paie, c'est le compteur
+d'essais (41 aujourd'hui) : chaque promotion durcit rétroactivement le seuil de toutes les
+autres hypothèses.
+
+### B-a — R3 (portage / funding) : la mesurer quand même, ou l'écarter ?
+
+R3 a été préenregistrée le 19/08 sur une prémisse : « **86 % du profit de MacroFlip venait du
+funding** ». ARIT vient de mesurer le funding sur 4 actifs et 7 ans : **IC entre −0,06 et
++0,001**, inerte, avec pour seul effet net un squeeze des shorts **sur BTC seul**. Le rapport
+d'ARIT écrit lui-même que les 86 % sont « à revérifier ».
+
+| option | ce que ça veut dire | le coût |
+|---|---|---|
+| **(a)** la mesurer quand même | l'hypothèse est au registre, elle se mesure ; un résultat obtenu ailleurs, sur d'autres sorties et sans LINK/XRP, ne la réfute pas | D5 (allégé : 4 paires sur 6 sont sur le disque d'ARIT) + un cran de compteur déjà payé |
+| **(b)** l'écarter, motif écrit | on ne dépense pas une mesure pour une prémisse dont la source dit qu'elle est fausse | le compteur ne redescend pas ; l'essai reste payé |
+
+**Défaut proposé : (a)**, mais **après** B-c. Écarter une hypothèse du registre sur la foi
+d'un résultat extérieur, c'est exactement le geste que le préenregistrement existe pour
+empêcher — sauf que le préenregistrement protège contre le fait de *garder* ce qui arrange,
+pas contre le fait de *jeter* ce qui coûte. ⇒ à toi.
+
+### B-b — R4 (macro seule) : D6 est débloqué, au moment où ARIT enterre la macro
+
+Les séries macro sont sur le disque d'ARIT **en clair** depuis le 24/08 (`user_data/data/macro/`) :
+R4 n'est plus bloquée, et le coût de D6 tombe de M à S. Simultanément, ARIT a **retiré son
+multiplicateur macro** le 05/09 (B1, option (b)) au motif que la macro est une donnée faible.
+
+⇒ Deux lectures opposées, et c'est un choix, pas un calcul : soit la macro est enterrée et R4
+ne vaut plus une mesure, soit **BETA est précisément le seul endroit où la question peut
+recevoir une réponse propre** — ARIT n'a jamais mesuré la macro *seule*, il a mesuré une macro
+mêlée à cinq scores et à une porte de conviction.
+
+**Défaut proposé : mesurer R4**, parce que c'est la seule des trois qui répond à une question
+qu'ARIT ne peut pas se poser chez lui.
+
+### B-c — I12 (momentum 14-60 j) : la promouvoir en candidate n° 2 ?
+
+C'est le seul résultat de la session ARIT qui **survit hors échantillon sur les 4 actifs**
+(Sharpe holdout 0,78 à 0,98, contre un B&H à 0,55-0,83). ARIT conclut « c'est du beta, pas de
+l'alpha » parce qu'il compare à un buy-and-hold long-only ; BETA a S8, la triple barrière, et
+**deux paires (LINK, XRP) qui n'ont jamais servi à cette mesure**.
+
+Et c'est surtout la **deuxième candidate** qui manque au banc depuis le 19/08 : sans elle, S7
+(reality check du maximum) et S9 (corrélation des équity) n'ont pas d'objet — la moitié
+comparative du banc tourne à vide depuis trois semaines.
+
+⚠️ Condition non négociable si tu promeus : **un seul lookback, choisi d'avance** (30 j,
+sommet du plateau). Les chiffres cités viennent d'un balayage de cinq lookbacks fait ailleurs ;
+promouvoir « le meilleur des cinq » ferait entrer le snooping d'ARIT dans le registre de BETA.
+
+**Défaut proposé : promouvoir**, avec lookback 30 j figé et MDE affiché avant toute p-value.
+
+---
+
 ## En attente de Jonas
 
 | # | Objet | État | Depuis |
 |---|---|---|---|
 | ~~**A1**~~ | ~~Ce que compte N : hypothèses ou mesures~~ | ✅ **tranchée 20/08 — (b)**, appliquée | 19/08 |
+| **B-a** | R3 (funding) : la mesurer quand même, ou l'écarter ? Sa prémisse (86 % du profit de MacroFlip) est attaquée par les mesures ARIT du 05/09 | 🔴 ouverte | 11/09 |
+| **B-b** | R4 (macro seule) : D6 est débloqué le jour où ARIT enterre la macro — mesurer, ou classer ? | 🔴 ouverte | 11/09 |
+| **B-c** | I12 (momentum 14-60 j) : la promouvoir en **candidate n° 2** du banc, lookback 30 j figé ? | 🔴 ouverte | 11/09 |
