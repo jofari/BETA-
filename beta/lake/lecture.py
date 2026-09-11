@@ -154,6 +154,7 @@ def macro_globales() -> pd.DataFrame:
         "vix.csv": "vix", "tips10y.csv": "tips10y", "breakeven10y.csv": "breakeven10y",
         "hy_oas.csv": "hy_oas", "ig_oas.csv": "ig_oas", "dxy.csv": "dxy",
         "spread_2s10s.csv": "spread_2s10s", "fedfunds.csv": "fedfunds",
+        "BAA10Y.csv": "baa10y", "AAA10Y.csv": "aaa10y",
     }
     morceaux = []
     for fichier, nom in noms.items():

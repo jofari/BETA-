@@ -113,6 +113,10 @@ def _joindre_macro(df: pd.DataFrame) -> pd.DataFrame:
 
     fng_i = fng.set_index("date") if "date" in fng.columns else fng
     macro = fng_i.join(globales, how="outer") if not globales.empty else fng_i
+    # Le F&G est quotidien (week-end compris) mais FRED ne l'est pas : le join externe cree
+    # des lignes week-end avec NaN sur les colonnes FRED. On les forward-fill (valeur de
+    # vendredi) AVANT le decalage, sinon le NaN du week-end se propage au lundi via le lag.
+    macro = macro.ffill()
     macro = macro.reset_index()
     macro["date"] = macro["date"] + pd.Timedelta(days=1)
     macro["date"] = macro["date"].astype(df["date"].dtype)
