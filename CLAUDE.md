@@ -108,7 +108,8 @@ et embargo, corrélation des courbes d'équity entre candidates.
   et `download-data` en dépend). **Dette assumée** — un venv propre à BETA se justifiera le
   jour où les dépendances divergeront.
 - Dépendances pip autorisées (décision du 18/08), mais chacune doit se justifier.
-  Aujourd'hui : pandas, pyarrow, duckdb, numpy, scipy, freqtrade.
+  Aujourd'hui : pandas, pyarrow, duckdb, numpy, scipy, freqtrade, **yfinance** (14/09 : seule
+  source libre fiable pour indices/ETF en quotidien ; stooq bloque les robots).
 - BETA vit **hors OneDrive** (`C:\Users\jofar\BETA`), comme ALPHA — OneDrive a déjà vidé des
   fichiers sur ce poste.
 
@@ -121,6 +122,13 @@ N est le goulot). Source unique : `beta/univers.py`.
 
 Timeframes stockés : `5m` `1h` `4h` `1d`. Tout autre timeframe multiple de 5 min est
 **dérivé à la volée** par resampling — on ne télécharge pas ce qu'on peut calculer.
+
+**5 indices quotidiens** (spike du 14/09, structure parallèle `univers.INDICES`) : `SP500`
+`NASDAQ` `CAC40` `MSCIWORLD` `XAUUSD` — yfinance, **`1d` seulement**, depuis 2010, même
+schéma parquet et même catalogue que les paires (audit en jours **ouvrés**, jours fériés
+tolérés, trou > 7 jours = suspect). Sans funding ni Fear & Greed (crypto-only) ; les séries
+macro globales FRED se joignent normalement. `data.load("SP500", "1d")`, et rien d'autre :
+demander un `4h` sur un indice est une `DataError`, pas un resampling.
 
 ## Conventions
 

@@ -34,8 +34,17 @@ class DataError(RuntimeError):
     """Donnee absente du lake, ou timeframe non derivable."""
 
 
-def _table_source(paire: univers.Paire, timeframe: str) -> tuple[str, bool]:
-    """(timeframe a lire, faut-il resampler). Le 5m est la base de toute derivation."""
+def _table_source(paire: univers.Paire | univers.Indice, timeframe: str) -> tuple[str, bool]:
+    """(timeframe a lire, faut-il resampler). Le 5m est la base de toute derivation.
+
+    Un indice n'a que le 1d et pas de 5m : rien ne se derive, tout autre timeframe est une
+    erreur de lecture, dite tout de suite plutot que decouverte sur un fichier absent.
+    """
+    if univers.est_indice(paire):
+        if timeframe in univers.TIMEFRAMES_INDICES:
+            return timeframe, False
+        raise DataError(f"{paire.base} est un indice quotidien : seul le 1d existe, "
+                        f"{timeframe} n'est pas derivable (pas de 5m a la source)")
     if timeframe in univers.TIMEFRAMES:
         return timeframe, False
     pas = univers.pas_minutes(timeframe)
@@ -47,7 +56,10 @@ def _table_source(paire: univers.Paire, timeframe: str) -> tuple[str, bool]:
 
 def disponible(paire: str, timeframe: str) -> bool:
     p = univers.resoudre(paire)
-    source, _ = _table_source(p, timeframe)
+    try:
+        source, _ = _table_source(p, timeframe)
+    except DataError:
+        return False            # un timeframe impossible pour cet actif n'est pas disponible
     return config.chemin_parquet(p.slug, source).exists()
 
 
@@ -116,6 +128,11 @@ def funding(paire: str) -> pd.DataFrame:
     dans le pipeline).
     """
     p = univers.resoudre(paire)
+    if univers.est_indice(p):
+        # DataError et pas KeyError : pour le pipeline, « pas de funding » est un etat
+        # normal d'un indice (la colonne est simplement absente), pas une paire inconnue.
+        raise DataError(f"{p.base} est un indice : pas de taux de financement "
+                        "(le funding est propre aux perpetuels)")
     chemin = config.chemin_feather_funding(p.slug)
     if not chemin.exists():
         raise DataError(f"{p.base} funding absent du lake ARIT ({chemin.name})")

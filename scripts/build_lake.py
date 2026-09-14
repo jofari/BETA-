@@ -105,6 +105,20 @@ def main() -> int:
                 echecs.append(f"{paire.base} {timeframe} (conversion) : {exc}")
                 log.error("%s %s : %s", paire.base, timeframe, exc)
 
+    # 3. Les indices quotidiens (yfinance) : reseau aussi, donc apres tout ce qui est gratuit.
+    #    Le parquet et sa ligne de catalogue sortent directement de `telecharger_indices`.
+    if not args.sans_telechargement:
+        try:
+            for base, etat in telechargement.telecharger_indices().items():
+                if etat != "ok":
+                    echecs.append(f"{base} 1d (yfinance) : {etat}")
+        except telechargement.DownloadError as exc:
+            echecs.append(f"indices (yfinance) : {exc}")
+            log.error("indices : %s", exc)
+    else:
+        log.info("--sans-telechargement : indices non telecharges (%s)",
+                 ", ".join(i.base for i in univers.INDICES))
+
     print()
     code = _afficher_etat()
     if echecs:

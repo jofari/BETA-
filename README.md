@@ -87,6 +87,7 @@ from beta.lake import lecture, strategie
 df = lecture.load("BTC", "4h")                                # tout l'historique
 df = lecture.load("ETH", "1h", debut="2023-01-01", fin="2024-01-01")
 df = lecture.load("SOL", "15m")                               # dérivé du 5m, exact
+df = lecture.load("SP500", "1d")                              # indice : 1d, rien d'autre
 lecture.catalogue()                                           # ce que contient le lake
 
 trades = strategie.lire("trades", train_seulement=True)       # hold-out exclu
@@ -312,6 +313,22 @@ goulot du projet est le nombre de signaux, donc c'est l'historique qui compte.
 
 Timeframes stockés : `5m` `1h` `4h` `1d`. Tout autre multiple de 5 min est **dérivé du 5m
 par resampling** — exact, pas approché. On ne télécharge pas ce qu'on peut calculer.
+
+Depuis le 14/09, **5 séries quotidiennes hors crypto** (`univers.INDICES`, source yfinance) :
+
+| Base | Ticker | Série |
+|---|---|---|
+| `SP500` | `^GSPC` | S&P 500 |
+| `NASDAQ` | `^IXIC` | Nasdaq Composite |
+| `CAC40` | `^FCHI` | CAC 40 |
+| `MSCIWORLD` | `URTH` | iShares MSCI World ETF (coté depuis 2012) |
+| `XAUUSD` | `GC=F` | or, future COMEX continu |
+
+`1d` seulement, depuis 2010, prix imprimés (pas d'ajustement), bougie du jour en cours
+retirée. Même schéma parquet et même catalogue que les perpétuels, audité en jours
+**ouvrés** ; pas de funding ni de Fear & Greed (crypto-only), séries FRED jointes
+normalement. `lecture.load("SP500", "1d")` — un autre timeframe est une `DataError`.
+`python beta.py lake` les télécharge avec le reste ; `--sans-telechargement` les saute.
 
 ## Le catalogue, et pourquoi il compte plus que les données
 

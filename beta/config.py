@@ -40,6 +40,15 @@ SEUIL_PARTITION_PAR_ANNEE = 50
 # une serie trouee produit des resultats faux EN SILENCE (invariant n° 3).
 TROUS_PCT_ALERTE = 1.0
 
+# Les indices quotidiens se mesurent contre les jours OUVRES (lundi-vendredi), et les jours
+# feries de bourse (~4 % des jours ouvres a New York comme a Paris) ne sont pas des trous :
+# une tolerance a 1 % marquerait les 5 series suspectes a vie, et une alerte permanente est
+# une alerte que personne ne lit. Deux criteres, chacun attrape ce que l'autre laisse
+# passer : une couverture sous 94 % (perte diffuse) OU un trou de plus de 7 jours (perte
+# contigue — aucune fermeture reguliere de bourse ne depasse 5 jours calendaires).
+TROUS_PCT_ALERTE_OUVRE = 6.0
+TROU_MAX_OUVRE_H = 7 * 24.0
+
 TIMEOUT_TELECHARGEMENT_S = 3600          # repere mesure : ~27 min pour 4 paires en sequentiel
 
 

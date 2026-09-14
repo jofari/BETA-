@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 from beta import config
-from beta.lake import lecture
+from beta.lake import lecture, univers
 from beta.moteur import espace_r
 from beta.moteur.contrats import Candidate, Run, Verdict
 from beta.protocole import experiences, holdout
@@ -64,11 +64,20 @@ def series_du_run(run: Run) -> dict[str, pd.DataFrame]:
         try:
             df = lecture.load(paire, run.timeframe, debut=debut, fin=fin)
             df = _joindre_funding(df, paire)
-            df = _joindre_macro(df)
+            df = _joindre_macro(df, paire)
             series[paire] = df
         except lecture.DataError as exc:
             log.error("%s %s indisponible : %s", paire, run.timeframe, exc)
     return series
+
+
+def _est_indice(paire: str) -> bool:
+    """Vrai pour SP500, XAUUSD... Un nom inconnu n'est pas un indice : on laisse la lecture
+    le refuser avec son propre message plutot que de le decider ici."""
+    try:
+        return univers.est_indice(univers.resoudre(paire))
+    except KeyError:
+        return False
 
 
 def _joindre_funding(df: pd.DataFrame, paire: str) -> pd.DataFrame:
@@ -77,8 +86,11 @@ def _joindre_funding(df: pd.DataFrame, paire: str) -> pd.DataFrame:
     merge_asof direction backward + allow_exact_matches=False : pour chaque bougie, le taux
     retenu est celui dont le reglement est STRICTEMENT avant l'ouverture de la bougie. Un
     taux regle exactement a l'ouverture est ecarte (il n'est pas encore certain a cet
-    instant). Si le funding est absent, rend df inchange.
+    instant). Si le funding est absent, rend df inchange — et un indice n'en a jamais
+    (le funding est propre aux perpetuels) : il ressort tel quel, sans meme le chercher.
     """
+    if _est_indice(paire):
+        return df
     try:
         f = lecture.funding(paire)
     except lecture.DataError:
@@ -95,30 +107,42 @@ def _joindre_funding(df: pd.DataFrame, paire: str) -> pd.DataFrame:
     return joint
 
 
-def _joindre_macro(df: pd.DataFrame) -> pd.DataFrame:
+def _joindre_macro(df: pd.DataFrame, paire: str | None = None) -> pd.DataFrame:
     """Joint les colonnes macro (fng + series globales FRED) a l'OHLCV, decalees d'un jour.
 
     Toutes les series macro sont quotidiennes et publiees en fin de journee : on decale leur
     date d'un jour puis merge_asof backward (allow_exact_matches=False). Une bougie ne voit
     donc que la valeur de la veille ou d'avant — jamais celle du jour en cours. Macro absente
     => df inchange.
+
+    Pour un indice (`paire` = SP500, XAUUSD...), le Fear & Greed est ignore — c'est un
+    indicateur du sentiment CRYPTO — et seules les series globales FRED (VIX, spreads de
+    credit, dollar, courbe, fed funds) sont jointes, exactement comme pour une paire.
     """
-    try:
-        fng = lecture.fear_greed()
-    except lecture.DataError:
+    if paire is not None and _est_indice(paire):
         fng = pd.DataFrame({"date": [], "fng": []})
+    else:
+        try:
+            fng = lecture.fear_greed()
+        except lecture.DataError:
+            fng = pd.DataFrame({"date": [], "fng": []})
     globales = lecture.macro_globales()
     if df.empty or (fng.empty and globales.empty):
         return df
 
     fng_i = fng.set_index("date") if "date" in fng.columns else fng
-    macro = fng_i.join(globales, how="outer") if not globales.empty else fng_i
+    if fng_i.empty:
+        macro = globales
+    elif globales.empty:
+        macro = fng_i
+    else:
+        macro = fng_i.join(globales, how="outer")
     # Le F&G est quotidien (week-end compris) mais FRED ne l'est pas : le join externe cree
     # des lignes week-end avec NaN sur les colonnes FRED. On les forward-fill (valeur de
     # vendredi) AVANT le decalage, sinon le NaN du week-end se propage au lundi via le lag.
-    macro = macro.ffill()
+    macro = macro.rename_axis("date").ffill()
     macro = macro.reset_index()
-    macro["date"] = macro["date"] + pd.Timedelta(days=1)
+    macro["date"] = pd.to_datetime(macro["date"], utc=True) + pd.Timedelta(days=1)
     macro["date"] = macro["date"].astype(df["date"].dtype)
     df = df.sort_values("date")
     return pd.merge_asof(df, macro, on="date", direction="backward",

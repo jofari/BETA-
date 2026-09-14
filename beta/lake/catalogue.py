@@ -58,9 +58,21 @@ def _catalogue():
     return conn
 
 
-def inscrire(audit: dict, paire: univers.Paire, timeframe: str, fichier: pathlib.Path,
-             doublons: int, source: str) -> None:
-    suspect = bool(audit["couverture_pct"] < 100.0 - config.TROUS_PCT_ALERTE)
+def inscrire(audit: dict, paire: univers.Paire | univers.Indice, timeframe: str,
+             fichier: pathlib.Path, doublons: int, source: str, marche: str | None = None,
+             tolerance_pct: float | None = None, trou_max_h: float | None = None) -> None:
+    """Declare la serie au catalogue, et decide si elle est SUSPECTE.
+
+    Par defaut (les perpetuels) : suspecte sous `config.TROUS_PCT_ALERTE` de trous. Les
+    indices quotidiens passent une tolerance plus large (les jours feries ne sont pas des
+    trous) et un second critere, le plus grand trou en heures — une semaine qui manque au
+    milieu d'une serie a 97 % de couverture est exactement ce qu'une tolerance en pourcentage
+    ne voit pas.
+    """
+    tolerance = config.TROUS_PCT_ALERTE if tolerance_pct is None else float(tolerance_pct)
+    suspect = bool(audit["couverture_pct"] < 100.0 - tolerance)
+    if trou_max_h is not None and audit["plus_grand_trou_h"] > trou_max_h:
+        suspect = True
     with _catalogue() as conn:
         conn.execute("DELETE FROM datasets WHERE paire = ? AND timeframe = ?",
                      [paire.symbole, timeframe])
@@ -69,7 +81,7 @@ def inscrire(audit: dict, paire: univers.Paire, timeframe: str, fichier: pathlib
             " bougies_attendues, bougies_manquantes, couverture_pct, plus_grand_trou_h,"
             " doublons_retires, suspect, source, maj)"
             " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, now())",
-            [paire.symbole, timeframe, config.TRADING_MODE, str(fichier),
+            [paire.symbole, timeframe, marche or config.TRADING_MODE, str(fichier),
              audit["n_bougies"], audit["debut"], audit["fin"], audit["bougies_attendues"],
              audit["bougies_manquantes"], audit["couverture_pct"],
              audit["plus_grand_trou_h"], doublons, suspect, source])
@@ -86,9 +98,9 @@ def etat() -> pd.DataFrame:
         return pd.DataFrame()
     with _catalogue() as conn:
         return conn.execute(
-            "SELECT paire, timeframe, n_bougies, debut, fin, couverture_pct,"
+            "SELECT paire, timeframe, marche, n_bougies, debut, fin, couverture_pct,"
             " bougies_manquantes, plus_grand_trou_h, suspect, source, maj"
-            " FROM datasets ORDER BY paire, timeframe").df()
+            " FROM datasets ORDER BY marche, paire, timeframe").df()
 
 
 def purger() -> None:
