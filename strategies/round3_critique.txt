@@ -1,0 +1,11 @@
+Dernier round, pas de nouveau classement. J'ai vérifié ton « catch » moi-même, et il est CONFIRMÉ, en pire que tu ne le disais :
+
+**Inverse-vol sur les 6 perps crypto SEULS (le seul tradable) : Sharpe 0,86 pleine période, 0,45 OOS, maxDD −61 %.** Corrélation moyenne inter-paires 0,62. Le Sharpe 1,25 reposait sur les 5 indices qu'il ne peut pas trader — c'est de la diversification fictive, exactement comme tu le suspectais. Le tradable réel, c'est ~0,45, pas 1,25.
+
+Ça corrobore ton chiffre central (ARP réaliste 0,4-0,7 net) et ça enterre définitivement « l'inverse-vol à 1,25 » comme argument.
+
+Donne-moi maintenant, en **10 lignes maximum**, le verdict final pour Jonas — pas une idée de plus, pas un classement. Exactement :
+1. En une phrase, le constat (ce qui est atteignable, ce qui ne l'est pas).
+2. La décision concrète qu'il doit prendre (2-3 options nettes).
+3. Ce que je lui conseille, franchement, en tant que bras droit qui connaît son projet.
+Sois décisif et brutalement honnête. C'est le dernier mot.

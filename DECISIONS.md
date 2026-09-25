@@ -140,8 +140,30 @@ Deux effets de bord assumés, tous deux dans le sens sévère :
 
 ---
 
+## A2 — nature de l'edge : alpha (niveau 3) vs ARP (niveau 2) — EN ATTENTE de Jonas
+
+**Découvert le 22/09, après une semaine de mesures hors échantillon + 3 allers-retours avec Claude Code (opus).**
+
+**Le constat mesuré** : les indicateurs lents → direction (à tout horizon 1-21j, crypto + indices, optimisés train/test) ne produisent **aucun alpha** (niveau 3). Deux corrections majeures :
+1. Le « Sharpe 1,25 » de la diversification inverse-vol était **fictif à ~⅔** : il reposait sur 5 indices non tradables (pas de broker actions). Le tradable réel (6 perps crypto, corr ~0,62) sort à **Sharpe 0,45 OOS, drawdown −61 %**.
+2. L'alpha de niveau 3 est **structurellement** hors d'atteinte d'un particulier swing (latence, donnée, capacité) — pas une question d'expérience.
+
+**Ce qui reste atteignable** : un portefeuille d'ARP (primes de risque alternatives), **niveau 2** — 3 jambes (trend TSMOM, coupe transversale momentum/reversal, carry funding), vol-ciblées, Sharpe réaliste **0,4-0,7 net**. Jugé sur **a priori externe** + **suivi live** — jamais sur une p-value (t = Sharpe×√années : à 0,6 sur 7 ans, t ≈ 1,6, indétectable).
+
+**La décision qui attend Jonas** :
+- **(A)** Assumer le niveau 2 : construire le portefeuille ARP 3-jambes vol-ciblé. Livrable principal = ramener le drawdown de −61 % à ~−25 % (gestion du risque, prouvable).
+- **(B)** Changer d'enveloppe pour rouvrir le niveau 3 : queue illiquide, funding multi-venues, effets de listing. Contredit la doctrine « le plus ancien », plus dur, cimetière propre.
+- **(C)** Arrêter de chercher un edge, indexer, rendre le temps ailleurs.
+
+**Recommandation (Hermes + Claude) : (A) maintenant, (B) comme pari latéral dans ~6 mois, jamais les deux en même temps.** (C) reste légitime.
+
+**Retentissement sur BETA** : le rôle de la batterie change — elle cesse de *confirmer* un edge (impossible à Sharpe ≤0,7) pour devenir l'outil qui *élimine le manifestement faux* ; l'acceptation d'une candidate se fait sur a priori externe + suivi live forward.
+
+---
+
 ## En attente de Jonas
 
 | # | Objet | État | Depuis |
 |---|---|---|---|
 | ~~**A1**~~ | ~~Ce que compte N : hypothèses ou mesures~~ | ✅ **tranchée 20/08 — (b)**, appliquée | 19/08 |
+| **A2** | Nature de l'edge : alpha vs ARP (options A/B/C) | ⏳ **en attente** | 22/09 |

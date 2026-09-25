@@ -1,0 +1,35 @@
+Tu écris PUIS exécutes un script autonome `beta/strategies/voie_a_allocation.py`, et tu rends le résultat RÉEL (pas juste le code).
+
+## Objectif
+Allocation multi-actifs qui COMBINE la boîte à outils (macro + crypto) pour détecter le régime, pondère en inverse-vol avec un tilt de régime, et OPTIMISE les paramètres par train/test (jamais de curve-fitting sur tout l'historique).
+
+## Environnement (ne pas coder en dur d'autres chemins)
+- Python : /root/venvs/arit/bin/python
+- Variables : ARIT_HOME=/root/ARIT2.0 PYTHONPATH=/root/BETA-
+- Données : `from beta.lake.lecture import load, funding, fear_greed, macro_globales`
+
+## Univers (quotidien, colonne 'close')
+Crypto : BTC, ETH, SOL, BNB, LINK, XRP.
+Indices : SP500, NASDAQ, CAC40, MSCIWORLD, XAUUSD.
+(11 actifs, fenêtre commune = intersection des dates.)
+
+## La boîte à outils (features de régime, TOUTES causales, lag 1 jour)
+- Macro : VIX (niveau + percentile glissant 180j), spread crédit baa10y, pente 2s10s (spread_2s10s), breakeven10y (inflation attendue), dxy.
+- Crypto : funding moyen des 6 paires (percentile glissant 180j), F&G (fear_greed).
+
+## Règle (combiner, ne pas tester un seul indicateur)
+1. Signal de régime ∈ {risk-off, neutre, risk-on} construit à partir d'AU MOINS deux indicateurs de la boîte combinés — au minimum VIX percentile (tiers) ET baa10y percentile — avec un seuil par indicateur. Ce sont CES seuils qu'on optimise.
+2. Poids de base : inverse-vol, w_i = (1/σ_i)/Σ(1/σ_j), σ_i = vol réalisée glissante 180j. Normalisé, lag 1j.
+3. Tilt de régime (paramètre `t` optimisé) : risk-off → multiplier le poids des actifs refuges (XAUUSD, et SP500) par (1+t) puis renormaliser ; risk-on → multiplier les actifs risqués (crypto, NASDAQ) par (1+t). t ∈ {0.1, 0.2, 0.3, 0.5}.
+
+## Optimisation (walk-forward simplifié = train-optimise / test)
+- TRAIN : dates ≤ 2023-12-31. Grid-search sur les seuils de régime + `t`, en maximisant le Sharpe. Garde LA SEULE combinaison gagnante.
+- TEST : 2024-01-01 → fin. Applique cette combinaison SANS la ré-optimiser. C'est le seul chiffre qui compte.
+- ZERO look-ahead : tout signal au jour t n'utilise que des données ≤ t-1.
+
+## Sortie du script (à imprimer)
+- Les paramètres retenus (seuils + t) et le Sharpe du train correspondant.
+- Sur TEST (OOS) : CAGR, vol annualisée, Sharpe (rf=0), max drawdown — pour l'allocation optimisée VS équipondéré VS BTC seul.
+- Poids moyens par actif (allocation optimisée).
+
+Code sans accents dans les identifiants/docstrings ; chaînes d'affichage françaises ok. Exécute avec le venv et colle la sortie réelle en fin de réponse.

@@ -159,6 +159,13 @@ class Run:
     horizon_bougies: int = 96
     frais_pct: float = 0.05             # aller-retour, taker Binance perp
     slippage_pct: float = 0.02
+    # Les deux couts de DETENTION, actifs par defaut : ce qu'on paie parce qu'on TIENT une
+    # position, pas parce qu'on l'ouvre. Les laisser a False ferait du banc une machine a
+    # sacrer les candidates qui tiennent longtemps — le contraire de son objet.
+    # Le spread est estime (Corwin & Schultz) faute de serie de carnet libre ; le funding
+    # n'est paye que par les paires dont le pipeline a joint `funding_rate` (perpetuels).
+    spread: bool = True
+    funding: bool = True
     graine: int = 0
     preenregistrement: dict = field(default_factory=dict, repr=False)
     lance_le: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
@@ -187,15 +194,23 @@ class Run:
 
     @property
     def id(self) -> str:
-        """Identifiant stable d'un run : experience + empreinte de code + parametres."""
+        """Identifiant stable d'un run : experience + empreinte de code + parametres.
+
+        Les parametres de COUT en font partie. Sans eux, une meme candidate mesuree a
+        0,07 % de frais puis a 0,20 %, ou avec et sans funding, rendait deux fois le meme
+        id : le second run ecrasait le premier dans `data/runs/` et la comparaison (S7/S9)
+        n'en voyait qu'un. Deux chiffres differents ne peuvent pas partager un identifiant.
+        """
         graine = (f"{self.id_experience}|{self.candidate.empreinte}|{self.paires}|"
                   f"{self.timeframe}|{self.split}|{self.debut}|{self.fin}|"
-                  f"{self.stop_atr}|{self.take_profit_r}|{self.horizon_bougies}")
+                  f"{self.stop_atr}|{self.take_profit_r}|{self.horizon_bougies}|"
+                  f"{self.frais_pct}|{self.slippage_pct}|{self.spread}|{self.funding}")
         return hashlib.sha256(graine.encode("utf-8")).hexdigest()[:12]
 
     @property
     def cout_aller_retour_pct(self) -> float:
-        """Frais + slippage. Un backtest qui l'oublie surestime toutes les petites edges."""
+        """Frais + slippage, forfaitaires. Les couts de DETENTION n'y sont pas : le spread
+        et le funding se calculent trade par trade (cf. `espace_r`), pas au niveau du run."""
         return self.frais_pct + self.slippage_pct
 
     def resume(self) -> dict:
@@ -211,6 +226,8 @@ class Run:
                 "stop_atr": self.stop_atr, "take_profit_r": self.take_profit_r,
                 "horizon_bougies": self.horizon_bougies,
                 "cout_aller_retour_pct": self.cout_aller_retour_pct,
+                "frais_pct": self.frais_pct, "slippage_pct": self.slippage_pct,
+                "spread": self.spread, "funding": self.funding,
                 "parametres": dict(self.candidate.parametres),
                 "lance_le": self.lance_le}
 

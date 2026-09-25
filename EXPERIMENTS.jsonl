@@ -31,3 +31,9 @@
 {"id": "R11", "date": "2026-09-11", "statut": "mesure", "dernier_run": "ff2967e1dcbb", "derniere_issue": "indecidable", "n_essais_cumules": 46}
 {"id": "R11", "date": "2026-09-11", "statut": "mesure", "dernier_run": "ff2967e1dcbb", "derniere_issue": "infirmee", "n_essais_cumules": 46}
 {"id": "R11", "date": "2026-09-11", "statut": "clos", "verdict": "infirmee", "resultat": "Spread credit (Baa10Y) contrarien LONG : R moyen -0.0244 (n=386), 7 portes echouees. Le +0.44 IC initial etait un artefact de 3 ans (hy_oas restreint par ICE) ; sur historique complet le spread vaut +0.10, et la batterie le tue quand meme.", "conforme_a_l_issue_attendue": false, "n_essais_cumules": 46}
+{"id": "R2", "date": "2026-09-19", "statut": "mesure", "dernier_run": "7eb7f9c2cb17", "derniere_issue": "infirmee", "n_essais_cumules": 47}
+{"id": "R7", "date": "2026-09-19", "statut": "mesure", "dernier_run": "2ce411b82067", "derniere_issue": "infirmee", "n_essais_cumules": 53}
+{"id": "R7", "date": "2026-09-19", "statut": "mesure", "dernier_run": "f57f95588500", "derniere_issue": "infirmee", "n_essais_cumules": 54}
+{"id": "R2", "date": "2026-09-19", "statut": "mesure", "dernier_run": "7eb7f9c2cb17", "derniere_issue": "infirmee", "n_essais_cumules": 54}
+{"id": "R7", "date": "2026-09-19", "statut": "mesure", "dernier_run": "2ce411b82067", "derniere_issue": "infirmee", "n_essais_cumules": 54}
+{"id": "R7", "date": "2026-09-19", "statut": "mesure", "dernier_run": "f57f95588500", "derniere_issue": "infirmee", "n_essais_cumules": 54}

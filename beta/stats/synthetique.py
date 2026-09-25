@@ -46,6 +46,19 @@ def _reconstruire_ohlcv(modele: pd.DataFrame, closes: np.ndarray,
     triple barriere depend entierement de l'amplitude intra-bougie, et une serie
     synthetique sans meches donnerait un taux de stop absurde — donc un temoin trop facile
     a battre, ce qui est le pire des deux cotes.
+
+    `funding_rate` est recopie TEL QUEL de la serie mere, sans permutation. Le chemin
+    synthetique garde les dates de la serie mere : le taux de funding y reste donc a sa
+    place, et c'est la seule facon de le recopier qui ait un sens — le funding est une serie
+    EXOGENE, attachee a son horodatage, pas une propriete du prix qu'on viendrait de
+    fabriquer. Melanger les taux comme on melange les meches inventerait un marche ou le
+    financement ne suit plus le calendrier.
+
+    Sans cette recopie, le temoin ne payait pas le funding que la candidate paie, et l'ecart
+    reel/synthetique contenait un cout au lieu de ne contenir qu'un edge. Les colonnes
+    exogenes AUTRES que le funding (fng, macro) ne sont deliberement pas recopiees : elles
+    ne sont pas des couts, et les ajouter changerait quels SIGNAUX existent sur le temoin —
+    une modification de ce que S5 mesure, pas de ce qu'elle facture.
     """
     reel = modele["close"].to_numpy(dtype=float)
     haut_ratio = np.where(reel > 0, modele["high"].to_numpy(dtype=float) / reel, 1.0)
@@ -57,10 +70,13 @@ def _reconstruire_ohlcv(modele: pd.DataFrame, closes: np.ndarray,
     ouverture = closes * ouverture_ratio[melange]
     volume = (modele["volume"].to_numpy(dtype=float)[melange]
               if "volume" in modele.columns else np.ones(len(closes)))
-    return pd.DataFrame({"date": modele["date"].to_numpy(), "open": ouverture,
-                         "high": np.maximum.reduce([haut, ouverture, closes]),
-                         "low": np.minimum.reduce([bas, ouverture, closes]),
-                         "close": closes, "volume": volume})
+    chemin = pd.DataFrame({"date": modele["date"].to_numpy(), "open": ouverture,
+                           "high": np.maximum.reduce([haut, ouverture, closes]),
+                           "low": np.minimum.reduce([bas, ouverture, closes]),
+                           "close": closes, "volume": volume})
+    if "funding_rate" in modele.columns:
+        chemin["funding_rate"] = modele["funding_rate"].to_numpy()[:len(closes)]
+    return chemin
 
 
 def gbm(df: pd.DataFrame, n_chemins: int = N_CHEMINS, graine: int = 0):

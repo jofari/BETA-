@@ -1,0 +1,27 @@
+Tu es un chercheur quant senior. Réfléchis à voix haute et propose des IDÉES CONCRÈTES, pas du code. Réponds en français.
+
+## Le setup
+- Données quotidiennes : 6 perpétuels crypto (BTC, ETH, SOL, BNB, LINK, XRP, depuis 2019) + 5 indices/ETF (SP500, NASDAQ, CAC40, MSCIWORLD, XAUUSD, depuis 2010) + séries macro FRED (VIX, spreads crédit, pente de courbe, break-even d'inflation, taux réel, fed funds, DXY).
+- Objectif : trouver un ALPHA de trading (edge directionnel), pas un allocateur passif.
+
+## Ce qui a déjà été DÉMONTRÉ infructueux (hors échantillon, avec optimisation propre train/test)
+1. Tous les indicateurs « lents » (funding, Fear&Greed, VIX, volume, macro) sont LAGGING : corrélation ~+0,2 avec le rendement d'hier, ~0 avec le rendement de demain. Aucun ne « prédit ».
+2. Le VIX est un indicateur actions : corrélation ~0 avec BTC. Il transmet un peu plus à l'or/SPX qu'au crypto, mais jamais de R² OOS positif.
+3. Modèle linéaire combinant 10 indicateurs → R² OOS négatif partout (BTC, or, SPX).
+4. Tilt de régime optimisé (216 combinaisons) → −0,10 Sharpe OOS ; le gagnant du train arrive 197ᵉ/216 en OOS (overfit pur).
+5. Trading momentum+funding optimisé (1176 combinaisons) → Sharpe train 1,465 → OOS 0,23 ; net de frais = 0.
+6. Macro → indices à horizon hebdo/mensuel (5/10/21 jours) → R² OOS négatif, qui se DÉGRADE avec l'horizon.
+
+## La seule chose robuste trouvée
+Diversification inverse-vol sur 11 actifs : Sharpe 1,25 OOS, drawdown −24 %. C'est du BÊTA (gestion du risque), pas de l'alpha.
+
+## La question
+Étant donné que « indicateur lent → direction » est un cul-de-sac démontré, où pourrait encore se cacher un VRAI alpha de trading, de façon NON-ÉVIDENTE et testable avec nos données (quotidiennes, crypto + indices + macro) ?
+
+Contraintes :
+- Idées MÉCANIQUES avec la raison pour laquelle l'edge persisterait (qui est la contrepartie, pourquoi elle perd).
+- Pensables : microstructure/ordre, lead-lag cross-assets (ex. crypto mène les actions ?), volatilité/options, flux on-chain/échanges, comportement des foules, structure (carry/basis/contango), définition du régime NON-macro (régime de vol, régime de drawdown), non-linéarités, saisonnalité intraday vs quotidien.
+- Pour chaque idée : (a) le mécanisme, (b) la testabilité avec NOS données (quotidiennes), (c) un verdict honnête de probabilité que ce soit du vent.
+- Sois critique envers tes propres idées : signale celles qui sont probablement aussi mortes.
+
+Classe tes 5-8 meilleures idées par rapport signal/bruit estimé. Termine par le classement et un avis franc sur laquelle tu attaquerais en premier.

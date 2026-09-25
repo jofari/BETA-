@@ -8,14 +8,15 @@ differences qui comptent :
   paires se mesure en quelques secondes ;
 - **les couts sont soustraits**. ARIT mesurait la geometrie nue. Un banc d'essai qui compare
   des candidates entre elles doit inclure frais et slippage, sinon il classe en tete celles
-  qui tradent le plus.
+  qui tradent le plus ; et il doit inclure les couts de DETENTION — spread bid-ask, funding
+  des perpetuels — sinon il classe en tete celles qui tiennent le plus longtemps.
 
 Ce que ce module NE fait PAS, et ne fera jamais :
 
 > **Il ne produit pas de verdict portefeuille.** Un chiffre qui sort d'ici se lit en R par
-> trade. Ni frais de financement, ni slots concurrents, ni compounding, ni taille de
-> position variable. Confondre les deux est l'erreur qui rend un banc d'essai dangereux —
-> c'est le role du pont freqtrade (M3) de rendre l'autre verdict.
+> trade. Ni slots concurrents, ni compounding, ni taille de position variable. Confondre les
+> deux est l'erreur qui rend un banc d'essai dangereux — c'est le role du pont freqtrade
+> (M3) de rendre l'autre verdict.
 
 Conventions, identiques a ARIT pour que les deux projets restent comparables :
 
@@ -24,6 +25,20 @@ Conventions, identiques a ARIT pour que les deux projets restent comparables :
 - bougie ambigue (SL et TP touches dans la meme bougie) => **SL**. Choix pessimiste, et le
   seul honnete sans donnee intra-bougie ;
 - R = (prix de sortie - entree) * sens / risque, ou risque est la distance entree-stop.
+
+Les trois couts se comptent tous en **% du prix d'entree**, puis se convertissent en R par
+le meme facteur `entree / risque` (notionnel 1x, collateral plein, pas de levier) :
+
+- **frais + slippage** — forfaitaires, payes une fois par aller-retour ;
+- **spread bid-ask** — estime depuis les high/low du lake (Corwin & Schultz), paye une
+  demi-fois a l'entree et une demi-fois a la sortie, soit un spread complet par trade ;
+- **funding** — cumule sur les bougies TENUES et signe par le sens : un funding positif
+  coute au long et paie le short. C'est le seul cout qui grandit avec la duree du trade,
+  donc le seul que le R par trade d'ARIT ne pouvait pas voir.
+
+Aucun de ces trois n'est actif par defaut ici : `evaluer()` mesure la geometrie nue tant
+qu'on ne lui demande pas de payer. C'est le `Run` (cf. `contrats.py`) qui porte la politique
+de couts du banc, et qui, lui, les active tous.
 """
 
 from __future__ import annotations
@@ -44,6 +59,16 @@ CELLULES_PAR_BLOC = 4_000_000
 
 PERIODE_ATR = 14
 
+# Fenetre de lissage de l'estimateur de spread, en BOUGIES (pas en jours) : 21 bougies,
+# l'ordre de grandeur du mois de bourse de l'article d'origine. En 4h cela fait 3,5 jours —
+# c'est voulu, un spread se paie a l'echelle du trade, pas a celle du mois.
+FENETRE_SPREAD = 21
+_K_CS = 3.0 - 2.0 * np.sqrt(2.0)          # la constante de Corwin & Schultz
+
+# Periode de reglement du funding des perpetuels Binance. Sert a ramener au prorata de la
+# bougie un taux que le pipeline a recopie en palier (cf. _serie_funding).
+HEURES_FUNDING = 8.0
+
 
 def atr(df: pd.DataFrame, periode: int = PERIODE_ATR) -> pd.Series:
     """True range moyen, en prix. Le stop par defaut s'exprime en multiples de cette unite.
@@ -56,6 +81,115 @@ def atr(df: pd.DataFrame, periode: int = PERIODE_ATR) -> pd.Series:
     tr = pd.concat([haut - bas, (haut - cloture).abs(), (bas - cloture).abs()],
                    axis=1).max(axis=1)
     return tr.rolling(periode, min_periods=periode).mean()
+
+
+def spread_corwin_schultz(df: pd.DataFrame, fenetre: int = FENETRE_SPREAD) -> pd.Series:
+    """Spread effectif RELATIF au prix, estime a partir des seuls high/low (CS 2012).
+
+    Corwin & Schultz, « A Simple Way to Estimate Bid-Ask Spreads from Daily High and Low
+    Prices », Journal of Finance 67(2). L'idee tient en une phrase : dans l'amplitude
+    haut-bas, la part qui vient de la VOLATILITE grandit avec la duree d'observation, celle
+    qui vient du SPREAD n'y grandit pas. Comparer l'amplitude d'une bougie a celle de deux
+    bougies collees separe donc les deux composantes, sans aucune donnee de carnet.
+
+    C'est un ESTIMATEUR, jamais une mesure : il n'existe pas de serie libre de spreads
+    Binance, et l'invariant n° 2 interdit d'inventer une source. Celui-ci se calcule depuis
+    le lake, donc il est reproductible — la seule propriete qui compte ici.
+
+    Rend une FRACTION du prix (0,0004 = 4 points de base), lissee sur `fenetre` bougies.
+    Quatre details qui n'en sont pas :
+
+    - les estimations bi-bougies NEGATIVES sont ramenees a zero avant le lissage, comme le
+      prescrit l'article : un spread negatif n'existe pas, c'est du bruit d'echantillon ;
+    - **ajustement des gaps** (§ II.B de l'article) : un ecart entre la bougie precedente et
+      la suivante gonfle l'amplitude a deux bougies sans rien devoir au spread, ce qui tire
+      l'estimation vers le bas. On recolle la seconde bougie sur la premiere avant de
+      calculer. Sur un perpetuel 24/7 l'ajustement ne change presque rien ; sur un indice
+      quotidien, qui ouvre en gap, il change beaucoup ;
+    - `min_periods=1` : la fenetre se remplit progressivement au lieu de rendre NaN pendant
+      tout le warm-up. Les premieres bougies sont estimees plus grossierement, mais sur le
+      seul PASSE — moyenner toute la serie ferait entrer du futur dans un cout ;
+    - l'article travaille en bougies quotidiennes. Rien dans la demonstration ne depend du
+      pas, mais plus la bougie est courte, plus la part du spread dans son amplitude est
+      grande : en 5m l'estimation monte, et c'est le sens d'erreur acceptable pour un cout.
+    """
+    haut = pd.to_numeric(df["high"], errors="coerce").astype(float)
+    bas = pd.to_numeric(df["low"], errors="coerce").astype(float)
+    utilisable = (haut > 0) & (bas > 0) & (haut >= bas)
+    haut, bas = haut.where(utilisable), bas.where(utilisable)
+    haut_prec, bas_prec = haut.shift(1), bas.shift(1)
+
+    # Gap a la hausse (bas_t au-dessus de haut_t-1) ou a la baisse : on translate la bougie
+    # courante de l'ecart, ce qui laisse sa propre amplitude intacte et retire du seul
+    # intervalle a deux bougies ce que le spread n'a pas paye.
+    decalage = ((bas - haut_prec).clip(lower=0.0).fillna(0.0)
+                - (bas_prec - haut).clip(lower=0.0).fillna(0.0))
+    haut_aj, bas_aj = haut - decalage, bas - decalage
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        beta = np.log(haut_aj / bas_aj) ** 2 + np.log(haut_prec / bas_prec) ** 2
+        haut_2b = pd.concat([haut_aj, haut_prec], axis=1).max(axis=1)
+        bas_2b = pd.concat([bas_aj, bas_prec], axis=1).min(axis=1)
+        gamma = np.log(haut_2b / bas_2b) ** 2
+        alpha = (np.sqrt(2.0 * beta) - np.sqrt(beta)) / _K_CS - np.sqrt(gamma / _K_CS)
+        bi_bougie = 2.0 * (np.exp(alpha) - 1.0) / (1.0 + np.exp(alpha))
+
+    bi_bougie = bi_bougie.where(np.isfinite(bi_bougie)).clip(lower=0.0)
+    return bi_bougie.rolling(max(1, int(fenetre)), min_periods=1).mean()
+
+
+def _serie_spread(df: pd.DataFrame, fenetre: int = FENETRE_SPREAD) -> np.ndarray:
+    """L'estimateur, rendu utilisable bougie par bougie : plus aucun NaN.
+
+    Avec `min_periods=1`, la seule bougie qui reste sans estimation est la PREMIERE de la
+    serie — il lui faut une voisine pour exister. On lui donne la moyenne des spreads connus
+    plutot que zero : un cout nul est la seule valeur a coup sur fausse, et ecarter le signal
+    serait pire encore, parce que l'ensemble des trades mesures changerait selon qu'on paie
+    le spread ou non. Un cout doit changer ce qu'un trade RAPPORTE, jamais quels trades
+    existent.
+    """
+    estimes = spread_corwin_schultz(df, fenetre).to_numpy(dtype=float)
+    connus = estimes[np.isfinite(estimes)]
+    defaut = float(connus.mean()) if len(connus) else 0.0
+    return np.where(np.isfinite(estimes), estimes, defaut)
+
+
+def _heures_par_bougie(df: pd.DataFrame) -> float:
+    """Pas de la serie en heures, par la mediane des ecarts. NaN si indeterminable."""
+    if "date" not in df.columns or len(df) < 2:
+        return float("nan")
+    pas = pd.to_datetime(df["date"], utc=True).diff().median()
+    if pd.isna(pas):
+        return float("nan")
+    heures = pas / pd.Timedelta(hours=1)
+    return float(heures) if heures > 0 else float("nan")
+
+
+def _serie_funding(df: pd.DataFrame, heures_funding: float = HEURES_FUNDING) -> np.ndarray:
+    """Cout de funding PAR BOUGIE, en fraction du notionnel. Signe brut, non oriente.
+
+    Le pipeline joint `funding_rate` en PALIER : merge_asof recopie le dernier taux regle
+    sur toutes les bougies suivantes jusqu'au reglement d'apres. Sommer ce palier tel quel
+    sur chaque bougie tenue paierait le meme reglement autant de fois qu'il y a de bougies
+    dans une periode de funding — huit fois en 1h, deux fois en 4h — et, en 1d, un seul des
+    trois reglements du jour. On ramene donc le taux au PRORATA de la duree de la bougie :
+    le total paye sur un trade vaut alors `taux x duree_tenue / 8h`, quel que soit le
+    timeframe, ce qui est la seule facon de rendre deux runs de pas differents comparables.
+
+    Colonne absente (indice, chemin synthetique) => zero, sans erreur : une paire sans
+    perpetuel ne paie pas de funding, ce n'est pas une donnee manquante. NaN (trou de
+    jointure, warm-up) => zero aussi : un trou ne doit pas faire sauter le trade.
+    """
+    if "funding_rate" not in df.columns:
+        return np.zeros(len(df))
+    taux = pd.to_numeric(df["funding_rate"], errors="coerce").to_numpy(dtype=float)
+    taux = np.where(np.isfinite(taux), taux, 0.0)
+    heures = _heures_par_bougie(df)
+    if not np.isfinite(heures) or heures_funding <= 0:
+        # Pas de pas identifiable : on paie un reglement plein par bougie. Sens de l'erreur
+        # volontaire — surestimer un cout n'a jamais fabrique d'edge.
+        return taux
+    return taux * (heures / float(heures_funding))
 
 
 def _fenetres(valeurs: np.ndarray, depart: np.ndarray, horizon: int) -> np.ndarray:
@@ -75,13 +209,20 @@ def _premier(touche: np.ndarray) -> np.ndarray:
 
 def evaluer(df: pd.DataFrame, signaux: pd.DataFrame, *, take_profit_r: float = 2.0,
             horizon_bougies: int = 96, stop_atr: float = 2.0,
-            cout_aller_retour_pct: float = 0.0, paire: str = "",
+            cout_aller_retour_pct: float = 0.0, spread: bool = False,
+            funding: bool = False, fenetre_spread: int = FENETRE_SPREAD,
+            heures_funding: float = HEURES_FUNDING, paire: str = "",
             periode_atr: int = PERIODE_ATR) -> pd.DataFrame:
     """Rejoue chaque signal en triple barriere. Une ligne par signal, en R.
 
-    `df` : OHLCV du lake (colonnes date/open/high/low/close). `signaux` : la sortie de
-    `Candidate.appliquer`, alignee ligne a ligne, colonne `sens` (-1/0/+1) et, si la
-    candidate en fournit un, `stop_distance` (distance en PRIX entre entree et stop).
+    `df` : OHLCV du lake (colonnes date/open/high/low/close), plus `funding_rate` si le
+    pipeline l'a jointe. `signaux` : la sortie de `Candidate.appliquer`, alignee ligne a
+    ligne, colonne `sens` (-1/0/+1) et, si la candidate en fournit un, `stop_distance`
+    (distance en PRIX entre entree et stop).
+
+    `spread` et `funding` sont a False ici, et a True dans `Run` : appele directement, ce
+    module rend la geometrie nue, et c'est le Run qui porte la politique de couts du banc.
+    Les activer ne change JAMAIS quels signaux sont mesures, seulement ce qu'ils rapportent.
 
     Les signaux sont evalues INDEPENDAMMENT les uns des autres, y compris s'ils se
     chevauchent : c'est une mesure de geometrie, pas une simulation de compte. Pour une
@@ -122,20 +263,26 @@ def evaluer(df: pd.DataFrame, signaux: pd.DataFrame, *, take_profit_r: float = 2
     hauts, bas, clotures = (df[c].to_numpy(dtype=float) for c in ("high", "low", "close"))
     dates = pd.to_datetime(df["date"], utc=True).to_numpy()
 
+    spread_tout = _serie_spread(df, fenetre_spread) if spread else np.zeros(n)
+    funding_tout = _serie_funding(df, heures_funding) if funding else np.zeros(n)
+    if funding and "funding_rate" not in df.columns:
+        log.debug("%s : funding demande mais colonne absente — cout de funding nul",
+                  paire or "serie")
+
     taille_bloc = max(1, CELLULES_PAR_BLOC // horizon)
     morceaux = []
     for debut in range(0, len(positions), taille_bloc):
         morceaux.append(_bloc(
             positions[debut:debut + taille_bloc], hauts, bas, clotures, dates,
-            sens_tout, entree_tout, risque_tout, horizon, take_profit_r,
-            cout_aller_retour_pct, n))
+            sens_tout, entree_tout, risque_tout, spread_tout, funding_tout,
+            horizon, take_profit_r, cout_aller_retour_pct, n))
     trades = pd.concat(morceaux, ignore_index=True)
     trades.insert(0, "paire", paire)
     return trades
 
 
 def _bloc(positions, hauts, bas, clotures, dates, sens_tout, entree_tout, risque_tout,
-          horizon, take_profit_r, cout_pct, n) -> pd.DataFrame:
+          spread_tout, funding_tout, horizon, take_profit_r, cout_pct, n) -> pd.DataFrame:
     """Le calcul lui-meme, sur un paquet de signaux. Aucune boucle sur les signaux."""
     depart = positions + 1                       # la fenetre s'ouvre APRES la bougie d'entree
     sens = sens_tout[positions].astype(float)
@@ -168,13 +315,31 @@ def _bloc(positions, hauts, bas, clotures, dates, sens_tout, entree_tout, risque
     r_horizon = sens * (cloture_fin - entree) / risque
     r_brut = np.where(np.isnan(r_brut), r_horizon, r_brut)
 
-    # Cout en R : un cout en % du prix vaut d'autant plus de R que le stop est serre. C'est
-    # exactement ce qui tue les strategies a stop tres serre, et qu'un backtest sans frais
-    # ne montre jamais.
-    cout_r = (cout_pct / 100.0) * entree / risque
+    masque = np.arange(horizon)[None, :] <= i_fin[:, None]   # les bougies TENUES, sortie incluse
+
+    # --- les trois couts, tous en % du prix d'entree avant conversion en R ---------------
+    # Un cout en % du prix vaut d'autant plus de R que le stop est serre : c'est exactement
+    # ce qui tue les strategies a stop tres serre, et qu'un backtest sans couts ne montre
+    # jamais. Le facteur est le meme pour les trois (notionnel 1x, collateral plein).
+    i_sortie = np.minimum(depart + i_fin, n - 1)
+    # Un demi-spread a l'entree (estimation de la bougie de signal, connue a sa cloture) et
+    # un demi-spread a la sortie : un spread effectif complet par aller-retour.
+    spread_pct = 100.0 * 0.5 * (spread_tout[positions] + spread_tout[i_sortie])
+    # Funding : cumul sur les bougies tenues, de la premiere bougie APRES l'entree — celle
+    # d'avant est deja reglee quand on entre a la cloture — a la bougie de sortie incluse.
+    # Signe par le sens : positif = paye par le long, encaisse par le short.
+    funding_cumul = np.nansum(np.where(masque, _fenetres(funding_tout, depart, horizon),
+                                       0.0), axis=1)
+    funding_pct = 100.0 * sens * funding_cumul
+    total_pct = cout_pct + spread_pct + funding_pct
+
+    vers_r = entree / risque
+    frais_r = (cout_pct / 100.0) * vers_r
+    spread_r = (spread_pct / 100.0) * vers_r
+    funding_r = (funding_pct / 100.0) * vers_r
+    cout_r = (total_pct / 100.0) * vers_r        # ce qui est REELLEMENT retire de r_brut
     r_net = r_brut - cout_r
 
-    masque = np.arange(horizon)[None, :] <= i_fin[:, None]
     haut_masque = np.where(masque, f_haut, -np.inf)
     bas_masque = np.where(masque, f_bas, np.inf)
     extreme_favorable = np.where(sens > 0, np.nanmax(haut_masque, axis=1),
@@ -195,7 +360,10 @@ def _bloc(positions, hauts, bas, clotures, dates, sens_tout, entree_tout, risque
         "prix_entree": entree, "prix_sortie": cloture_fin,
         "stop": stop, "cible": cible, "risque": risque,
         "r": r_net, "r_brut": r_brut, "cout_r": cout_r,
-        "rendement_pct": sens * (cloture_fin / entree - 1.0) * 100.0 - cout_pct,
+        # Le detail a cote du total : sans lui, on ne peut pas dire si une candidate meurt
+        # de trader trop souvent ou de tenir trop longtemps — deux maladies opposees.
+        "frais_r": frais_r, "spread_r": spread_r, "funding_r": funding_r,
+        "rendement_pct": sens * (cloture_fin / entree - 1.0) * 100.0 - total_pct,
         "mfe_r": np.where(np.isfinite(mfe_r), mfe_r, np.nan),
         "mae_r": np.where(np.isfinite(mae_r), mae_r, np.nan),
         "duree_h": duree_h, "duree_bougies": i_fin + 1,
@@ -205,9 +373,9 @@ def _bloc(positions, hauts, bas, clotures, dates, sens_tout, entree_tout, risque
 
 def _vide() -> pd.DataFrame:
     colonnes = ("paire", "ts_entree", "ts_sortie", "sens", "prix_entree", "prix_sortie",
-                "stop", "cible", "risque", "r", "r_brut", "cout_r", "rendement_pct",
-                "mfe_r", "mae_r", "duree_h", "duree_bougies", "raison_sortie",
-                "index_entree")
+                "stop", "cible", "risque", "r", "r_brut", "cout_r", "frais_r", "spread_r",
+                "funding_r", "rendement_pct", "mfe_r", "mae_r", "duree_h", "duree_bougies",
+                "raison_sortie", "index_entree")
     return pd.DataFrame({c: pd.Series(dtype="object" if c in
                                       ("paire", "sens", "raison_sortie") else float)
                          for c in colonnes})

@@ -159,7 +159,8 @@ def trades_du_run(run: Run, series: dict[str, pd.DataFrame]) -> pd.DataFrame:
         trades = espace_r.evaluer(
             df, signaux, take_profit_r=run.take_profit_r,
             horizon_bougies=run.horizon_bougies, stop_atr=run.stop_atr,
-            cout_aller_retour_pct=run.cout_aller_retour_pct, paire=paire)
+            cout_aller_retour_pct=run.cout_aller_retour_pct,
+            spread=run.spread, funding=run.funding, paire=paire)
         if not trades.empty:
             morceaux.append(trades)
     if not morceaux:
@@ -176,6 +177,13 @@ def _resultats_synthetiques(run: Run, series: dict[str, pd.DataFrame],
     paires, et le temoin n'a pas besoin d'etre plus riche que la question qu'il pose
     (« cette forme de signal gagne-t-elle sur une serie sans structure ? »). C'est une
     limite assumee, elle est ecrite dans les reserves du verdict.
+
+    Le temoin paie les MEMES couts que le reel : le spread, estime sur ses propres meches,
+    et le funding, que `_reconstruire_ohlcv` recopie de la serie mere sur les memes dates.
+    Sans cette recopie, l'ecart reel/synthetique contenait un cout de detention au lieu de
+    ne contenir qu'un edge, et une candidate qui tient longtemps gagnait la porte par sa
+    duree. Les colonnes exogenes qui ne sont pas des couts (fng, macro) ne sont pas
+    recopiees : une candidate qui en depend ne signale donc pas sur le temoin.
     """
     if not series:
         return []
@@ -188,7 +196,8 @@ def _resultats_synthetiques(run: Run, series: dict[str, pd.DataFrame],
             trades = espace_r.evaluer(
                 faux, signaux, take_profit_r=run.take_profit_r,
                 horizon_bougies=run.horizon_bougies, stop_atr=run.stop_atr,
-                cout_aller_retour_pct=run.cout_aller_retour_pct, paire=f"{paire}~{i}")
+                cout_aller_retour_pct=run.cout_aller_retour_pct,
+                spread=run.spread, funding=run.funding, paire=f"{paire}~{i}")
         except Exception as exc:                     # noqa: BLE001 - un chemin ne doit pas
             log.debug("chemin synthetique %d ecarte : %s", i, exc)   # tuer le temoin entier
             continue
@@ -230,6 +239,7 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
     resultat = batterie.evaluer(
         sequence, equity=courbe, series_marche=series,
         n_essais=n, cout_aller_retour_pct=run.cout_aller_retour_pct,
+        spread=run.spread, funding=run.funding,
         resultats_synthetiques=synthetiques, equities_voisines=equities_voisines,
         nom=run.candidate.nom, univers_candidates=univers_candidates,
         famille=famille, graine=run.graine)
