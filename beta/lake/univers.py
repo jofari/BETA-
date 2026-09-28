@@ -131,7 +131,8 @@ def par_base(base: str) -> Paire:
 
 
 def resoudre(nom: str) -> Paire | Indice:
-    """Accepte 'BTC', 'BTC/USDT:USDT' ou 'BTC_USDT_USDT' — les trois notations qui circulent.
+    """Accepte 'BTC', 'BTC/USDT:USDT', 'BTC_USDT_USDT' ou 'BTC/USDT' — les quatre notations qui
+    circulent (la derniere est celle des trades spot d'ARIT, anterieurs au passage en futures A2).
 
     Resout aussi les indices, par base/slug ('SP500', 'sp500') ou par ticker ('^GSPC').
     Ce qui revient est une `Paire` ou un `Indice` : `est_indice()` dit lequel, et les deux
@@ -139,7 +140,8 @@ def resoudre(nom: str) -> Paire | Indice:
     """
     nom = nom.strip()
     for paire in PAIRES:
-        if nom.upper() in (paire.base, paire.symbole.upper(), paire.slug.upper()):
+        spot = paire.symbole.upper().split(":")[0]
+        if nom.upper() in (paire.base, paire.symbole.upper(), paire.slug.upper(), spot):
             return paire
     for indice in INDICES:
         if nom.upper() in (indice.base, indice.ticker.upper(), indice.slug.upper()):
