@@ -107,20 +107,69 @@ def donnees_lake() -> dict:
     }
 
 
-def donnees_strategie(inclure_holdout: bool = False) -> dict:
+STRATEGIE_PAR_DEFAUT = "AritV1"
+
+
+def _runs_disponibles(trades: pd.DataFrame) -> pd.DataFrame:
+    """Un run par ligne, le plus recent d'abord. Le nom freqtrade porte son horodatage
+    (`backtest-result-2026-07-27_19-52-48`), donc l'ordre alphabetique est chronologique."""
+    if trades.empty or "run" not in trades.columns:
+        return pd.DataFrame(columns=["run", "strategie", "n", "debut", "fin"])
+    return (trades.groupby("run")
+            .agg(strategie=("strategie", "first"), n=("run", "size"),
+                 debut=("ts_entree", "min"), fin=("ts_sortie", "max"))
+            .reset_index().sort_values("run", ascending=False).reset_index(drop=True))
+
+
+def _run_choisi(runs: pd.DataFrame, demande: str | None) -> str | None:
+    """Le run demande s'il existe ; sinon le plus recent d'AritV1 ; sinon le plus recent."""
+    if runs.empty:
+        return None
+    if demande and demande in set(runs["run"]):
+        return demande
+    arit = runs[runs["strategie"] == STRATEGIE_PAR_DEFAUT]
+    return str((arit if not arit.empty else runs)["run"].iloc[0])
+
+
+def donnees_strategie(inclure_holdout: bool = False, run: str | None = None) -> dict:
+    """Le profil d'UN run de backtest.
+
+    Jamais plusieurs runs a la fois : deux backtests de la meme periode decrivent les memes
+    trades (351 doublons sur 855 le 29/09), et deux strategies n'ont pas la meme unite — les
+    R d'AritV1 et les % de MacroFlip additionnes donnaient un R moyen negatif a cote d'un
+    profit factor de 2,5. La comparaison entre strategies passe par `par_strategie`, qui
+    met cote a cote le dernier run de chacune.
+    """
     try:
-        trades = strategie.lire("trades", train_seulement=not inclure_holdout)
+        tous = strategie.lire("trades", train_seulement=not inclure_holdout)
         evaluations = strategie.lire("evaluations", train_seulement=not inclure_holdout)
     except strategie.StrategieError as exc:
         return {"erreur": str(exc)}
 
-    trades = trades.sort_values("ts_entree")
+    runs = _runs_disponibles(tous)
+    choisi = _run_choisi(runs, run)
+    trades = (tous[tous["run"] == choisi] if choisi else tous).sort_values("ts_entree")
+
+    # Les rejets du journal n'appartiennent a un run que si son run_id a ete retrouve.
+    rid = (trades["journal_run_id"].dropna().iloc[0]
+           if "journal_run_id" in trades.columns and trades["journal_run_id"].notna().any()
+           else None)
+    rejets_attribues = bool(rid) and "run_id" in evaluations.columns
+    if rejets_attribues:
+        evaluations = evaluations[evaluations["run_id"] == rid]
+
+    derniers = runs.drop_duplicates(subset=["strategie"])["run"]
+    comparaison = descriptif.par(tous[tous["run"].isin(derniers)], "strategie", "run")
+
     r = trades["r"].fillna(0.0)
     return {
         "portee": "tout, hold-out compris" if inclure_holdout else "train seulement",
         "holdout_debut": str(holdout.DEBUT.date()),
+        "run": choisi,
+        "runs": _table(runs),
+        "rejets_attribues": rejets_attribues,
         "resume": {c: _propre(v) for c, v in descriptif.resumer(trades).items()},
-        "par_strategie": _table(descriptif.par(trades, "strategie")),
+        "par_strategie": _table(comparaison),
         "par_paire": _table(descriptif.par(trades, "paire")),
         "par_sens": _table(descriptif.par(trades, "sens")),
         "raisons_sortie": _table(descriptif.raisons_de_sortie(trades)),
@@ -185,7 +234,8 @@ def donnees_candidate(params: dict) -> dict:
 
 _ROUTES_BRUTES = {
     "/api/lake": lambda p: donnees_lake(),
-    "/api/strategie": lambda p: donnees_strategie(bool(p.get("holdout"))),
+    "/api/strategie": lambda p: donnees_strategie(bool(p.get("holdout")),
+                                                  (p.get("run") or [None])[0]),
     "/api/protocole": lambda p: donnees_protocole(),
     "/api/runs": lambda p: donnees_runs(),
     "/api/run": donnees_run,

@@ -75,6 +75,8 @@ def resumer(trades: pd.DataFrame) -> dict:
     for colonne, cle in (("rendement_abs", "rendement_abs_total"),):
         if colonne in trades.columns:
             resume[cle] = float(trades[colonne].dropna().sum())
+    if "sortie_immediate" in trades.columns:
+        resume["n_sorties_immediates"] = int(trades["sortie_immediate"].fillna(False).sum())
     for colonne, cle in (("mfe_r", "mfe_r_moyen"), ("mae_r", "mae_r_moyen"),
                          ("duree_h", "duree_h_mediane")):
         if colonne in trades.columns:

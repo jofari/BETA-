@@ -55,6 +55,13 @@
 <main class="stage">
 
   <section class="panneau" id="onglet-strategie">
+    <div class="carte run-choix">
+      <label>run affiché
+        <select id="run"></select>
+      </label>
+      <p class="sous">Un backtest à la fois : deux runs de la même période décrivent les
+        mêmes trades, et deux stratégies ne se mesurent pas dans la même unité.</p>
+    </div>
     <div class="carte" id="carte-verdict"></div>
 
     <div class="duo">
@@ -100,6 +107,7 @@
 
     <div class="carte">
       <h2>Par stratégie</h2>
+      <p class="sous">Le dernier run de chaque stratégie, côte à côte — jamais additionnés.</p>
       <div class="tableau-wrap" id="par-strategie"></div>
     </div>
   </section>

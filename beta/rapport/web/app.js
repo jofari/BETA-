@@ -216,6 +216,19 @@ function rendreStrategie() {
   const r = d.resume;
   const sousLeSeuil = Math.abs(r.r_moyen) < r.mde_r;
 
+  $("#run").innerHTML = (d.runs || []).map((x) =>
+    `<option value="${x.run}"${x.run === d.run ? " selected" : ""}>${x.strategie} · ${
+      x.run.replace("backtest-result-", "")} · ${entier(x.n)} trades · ${
+      String(x.debut).slice(0, 10)} → ${String(x.fin).slice(0, 10)}</option>`).join("");
+
+  const immediates = r.n_sorties_immediates || 0;
+  const alertes = [
+    immediates ? `<p class="avertir"><strong>${entier(immediates)} trade(s) sur ${
+      entier(r.n)} ouverts et fermés sur la même bougie, au prix d'entrée</strong> : ils
+      n'ont payé que les frais. Ils restent comptés — c'est ce que le run a fait — mais c'est
+      presque toujours une règle de sortie qui se déclenche à l'entrée.</p>` : "",
+  ].join("");
+
   $("#kpis").innerHTML = [
     tuile(entier(r.n), "trades", "", r.n_avec_r !== r.n ? `${r.n_avec_r} avec R` : ""),
     tuile(signe(r.r_moyen), "R moyen", r.r_moyen >= 0 ? "good" : "critical"),
@@ -236,6 +249,7 @@ function rendreStrategie() {
       : `<p class="avertir"><strong>|R moyen| dépasse le MDE.</strong> L'écart est
       détectable à cette taille d'échantillon — ce qui ne dispense ni d'une correction de
       tests multiples, ni d'une confirmation hors échantillon.</p>`}
+    ${alertes}
     <div class="tableau-wrap">${tableau([r], ["n", "n_avec_r", "r_moyen", "r_median",
       "r_sigma", "r_total", "mde_r", "rendement_total_pct", "win_rate", "profit_factor",
       "mfe_r_moyen", "mae_r_moyen", "duree_h_mediane"])}</div>`;
@@ -244,9 +258,12 @@ function rendreStrategie() {
                     "win_rate", "profit_factor"];
   $("#par-sens").innerHTML = tableau(d.par_sens, ["sens", ...colonnes]);
   $("#par-paire").innerHTML = tableau(d.par_paire, ["paire", ...colonnes]);
-  $("#par-strategie").innerHTML = tableau(d.par_strategie, ["strategie", ...colonnes]);
+  $("#par-strategie").innerHTML = tableau(d.par_strategie, ["strategie", "run", ...colonnes]);
   $("#raisons-sortie").innerHTML = tableau(d.raisons_sortie, ["raison_sortie", ...colonnes]);
-  $("#raisons-rejet").innerHTML = tableau(d.raisons_rejet);
+  $("#raisons-rejet").innerHTML = (d.rejets_attribues ? "" :
+    `<p class="avertir">Journal non rattaché à ce run (antérieur au schéma v4, ou run_id
+      introuvable) : ces rejets mélangent <strong>toutes</strong> les exécutions.</p>`) +
+    tableau(d.raisons_rejet);
 
   $("#portee").innerHTML = d.portee.startsWith("train")
     ? `portée : train seulement — hold-out scellé au ${d.holdout_debut}`
@@ -352,9 +369,11 @@ async function charger() {
   const bouton = $("#rafraichir");
   bouton.disabled = true;
   const holdout = $("#holdout").checked ? "?holdout=1" : "";
+  const run = $("#run").value;
+  const requete = holdout + (run ? `${holdout ? "&" : "?"}run=${encodeURIComponent(run)}` : "");
   try {
     const [strategie, lake, protocole] = await Promise.all([
-      fetch("/api/strategie" + holdout).then((r) => r.json()),
+      fetch("/api/strategie" + requete).then((r) => r.json()),
       fetch("/api/lake").then((r) => r.json()),
       fetch("/api/protocole").then((r) => r.json()),
     ]);
@@ -393,6 +412,7 @@ document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", () => ongletActif(t.dataset.onglet)));
 $("#rafraichir").addEventListener("click", charger);
 $("#holdout").addEventListener("change", charger);
+$("#run").addEventListener("change", charger);
 window.addEventListener("resize", () => ongletActif(etat.onglet));
 
 charger();

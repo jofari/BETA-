@@ -106,6 +106,65 @@ def test_journal_vide_ne_fait_pas_tomber_l_import():
     assert len(out) == 1 and pd.isna(out["r"].iloc[0])
 
 
+def test_r_ramene_au_notionnel_en_futures():
+    """+40 % sur la MARGE a levier x20 = +2 % du prix : R = 0,4, pas 8."""
+    trade = _trade(rendement_pct=40.0)
+    trade["levier"] = 20.0
+    out = strategie.attacher_stop_du_journal(trade, _entree_journal())
+    assert out["r"].iloc[0] == pytest.approx(0.4)
+
+
+def _deux_runs():
+    """Deux backtests de la meme entree, chacun avec son propre stop dans le journal."""
+    a, b = _trade(), _trade()
+    a["run"], b["run"] = "run-a", "run-b"
+    ja, jb = _entree_journal(sl=95.0), _entree_journal(sl=90.0)
+    ja["run_id"], jb["run_id"] = "uuid-a", "uuid-b"
+    return pd.concat([a, b], ignore_index=True), pd.concat([ja, jb], ignore_index=True)
+
+
+def test_lien_ambigu_ne_prete_aucun_stop():
+    """Deux run_id couvrent la meme entree avec deux stops differents : aucun zip ne porte
+    le run_id, donc on ne sait pas lequel est le sien. Pris au hasard, le R de l'un
+    viendrait du stop de l'autre — on rend NaN."""
+    trades, journal = _deux_runs()
+    out = strategie.attacher_stop_du_journal(trades, journal)
+    assert out["r"].isna().all()
+    assert out["journal_run_id"].isna().all()
+
+
+def test_run_relie_au_journal_par_recouvrement():
+    trades, journal = _deux_runs()
+    journal.loc[1, "ts_utc"] = "2021-06-01T00:00:00+00:00"   # uuid-b n'a pas cette entree
+    out = strategie.attacher_stop_du_journal(trades.iloc[[0]], journal)
+    assert out["journal_run_id"].iloc[0] == "uuid-a"
+    assert out["r"].iloc[0] == pytest.approx(0.4)
+
+
+def test_stop_ambigu_sans_run_id_donne_nan():
+    """Journal d'avant le schema v4 : deux stops differents pour la meme entree -> NaN."""
+    journal = pd.concat([_entree_journal(sl=95.0), _entree_journal(sl=90.0)],
+                        ignore_index=True)
+    out = strategie.attacher_stop_du_journal(_trade(), journal)
+    assert pd.isna(out["r"].iloc[0])
+
+
+def test_split_d_apres_la_sortie():
+    """Ouvert avant la coupure, ferme apres : le resultat vit dans le hold-out."""
+    trades = pd.DataFrame({
+        "ts_entree": [pd.Timestamp("2023-11-03", tz="UTC")] * 2,
+        "ts_sortie": [pd.Timestamp("2024-02-01", tz="UTC"),
+                      pd.Timestamp("2025-11-20", tz="UTC")],
+    })
+    assert strategie.split_trades(trades).tolist() == [holdout.TRAIN, holdout.HOLDOUT]
+
+
+def test_sorties_immediates_comptees_dans_le_resume():
+    trades = pd.DataFrame({"r": [-0.1, 0.5, -0.1], "rendement_pct": [-0.2, 1.0, -0.2],
+                           "sortie_immediate": [True, False, True]})
+    assert descriptif.resumer(trades)["n_sorties_immediates"] == 2
+
+
 # --- lecture des sources ---------------------------------------------------------------
 
 def test_lire_zip_absent():

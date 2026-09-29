@@ -282,6 +282,16 @@ td.muet { color: var(--text-muted); }
   display: grid; gap: 10px 14px; margin-bottom: 14px;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
+.run-choix { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.run-choix label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+.run-choix select {
+  background: var(--plane); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+  font-size: 13px; font-family: inherit; max-width: 100%;
+}
+.run-choix select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.run-choix .sous { margin: 0; }
+
 .atelier-champs label {
   display: flex; flex-direction: column; gap: 4px;
   font-size: 11px; color: var(--text-muted);

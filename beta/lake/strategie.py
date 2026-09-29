@@ -45,7 +45,12 @@ COLONNES_TRADES = (
     "ts_entree", "prix_entree", "ts_sortie", "prix_sortie", "raison_sortie",
     "r", "rendement_pct", "rendement_abs", "duree_h",
     "sl_initial", "mfe_r", "mae_r", "stake", "frais", "funding", "tag_entree",
+    "levier", "sortie_immediate", "journal_run_id",
 )
+
+# Part minimale des trades d'un zip qu'un `run_id` du journal doit couvrir pour lui etre
+# attribue. En dessous, le journal ne decrit pas ce run : on n'y emprunte aucun stop.
+RECOUVREMENT_MIN = 0.9
 
 
 class StrategieError(RuntimeError):
@@ -118,6 +123,7 @@ def lire_zip(chemin: pathlib.Path) -> pd.DataFrame:
             ouverture = pd.to_datetime(t.get("open_date"), utc=True)
             fermeture = pd.to_datetime(t.get("close_date"), utc=True)
             entree = t.get("open_rate")
+            duree_h = (t.get("trade_duration") or 0) / 60
             signe = -1.0 if t.get("is_short") else 1.0
             lignes.append({
                 "source": f"backtest:{chemin.stem}", "strategie": strategie,
@@ -132,7 +138,16 @@ def lire_zip(chemin: pathlib.Path) -> pd.DataFrame:
                 "sl_initial": float("nan"),
                 "rendement_pct": (t.get("profit_ratio") or 0) * 100,
                 "rendement_abs": t.get("profit_abs"),
-                "duree_h": (t.get("trade_duration") or 0) / 60,
+                "duree_h": duree_h,
+                # En futures, profit_ratio est rapporte a la MARGE : il contient le levier.
+                # Le garder pour le R le gonflerait d'autant.
+                "levier": float(t.get("leverage") or 1.0),
+                # Ouvert et ferme sur la meme bougie, au prix d'entree : le trade n'a paye
+                # que les frais. Signale, jamais retire — c'est un vrai resultat du run,
+                # mais presque toujours le symptome d'une regle de sortie qui se declenche
+                # a l'entree (les 429 sorties G6 des runs du 10-11/07).
+                "sortie_immediate": bool(duree_h == 0 and t.get("close_rate") == entree),
+                "journal_run_id": None,
                 "stake": t.get("stake_amount"),
                 "frais": (t.get("fee_open") or 0) + (t.get("fee_close") or 0),
                 "funding": t.get("funding_fees"), "tag_entree": t.get("enter_tag"),
@@ -143,39 +158,109 @@ def lire_zip(chemin: pathlib.Path) -> pd.DataFrame:
     df = pd.DataFrame(lignes,
                       columns=[*COLONNES_TRADES, "_favorable", "_adverse", "_signe"])
     if not df.empty:
-        df["split"] = holdout.split(df["ts_entree"])
+        df["split"] = split_trades(df)
     return df
+
+
+def split_trades(trades: pd.DataFrame) -> pd.Series:
+    """Train ou hold-out, d'apres la SORTIE du trade — pas son entree.
+
+    Un trade ouvert en 2023 et ferme en 2025 realise son resultat dans le hold-out :
+    l'etiqueter train d'apres son entree ferait entrer le hold-out dans les mesures par la
+    porte de derriere (constate le 29/09 : +125 % d'un trade MacroFlip 11/2023 -> 11/2025).
+    """
+    fin = (trades["ts_sortie"].fillna(trades["ts_entree"]) if "ts_sortie" in trades.columns
+           else trades["ts_entree"])
+    return holdout.split(fin)
+
+
+def _cles_journal(entrees: pd.DataFrame) -> pd.DataFrame:
+    """Les entrees du journal, reduites a (paire, ts_entree, stop, run_id)."""
+    cle = entrees.copy()
+    cle["ts_entree"] = pd.to_datetime(cle["ts_utc"], utc=True, format="ISO8601")
+    if "run_id" not in cle.columns:
+        cle["run_id"] = None
+    garde = [c for c in ("pair", "ts_entree", "sl_initial", "conviction", "regime", "run_id")
+             if c in cle.columns]
+    return cle[garde].rename(columns={"pair": "paire", "sl_initial": "sl_journal"})
+
+
+def _run_du_journal(trades: pd.DataFrame, cle: pd.DataFrame) -> str | None:
+    """Le `run_id` du journal qui a ecrit CES trades, ou None.
+
+    Le journal (schema v4) marque chaque ligne du uuid de son processus, mais ce uuid
+    n'apparait nulle part dans le zip freqtrade. On les relie par recouvrement : le run_id
+    dont les entrees couvrent au moins RECOUVREMENT_MIN des trades du zip.
+
+    Si PLUSIEURS run_id y parviennent (le meme backtest relance), le lien est ambigu : on
+    rend None plutot que de choisir, et l'appelant se replie sur les stops non ambigus.
+    """
+    avec_id = cle.dropna(subset=["run_id"])
+    if avec_id.empty or trades.empty:
+        return None
+    voulues = set(zip(trades["paire"], trades["ts_entree"], strict=True))
+    candidats = []
+    for rid, groupe in avec_id.groupby("run_id"):
+        vues = set(zip(groupe["paire"], groupe["ts_entree"], strict=True))
+        if len(voulues & vues) / len(voulues) >= RECOUVREMENT_MIN:
+            candidats.append(str(rid))
+    return candidats[0] if len(candidats) == 1 else None
+
+
+def _stops_non_ambigus(cle: pd.DataFrame) -> pd.DataFrame:
+    """Faute de run_id attribuable : un stop par entree, seulement s'il est UNIQUE.
+
+    Avant le schema v4, plusieurs backtests de la meme periode s'additionnaient dans les
+    memes fichiers. Si deux runs ont pose deux stops differents sur la meme entree, on ne
+    sait pas lequel appartient a ce trade — prendre le premier, c'etait calculer le R d'un
+    run avec le stop d'un autre. On rend NaN.
+    """
+    distincts = cle.groupby(["paire", "ts_entree"])["sl_journal"].transform("nunique")
+    return cle[distincts == 1].drop_duplicates(subset=["paire", "ts_entree"])
 
 
 def attacher_stop_du_journal(trades: pd.DataFrame, entrees: pd.DataFrame) -> pd.DataFrame:
     """Joint le stop structurel du journal aux trades du zip, puis en derive R, MFE et MAE.
 
-    Jointure sur (paire, horodatage d'entree) : les deux sources decrivent les memes
-    entrees, mais aucune ne porte l'identifiant de l'autre. Un trade dont le stop n'est pas
-    retrouve garde `r` a NaN : il comptera dans `n` mais pas dans `n_avec_r`, et l'ecart
-    entre ces deux nombres est la mesure honnete de ce qu'on ignore.
+    Jointure sur (paire, horodatage d'entree), RUN PAR RUN : un zip n'emprunte ses stops
+    qu'au run_id du journal qui l'a ecrit (`_run_du_journal`), ou a defaut aux stops sans
+    ambiguite. Un trade dont le stop n'est pas retrouve garde `r` a NaN : il comptera dans
+    `n` mais pas dans `n_avec_r`, et l'ecart entre ces deux nombres est la mesure honnete
+    de ce qu'on ignore.
     """
     interne = [c for c in trades.columns if c.startswith("_")]
     if trades.empty or entrees.empty or "sl_initial" not in entrees.columns:
         log.warning("stops du journal indisponibles : les R restent NaN")
-        return trades.drop(columns=interne)
+        out = trades.drop(columns=interne)
+        out["journal_run_id"] = None
+        return out
 
-    cle = entrees.copy()
-    cle["ts_entree"] = pd.to_datetime(cle["ts_utc"], utc=True, format="ISO8601")
-    garde = [c for c in ("pair", "ts_entree", "sl_initial", "conviction", "regime")
-             if c in cle.columns]
-    cle = (cle[garde].rename(columns={"pair": "paire", "sl_initial": "sl_journal"})
-           .drop_duplicates(subset=["paire", "ts_entree"]))
+    cle = _cles_journal(entrees)
+    runs = trades["run"] if "run" in trades.columns else pd.Series("", index=trades.index)
+    morceaux = []
+    for run, groupe in trades.drop(columns=["journal_run_id"], errors="ignore").groupby(
+            runs, sort=False):
+        rid = _run_du_journal(groupe, cle)
+        source = (cle[cle["run_id"] == rid].drop_duplicates(subset=["paire", "ts_entree"])
+                  if rid else _stops_non_ambigus(cle))
+        morceau = groupe.merge(source.drop(columns=["run_id"]), on=["paire", "ts_entree"],
+                               how="left")
+        morceau["journal_run_id"] = rid
+        log.info("%s : journal %s", run or "(run)",
+                 f"run_id {rid}" if rid else "non attribue — stops non ambigus seulement")
+        morceaux.append(morceau)
+    out = pd.concat(morceaux, ignore_index=True)
 
-    out = trades.merge(cle, on=["paire", "ts_entree"], how="left")
     risque = pd.Series(
         [_risque_unitaire(e, s)
          for e, s in zip(out["prix_entree"], out["sl_journal"], strict=True)],
         index=out.index)
+    levier = out["levier"].fillna(1.0) if "levier" in out.columns else 1.0
     out["sl_initial"] = out["sl_journal"]
-    # rendement_pct est en % du prix d'entree : le ramener en unites de prix avant de le
-    # diviser par le risque, sinon le R depend du niveau de prix de la paire.
-    out["r"] = out["rendement_pct"] / 100 * out["prix_entree"] / risque
+    # rendement_pct est en % de la MARGE : le ramener au notionnel (/ levier), puis en
+    # unites de prix, avant de le diviser par le risque — sinon le R depend du levier et du
+    # niveau de prix de la paire.
+    out["r"] = out["rendement_pct"] / 100 / levier * out["prix_entree"] / risque
     out["mfe_r"] = out["_signe"] * (out["_favorable"] - out["prix_entree"]) / risque
     out["mae_r"] = out["_signe"] * (out["_adverse"] - out["prix_entree"]) / risque
     retrouves = int(out["r"].notna().sum())
@@ -308,6 +393,9 @@ def lire(nom: str, train_seulement: bool = False) -> pd.DataFrame:
         df = pd.read_parquet(chemin)
     except (OSError, ValueError) as exc:
         raise StrategieError(f"lecture de {nom} impossible : {exc}") from exc
+    if nom == "trades" and "ts_entree" in df.columns:
+        # Recalcule le split d'apres la sortie, meme sur un lake importe avant le 29/09.
+        df["split"] = split_trades(df)
     if train_seulement and "split" in df.columns:
         df = df[df["split"] == holdout.TRAIN].copy()
     return df
