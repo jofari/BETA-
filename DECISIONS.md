@@ -140,7 +140,7 @@ Deux effets de bord assumés, tous deux dans le sens sévère :
 
 ---
 
-## A2 — nature de l'edge : alpha (niveau 3) vs ARP (niveau 2) — EN ATTENTE de Jonas
+## A2 — nature de l'edge : alpha (niveau 3) vs ARP (niveau 2) — **TRANCHÉE — (A)**, config figée le 03/10
 
 **Découvert le 22/09, après une semaine de mesures hors échantillon + 3 allers-retours avec Claude Code (opus).**
 
@@ -161,9 +161,28 @@ Deux effets de bord assumés, tous deux dans le sens sévère :
 
 ---
 
+### Suite de A2 — la voie C figée et mise en suivi forward (03/10)
+
+Jonas a choisi **(A)**. Le 03/10, la gestion a été optimisée sur le train seul
+(`beta/strategies/voie_c_optim.py`, 5 760 configs), puis passée aux garde-fous
+(`voie_c_verif.py`) : **causalité OK, mais DSR ≈ 0 avec N ≈ 5 870** — le gain du réglage
+fin (+0,15 de Sharpe) est indiscernable du bruit. Ce qui tient : le vol-targeting ramène le
+maxDD de −77 % à ~−22 %. Sharpe réaliste attendu : **0,5-0,7**.
+
+**Config FIGÉE le 2026-10-03** (`scripts/voie_c_suivi.py`, empreinte `d0a971b8c4261d60`) :
+cible 20 % · σ glissante 30 j · levier [0,25 ; 2] · hystérésis du levier 0,25 · quotidien ·
+bande 20 %. Lmax 2 plutôt que 3 : même Sharpe train à 20 %, moins de risque de liquidation.
+
+**Suivi** : `SUIVI_VOIE_C.jsonl` (racine, ajout seul), timer `beta-suivi` à 00:45 UTC. Les
+journées du 06/09 au 02/10 n'avaient été chargées par aucun script de la voie C avant le gel
+→ journalisées « rattrapage » ; à partir du 03/10, « live ». **Aucun ordre passé.** Changer
+de config = nouveau journal, et une ligne ici. Pas de verdict avant ~6 mois de live.
+
+---
+
 ## En attente de Jonas
 
 | # | Objet | État | Depuis |
 |---|---|---|---|
 | ~~**A1**~~ | ~~Ce que compte N : hypothèses ou mesures~~ | ✅ **tranchée 20/08 — (b)**, appliquée | 19/08 |
-| **A2** | Nature de l'edge : alpha vs ARP (options A/B/C) | ⏳ **en attente** | 22/09 |
+| ~~**A2**~~ | ~~Nature de l'edge : alpha vs ARP (options A/B/C)~~ | ✅ **tranchée — (A)**, suivi forward depuis le 03/10 | 22/09 |

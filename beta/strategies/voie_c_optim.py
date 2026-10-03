@@ -110,11 +110,13 @@ def sigma_composite(r_comp: pd.Series, estimateur: str, fenetre: int) -> pd.Seri
 # =========================================================================================
 
 def derouler_bande(cible: np.ndarray, rend: np.ndarray, fund: np.ndarray, pas: int,
-                   bande: float, bps: float) -> tuple[np.ndarray, np.ndarray]:
+                   bande: float, bps: float, positions: np.ndarray | None = None
+                   ) -> tuple[np.ndarray, np.ndarray]:
     """Meme derive, memes frais que `vc.derouler` ; bande = 0 le reproduit a l'identique.
 
     Rend (r_net, r_brut). La bande s'applique a l'ecart BRUT total : un portefeuille dont
     l'ecart a la cible reste sous la bande continue de deriver, et ne paie rien.
+    `positions` (meme forme que `cible`), si fourni, recoit la position TENUE chaque jour.
     """
     n_jours, n_actifs = cible.shape
     cout = bps / 1e4
@@ -132,6 +134,8 @@ def derouler_bande(cible: np.ndarray, rend: np.ndarray, fund: np.ndarray, pas: i
             # Premier jour, ou tenu a plat : la bande ne doit pas empecher d'ENTRER.
             if ecart > bande or not derive.any():
                 tenu = voulu
+        if positions is not None:
+            positions[i] = tenu
         turnover = np.abs(tenu - derive).sum()
         r_brut[i] = np.nansum(tenu * rend[i])
         r_net[i] = r_brut[i] - turnover * cout - np.nansum(tenu * fund[i])
