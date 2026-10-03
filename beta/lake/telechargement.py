@@ -5,8 +5,9 @@ Binance, ses limites de debit, le format de fichier, et il sait REPRENDRE un tel
 partiel. Reecrire ca serait reecrire un bug par bug.
 
 Deux regles, toutes deux demandees par Jonas le 18/08 :
-1. **on ne retelecharge jamais ce qui est deja sur disque** — les 4 paires historiques
-   viennent d'ARIT par simple lecture (cf. `lake.importer_depuis_arit`) ;
+1. **on ne retelecharge jamais ce qui est deja sur disque** — les feathers d'ARIT AMORCENT
+   `data/raw/` par simple copie (`lake.maj.amorcer`), puis freqtrade ne fait que COMPLETER
+   (depuis le 03/10 : avant, les 4 paires historiques restaient figees a la date d'ARIT) ;
 2. **les paires se telechargent SIMULTANEMENT** — le repere connu est ~27 min pour 4 paires
    en sequentiel ; l'attente est du reseau, pas du calcul, donc elle se parallelise.
 
@@ -68,21 +69,35 @@ def _binaire() -> str:
         r"C:\Users\jofar\venvs\arit\Scripts\python.exe")
 
 
+def complet_sur_disque(paire: univers.Paire,
+                       timeframes: tuple[str, ...] = univers.TIMEFRAMES) -> bool:
+    """Tous les feathers de la paire sont-ils deja dans `data/raw/` ?"""
+    return all(config.chemin_feather_brut(paire.slug, tf).exists() for tf in timeframes)
+
+
 def commande(paire: univers.Paire, timeframes: tuple[str, ...] = univers.TIMEFRAMES) -> list[str]:
     """La commande exacte, construite ici et nulle part ailleurs.
 
     `--erase` n'y figure pas et ne doit pas y figurer : une reprise doit completer, pas
     detruire ce qui est deja telecharge.
 
+    `--timerange` seulement si un feather MANQUE. Quand tout est sur disque, freqtrade sans
+    timerange reprend a la derniere bougie de chaque fichier (mise a jour en secondes).
+    Avec un timerange dont le debut precede la 1re bougie presente — le cas de BTC : demande
+    au 01/09/2019, liste le 08/09 — freqtrade jette le fichier et RETELECHARGE TOUT
+    (`_load_cached_data_for_updating`, verifie le 03/10). A l'inverse, sans timerange sur un
+    fichier absent, il ne prend que 30 jours : le choix doit donc se faire paire par paire.
+
     `--userdir` est obligatoire : freqtrade exige un `user_data`, meme pour un telechargement
     qui n'en lit rien. Sans lui, il le cherche dans le repertoire courant et sort en code 2.
     """
+    plage = [] if complet_sur_disque(paire, timeframes) else ["--timerange", f"{paire.depuis}-"]
     return [_binaire(), "download-data",
             "--exchange", config.EXCHANGE,
             "--trading-mode", config.TRADING_MODE,
             "--pairs", paire.symbole,
             "--timeframes", *timeframes,
-            "--timerange", f"{paire.depuis}-",
+            *plage,
             "--datadir", str(config.BRUT),
             "--userdir", str(config.USERDIR)]
 

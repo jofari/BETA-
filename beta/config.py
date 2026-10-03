@@ -18,6 +18,8 @@ USERDIR = DATA / "user_data"             # freqtrade EXIGE un user_data, meme po
                                          # download : il le cherche dans le CWD si on ne le
                                          # lui donne pas, et sort en erreur s'il manque
 CATALOGUE = LAKE / "catalogue.duckdb"    # metadonnees : couverture, trous, provenance
+MACRO = DATA / "macro"                   # copie PROPRE a BETA du F&G et des series FRED,
+MACRO_GLOBAL = MACRO / "global"          # tenue a jour par `lake.maj` (meme format qu'ARIT)
 JOURNAL = DATA / "build_lake.log"
 
 # ARIT est LU, jamais ecrit (invariant n° 1). Surchargeable pour les tests et si le depot
@@ -60,13 +62,27 @@ def chemin_feather_arit(slug: str, timeframe: str) -> pathlib.Path:
     return ARIT_DATA / f"{slug}-{timeframe}-{TRADING_MODE}.feather"
 
 
-def chemin_feather_funding(slug: str) -> pathlib.Path:
-    """Taux de financement 8h d'une paire, telecharge par freqtrade dans ARIT (lecture seule).
+FUNDING_SUFFIXE = "1h-funding_rate"     # freqtrade : 1 ligne par periode de 8h malgre le « 1h »
 
+
+def chemin_feather_funding(slug: str) -> pathlib.Path:
+    """Taux de financement 8h d'une paire : la copie de BETA si elle existe, sinon ARIT.
+
+    Depuis le 03/10, BETA tient ses propres feathers a jour (`lake.maj`) : ceux d'ARIT ne
+    servent plus qu'a AMORCER la copie, et figeaient le funding a leur date de telechargement.
     freqtrade depose le funding sous le suffixe `-1h-funding_rate` (une ligne par periode
     de 8h), a cote des bougies `-{tf}-futures`. Le 1h est trompeur : le pas reel est 8h.
     """
-    return ARIT_DATA / f"{slug}-1h-funding_rate.feather"
+    propre = BRUT / TRADING_MODE / f"{slug}-{FUNDING_SUFFIXE}.feather"
+    return propre if propre.exists() else ARIT_DATA / f"{slug}-{FUNDING_SUFFIXE}.feather"
+
+
+def chemin_macro(nom: str, globale: bool = False) -> pathlib.Path:
+    """Un fichier macro (F&G, serie FRED) : la copie de BETA si elle existe, sinon ARIT."""
+    propre = (MACRO_GLOBAL if globale else MACRO) / nom
+    if propre.exists():
+        return propre
+    return (ARIT_MACRO_GLOBAL if globale else ARIT_MACRO) / nom
 
 
 def chemin_feather_brut(slug: str, timeframe: str) -> pathlib.Path:
@@ -83,7 +99,7 @@ USERDIR_SOUS_DOSSIERS = ("logs", "data", "strategies", "notebooks", "plot",
 
 
 def preparer_dossiers() -> None:
-    for dossier in (DATA, LAKE, BRUT, USERDIR):
+    for dossier in (DATA, LAKE, BRUT, USERDIR, MACRO_GLOBAL):
         dossier.mkdir(parents=True, exist_ok=True)
     for nom in USERDIR_SOUS_DOSSIERS:
         (USERDIR / nom).mkdir(parents=True, exist_ok=True)

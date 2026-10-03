@@ -115,8 +115,9 @@ et embargo, corrélation des courbes d'équity entre candidates.
 
 ## Univers
 
-**6 paires**, perpétuels Binance : `BTC` `ETH` `SOL` `BNB` (déjà téléchargées par ARIT,
-**importées, jamais re-téléchargées**) + `LINK` `XRP` (ajoutées le 18/08, les deux
+**6 paires**, perpétuels Binance : `BTC` `ETH` `SOL` `BNB` (déjà téléchargées par ARIT :
+leurs feathers **amorcent** la copie de BETA, qui est ensuite **complétée** chaque jour —
+jamais re-téléchargée en entier, cf. `beta/lake/maj.py`) + `LINK` `XRP` (ajoutées le 18/08, les deux
 perpétuels les plus anciens après les majors — c'est l'historique qui commande, puisque le
 N est le goulot). Source unique : `beta/univers.py`.
 

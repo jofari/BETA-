@@ -73,9 +73,20 @@ cd C:\Users\jofar\BETA
 Le script est **idempotent** : le relancer ne re-télécharge rien d'inutile et reconstruit un
 lake identique.
 
+**Mise à jour (depuis le 03/10)** : BETA tient **sa propre copie** dans `data/raw/` et
+`data/macro/`. Les fichiers d'ARIT ne servent plus qu'à **amorcer** un feather absent (copie,
+lecture seule) ; ensuite freqtrade **complète** chaque fichier à partir de sa dernière bougie
+(6 paires × 4 timeframes, funding 8h, mark), puis le F&G et les 10 séries FRED sont
+retéléchargés. Le script finit par un tableau de **fraîcheur** et sort en erreur si une série
+est en retard. Avant, les 4 paires historiques, le funding et la macro restaient figés à la
+date des fichiers d'ARIT (constat du 03/10 : tout s'arrêtait entre le 05 et le 09/09).
+
+Sur le VPS : `deploy/beta-maj.timer`, chaque jour à 00:20 UTC (~2 min, ~0,7 Go de pic). Suivi :
+`systemctl status beta-maj` et `journalctl -u beta-maj`.
+
 | Option | Effet |
 |---|---|
-| `--sans-telechargement` | aucun appel réseau : importe ARIT et convertit seulement |
+| `--sans-telechargement` | aucun appel réseau : amorce depuis ARIT et convertit seulement |
 | `--etat` | affiche le catalogue et sort |
 | `--purge` | repart d'un lake vide (`data/` est jetable) |
 

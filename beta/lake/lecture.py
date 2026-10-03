@@ -119,7 +119,7 @@ def resample(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
 
 
 def funding(paire: str) -> pd.DataFrame:
-    """Taux de financement 8h de la paire, lu dans les feathers d'ARIT (lecture seule).
+    """Taux de financement 8h de la paire (copie BETA a jour, a defaut feathers d'ARIT).
 
     Rend un DataFrame (date, funding_rate), trie et tz-aware. `date` est l'horodatage de
     REGLEMENT de la periode — le taux est celui qui a ete paye a cette date, pour la periode
@@ -135,7 +135,7 @@ def funding(paire: str) -> pd.DataFrame:
                         "(le funding est propre aux perpetuels)")
     chemin = config.chemin_feather_funding(p.slug)
     if not chemin.exists():
-        raise DataError(f"{p.base} funding absent du lake ARIT ({chemin.name})")
+        raise DataError(f"{p.base} funding absent, ni dans BETA ni dans ARIT ({chemin.name})")
     df = pd.read_feather(chemin)
     df["date"] = pd.to_datetime(df["date"], utc=True)
     return df[["date", "funding_rate"]].sort_values("date").reset_index(drop=True)
@@ -148,7 +148,7 @@ def fear_greed() -> pd.DataFrame:
     qu'a la fin de ce jour (source alternative.me) : pour l'utiliser SANS look-ahead, le
     pipeline le decale d'un jour (voir `_joindre_macro`).
     """
-    chemin = config.ARIT_MACRO / "fear_greed.json"
+    chemin = config.chemin_macro("fear_greed.json")
     if not chemin.exists():
         raise DataError(f"F&G absent ({chemin.name})")
     import json
@@ -175,7 +175,7 @@ def macro_globales() -> pd.DataFrame:
     }
     morceaux = []
     for fichier, nom in noms.items():
-        chemin = config.ARIT_MACRO_GLOBAL / fichier
+        chemin = config.chemin_macro(fichier, globale=True)
         if not chemin.exists():
             continue
         df = pd.read_csv(chemin, parse_dates=["observation_date"])
