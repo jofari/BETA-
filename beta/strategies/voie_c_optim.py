@@ -32,6 +32,19 @@ Regle de choix, fixee avant de voir un seul chiffre :
 SCELLE : tout ce qui est posterieur a FIN_VUE (2026-09-05, derniere date que la mesure du
 22/09 avait vue) n'est jamais charge dans ce script. Ce mois-la est le debut du suivi forward
 de la config figee ; le regarder pour choisir le brulerait.
+
+RESULTAT DU 03/10 (5760 configs, 4 min) — a lire avant de croire le pic :
+- Retenue par la regle : 20 % / glissant 30j / L[0;3] / pas 3 / bande 20 %, Sharpe net TRAIN
+  1,60, maxDD -22 %. Reference du 22/09 sur la meme fenetre : 1,31.
+- Mais le pas 3 depend de la PHASE du calendrier de reequilibrage : 1,36 a 1,60 selon le
+  jour de depart (pas 7 : 1,10 a 1,63). Le choix etait tombe sur le haut de la fourchette.
+  Pas 1 + bande est le seul reglage sans phase : 1,35-1,36 (bandes 0-20 %).
+- Lmax 3 au bord de la grille ne vient que des cibles hautes ou le clamp mord. A 20 % :
+  Lmax 2 -> 1,60 / -19,6 % ; Lmax 3 -> 1,60 / -22,0 %, 31 % des jours au-dessus de 2x.
+- Lecture honnete : la gestion rapporte ~+0,05 a +0,15 de Sharpe train, pas +0,3. Le gain
+  certain est sur le RISQUE : cible 20 % -> maxDD train ~-20 % au lieu de -23 %.
+- Lmin 0 ou 0,33 : indifferent. EWMA : moins bon partout (1,35 contre 1,56). Fenetres
+  20-45 j equivalentes, 60-90 j nettement moins bonnes. 7 bps au lieu de 5 : -0,03.
 """
 
 from __future__ import annotations
