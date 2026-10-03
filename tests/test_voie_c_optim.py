@@ -42,3 +42,25 @@ def test_la_grille_ne_charge_rien_apres_le_scelle():
     closes, rendements, funding_j = vo.donnees()
     assert closes.index.max() <= vo.FIN_VUE
     assert funding_j.index.max() <= vo.FIN_VUE
+
+
+def test_hysteresis_ne_bouge_que_au_dela_du_seuil():
+    from beta.strategies import voie_c_verif as vv
+    lev = pd.Series([np.nan, 1.0, 1.2, 1.3, 1.0, 1.6, 1.5])
+    out = vv.hysteresis(lev, 0.25).tolist()
+    assert np.isnan(out[0])
+    assert out[1:] == [1.0, 1.0, 1.3, 1.0, 1.6, 1.6]   # 1,3 -> 1,0 : ecart 0,3 > 0,25
+
+
+def test_hysteresis_est_causale():
+    from beta.strategies import voie_c_verif as vv
+    rng = np.random.default_rng(3)
+    lev = pd.Series(rng.uniform(0.25, 3.0, 300))
+    complet = vv.hysteresis(lev, 0.25)
+    pd.testing.assert_series_equal(vv.hysteresis(lev[:200], 0.25), complet[:200])
+
+
+def test_chaine_complete_causale_sur_le_lake():
+    from beta.strategies import voie_c_verif as vv
+    closes, _, funding_j = vo.donnees()
+    assert all(e < 1e-12 for _, e in vv.epreuve_causalite(closes, funding_j))
