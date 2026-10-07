@@ -205,6 +205,57 @@ def test_frais_par_paire_et_funding_paye_par_le_long(cfg):
     assert np.isclose(out["r_net"][0], -out["frais"][0] - 0.001)
 
 
+# ------------------------------------------------------------------------------------- VC3
+
+@pytest.fixture(scope="module")
+def cfg3():
+    return c2.config("VC3")
+
+
+def test_vc3_relue_dans_le_registre_avec_son_empreinte(cfg3):
+    # Preenregistree le 07/10 apres la mesure de VC2 : poche « maximum » et spot. Si ce test
+    # casse, ce n'est plus VC3.
+    assert c2.empreinte(cfg3) == "7adef08a837a8c50"
+
+
+def test_vc3_ne_differe_de_vc2_que_par_la_poche_le_spot_et_les_frais(cfg3):
+    v2 = c2.config("VC2")
+    assert cfg3["baissier"] == {**v2["baissier"], "poche": "maximum"}
+    assert cfg3["instrument"] == "spot" and cfg3["plafond_brut"] == 1.0
+    assert cfg3["frais"] == {**v2["frais"], "taker_pb": 10.0}
+    autres = ("version", "baissier", "instrument", "plafond_brut", "frais")
+    assert {k: v for k, v in cfg3.items() if k not in autres} \
+        == {k: v for k, v in v2.items() if k not in autres}
+
+
+def test_poche_maximum_ne_rachete_jamais_de_btc(cfg3):
+    c = np.full((2, 6), 0.05)                                      # 5 % de BTC au signal
+    out = _derouler(cfg3, [H, B], c)
+    assert np.isclose(out["positions"][1][0], 0.05)                # VC2 serait montee a 25 %
+    assert np.allclose(out["positions"][1][1:], 0.025)             # alts -50 %, comme VC2
+
+
+def test_poche_maximum_vend_au_dessus_de_25_pourcent_du_plus_haut(cfg3):
+    c = np.zeros((2, 6))
+    c[:, 0] = 0.6
+    out = _derouler(cfg3, [H, B], c)
+    assert np.isclose(out["positions"][1][0], 0.25 / out["equite_debut"][1])
+
+
+def test_spot_sans_funding_avec_frais_spot(cfg3):
+    c = np.zeros((1, 6))
+    c[0, 0], c[0, 2] = 0.5, 0.5                                    # 0,5 BTC, 0,5 SOL
+    out = _derouler(cfg3, [H], c, fund=np.full((1, 6), 0.001))
+    assert out["funding"][0] == 0.0
+    assert np.isclose(out["frais"][0], 0.5 * (10 + 5) / 1e4 + 0.5 * (10 + 10) / 1e4)
+
+
+def test_spot_plafonne_le_brut_a_1_au_prorata(cfg3):
+    out = _derouler(cfg3, [H, V], np.full((2, 6), 0.3))            # le moteur veut 1,8x
+    assert np.allclose(out["positions"][0], 1 / 6)
+    assert np.allclose(out["positions"][1], 1 / 6)                 # veille : ni ajout ni coupe
+
+
 # ------------------------------------------------------------------- causalite, donnees reelles
 
 @pytest.fixture(scope="module")
@@ -212,7 +263,7 @@ def reelles():
     return c2.donnees(fin=c2.FIN_BACKTEST)
 
 
-@pytest.mark.parametrize("id_exp", ["VC2", "VC2T"])
+@pytest.mark.parametrize("id_exp", ["VC2", "VC2T", "VC3"])
 @pytest.mark.parametrize("t", ["2022-11-09", "2025-04-07"])
 def test_causalite_troncature_et_perturbation(reelles, id_exp, t):
     ecarts = c2.epreuve_causalite(reelles, c2.config(id_exp), pd.Timestamp(t, tz="UTC"))

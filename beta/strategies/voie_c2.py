@@ -4,9 +4,10 @@
         /root/venvs/arit/bin/python beta/strategies/voie_c2.py
 
 Preenregistrement : `scripts/preenregistrer_vc2.py`, ids VC2 (5 votes) et VC2T (temoin sans
-macro). La config n'est PAS recopiee ici : elle est relue dans le registre par `config()`,
-qui refuse de tourner si l'experience n'est pas preenregistree ou si l'empreinte differe.
-Le registre est donc la seule source, et le verrou de BETA s'applique a la voie C2.
+macro) ; `scripts/preenregistrer_vc3.py`, id VC3 (poche BTC « maximum », en spot). La config
+n'est PAS recopiee ici : elle est relue dans le registre par `config()`, qui refuse de
+tourner si l'experience n'est pas preenregistree ou si l'empreinte differe. Le registre est
+donc la seule source, et le verrou de BETA s'applique a la voie C2.
 
 Trois etats, chaque jour, selon la somme des votes :
     haussier  >= seuil haut : moteur vol-cible de la config figee du 03/10, sans short ni carry
@@ -17,6 +18,14 @@ Trois etats, chaque jour, selon la somme des votes :
     veille    entre les deux : aucun ajout ; l'exposition ne peut que baisser, au prorata,
                               quand le brut voulu par le moteur haussier passe sous le brut
                               tenu de plus que la bande
+
+Trois cles absentes de VC2/VC2T, ajoutees pour VC3 (absentes = comportement de VC2) :
+    baissier.poche  "maximum" : au signal, BTC = min(tenu, 25 % du plus haut) — la regle ne
+                    fait que vendre. Defaut "cible" : BTC ramene a 25 % du plus haut, achat
+                    compris (c'etait un achat dans 9 episodes sur 9 de VC2).
+    instrument      "spot" : aucun funding. Defaut "perpetuel" : le long paie le funding.
+    plafond_brut    exposition brute maximale ; le voulu du moteur haussier est ramene au
+                    plafond, au prorata (spot : 1, pas d'emprunt). Defaut : aucun.
 
 Causalite : la ligne t est la position tenue PENDANT le jour t, decidee a t 00:00 UTC sur les
 clotures <= t-1, le F&G date <= t-1 et les series FRED datees <= t-2 (une serie H.15 datee J
@@ -60,7 +69,7 @@ def empreinte(cfg: dict) -> str:
 
 
 def config(id_exp: str) -> dict:
-    """La config PREENREGISTREE de VC2 ou VC2T, verifiee par son empreinte."""
+    """La config PREENREGISTREE de VC2, VC2T ou VC3, verifiee par son empreinte."""
     entree = experiences.exiger(id_exp)
     cfg = entree.get("config")
     if not cfg:
@@ -236,6 +245,9 @@ def derouler(etat: np.ndarray, cible: np.ndarray, rend: np.ndarray, fund: np.nda
     n, k = cible.shape
     b, bande = cfg["baissier"], cfg["haussier"]["bande"]
     couts = couts_par_cote(cfg)
+    poche_maximum = b.get("poche", "cible") == "maximum"
+    paie_funding = cfg.get("instrument", "perpetuel") == "perpetuel"
+    plafond_brut = cfg.get("plafond_brut")
     tenu = np.zeros(k)
     r_brut, r_net = np.zeros(n), np.zeros(n)
     frais, funding, turnover, equite = np.zeros(n), np.zeros(n), np.zeros(n), np.zeros(n)
@@ -250,6 +262,8 @@ def derouler(etat: np.ndarray, cible: np.ndarray, rend: np.ndarray, fund: np.nda
         else:
             derive = np.zeros(k)
         voulu = np.nan_to_num(cible[i])
+        if plafond_brut is not None and np.abs(voulu).sum() > plafond_brut:
+            voulu = voulu * (plafond_brut / float(np.abs(voulu).sum()))
         if etat[i] == HAUSSIER:
             episode = False
             ecart = float(np.abs(voulu - derive).sum())
@@ -258,8 +272,9 @@ def derouler(etat: np.ndarray, cible: np.ndarray, rend: np.ndarray, fund: np.nda
             tenu = derive.copy()
             if not episode:
                 episode, episodes = True, episodes + 1
-                tenu[0] = min(b["poche_btc_du_plus_haut"] * plus_haut / e_courante,
-                              b["plafond_poche"])
+                poche = min(b["poche_btc_du_plus_haut"] * plus_haut / e_courante,
+                            b["plafond_poche"])
+                tenu[0] = min(derive[0], poche) if poche_maximum else poche
                 tenu[1:] = derive[1:] * (1.0 - b["coupe_alts"])
             tenu[1:][alt_en_baisse[i]] = 0.0
         else:
@@ -271,7 +286,7 @@ def derouler(etat: np.ndarray, cible: np.ndarray, rend: np.ndarray, fund: np.nda
         turnover[i] = float(echange.sum())
         frais[i] = float((echange * couts).sum())
         r_brut[i] = float(np.nansum(tenu * rend[i]))
-        funding[i] = float(np.nansum(tenu * fund[i]))
+        funding[i] = float(np.nansum(tenu * fund[i])) if paie_funding else 0.0
         r_net[i] = r_brut[i] - frais[i] - funding[i]
         if 1.0 + r_net[i] <= 0.0:
             # Equite <= 0 : le compte est liquide. On s'arrete fort plutot que de continuer
