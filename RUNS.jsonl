@@ -32,3 +32,5 @@
 {"run_id": "36ed58e66266", "experience": "R8", "candidate": "liquidity_ny_stop_050", "empreinte": "b8dcacb10d31", "issue": "infirmee", "date": "2026-09-19T15:08:22.091407+00:00"}
 {"run_id": "96d03113b579", "experience": "R8", "candidate": "liquidity_ny_stop_100", "empreinte": "8ca359af2b7d", "issue": "infirmee", "date": "2026-09-19T15:14:57.603285+00:00"}
 {"run_id": "52423a324274", "experience": "R8", "candidate": "liquidity_ny_stop_150", "empreinte": "9d915baf7cfd", "issue": "infirmee", "date": "2026-09-19T15:21:24.093419+00:00"}
+{"run_id": "1fc6b17a8880", "experience": "VC2", "candidate": "voie_c2", "empreinte": "744700fa7d8980fc", "issue": "infirmee", "date": "2026-10-07T10:21:37.781484+00:00"}
+{"run_id": "ecca82917d20", "experience": "VC2T", "candidate": "voie_c2", "empreinte": "7880a72b6e116005", "issue": "infirmee", "date": "2026-10-07T10:21:37.784125+00:00"}

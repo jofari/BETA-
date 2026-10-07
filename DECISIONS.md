@@ -228,6 +228,24 @@ que l'exécution existe. Le suivi de la config figée du 03/10 continue en paral
 **Reste ouvert** : le châssis d'exécution — propre à chaque stratégie selon Jonas, à trancher
 avant un dry-run avec ordres.
 
+**Mesure du 07/10 — VC2 et VC2T INFIRMÉES par leur règle préenregistrée**
+(`scripts/mesurer_vc2.py`, un run chacune, compteur inchangé à 59) :
+
+| | Sharpe net | CAGR | maxDD | turnover |
+|---|---|---|---|---|
+| VC2 (5 votes) | 0,72 | 20,7 % | **−34,8 %** | 2,7x/an |
+| VC2T (momentum seul) | 0,78 | 23,7 % | **−38,2 %** | 5,9x/an |
+| hold BTC | 0,33 | 7,5 % | −78,0 % | — |
+| voie C figée (5 pb, sans slippage) | 1,11 | 33,4 % | −21,4 % | — |
+
+Le Sharpe bat largement le hold ; c'est le **budget de drawdown (−25 %) qui casse**, sur la
+baisse du 08/11/2021 au 21/11/2022 : −17 % déjà perdus au premier jour baissier (retard du
+momentum 126 j), puis la **poche BTC (~21 % de l'équité) flotte dans les −77 % de BTC** et
+fait ~70 % de la perte. Les deux règles de Jonas — plancher BTC qui flotte et maxDD ≤ 25 % —
+sont **incompatibles sur 2021-2022**. Apport de la macro : −2,7 %/an, IC 95 % [−8,0 ; +2,9]
+⇒ indécidable. **Pas de forward** (la règle l'interdit). Suite : décision de Jonas — toute
+variante est une nouvelle hypothèse, choisie en connaissant ce résultat.
+
 ---
 
 ## En attente de Jonas

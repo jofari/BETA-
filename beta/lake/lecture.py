@@ -192,6 +192,25 @@ def macro_globales() -> pd.DataFrame:
     return out.sort_index()
 
 
+def nasdaq100() -> pd.Series:
+    """Cloture du NASDAQ-100 (FRED NASDAQ100), SESSIONS US seulement, index minuit UTC.
+
+    Volontairement hors de `macro_globales` : ce n'est pas une serie a joindre a toutes les
+    candidates, c'est l'entree du vote c6/c7 de la voie C2 (meme serie que le veto d'ARIT).
+    Les jours sans cotation ('.' chez FRED) sont retires : la cassure et la correlation se
+    calculent sur les sessions, jamais sur un calendrier 7/7 forward-fille.
+    """
+    chemin = config.chemin_macro("nasdaq100.csv", globale=True)
+    if not chemin.exists():
+        raise DataError(f"NASDAQ-100 absent ({chemin.name}) : lancer la mise a jour du lake")
+    df = pd.read_csv(chemin, na_values=["."])
+    if len(df.columns) < 2:
+        raise DataError(f"{chemin.name} illisible")
+    s = pd.Series(pd.to_numeric(df[df.columns[1]], errors="coerce").to_numpy(),
+                  index=pd.to_datetime(df[df.columns[0]], utc=True).dt.normalize())
+    return s.dropna().sort_index()
+
+
 def _avertir_si_suspect(paire: univers.Paire, timeframe: str) -> None:
     if not config.CATALOGUE.exists():
         return

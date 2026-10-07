@@ -43,6 +43,9 @@ SERIES_FRED = {
     "hy_oas.csv": "BAMLH0A0HYM2", "ig_oas.csv": "BAMLC0A0CM", "dxy.csv": "DTWEXBGS",
     "spread_2s10s.csv": "T10Y2Y", "fedfunds.csv": "DFF", "BAA10Y.csv": "BAA10Y",
     "AAA10Y.csv": "AAA10Y",
+    # Lu par `lecture.nasdaq100` seulement (vote c6/c7 de la voie C2), jamais par
+    # `macro_globales` : sinon il entrerait dans la jointure macro de TOUTES les candidates.
+    "nasdaq100.csv": "NASDAQ100",
 }
 URL_FRED = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"
 URL_FNG = "https://api.alternative.me/fng/?limit=0&format=json"
