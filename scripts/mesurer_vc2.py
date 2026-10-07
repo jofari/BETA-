@@ -16,9 +16,12 @@ RESULTAT DU 07/10 (run unique, VC2 1fc6b17a8880, VC2T ecca82917d20) — les deux
 - VC2T Sharpe 0,78 | CAGR 23,7 % | vol 22,1 % | maxDD -38,2 % | turnover 5,9x/an
 - hold BTC 0,33 / -78 % ; hold equipondere 0,40 / -82 % ; voie C figee (5 pb) 1,11 / -21 %.
   Le Sharpe bat largement le hold ; le maxDD creve le budget de -25 %.
-- Cause (decomposition du run, rien remesure) : la baisse 2021-11-08 -> 2022-11-21. -17 % deja
-  perdus au 1er jour baissier (19/12/2021, retard du momentum 126 j), puis la poche BTC
-  (~21 % de l'equite) flotte dans -77 % de BTC : BTC = -24,7 points, les 5 alts ~-14.
+- Cause (decomposition exacte du run, refaite le 07/10, rien remesure) : la baisse
+  2021-11-08 -> 2022-11-21. -16,8 points pendant le retard du signal (1er jour baissier le
+  19/12/2021, momentum 126 j ; alts -11,8), -15,4 points sur la poche BTC, constituee par un
+  ACHAT au signal (BTC 7 % -> 30 % du capital, puis -66 %), -2,6 de reste. La poche est un
+  achat dans 9 episodes sur 9 : le moteur ne tient qu'environ 15 % de BTC en haussier.
+  Suite : VC3 (`mesurer_vc3.py`), poche « maximum » et spot.
 - Apport de la macro (VC2 - VC2T) : -2,7 %/an, IC 95 % [-8,0 ; +2,9] => indecidable.
 """
 

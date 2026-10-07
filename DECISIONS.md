@@ -239,12 +239,73 @@ avant un dry-run avec ordres.
 | voie C figée (5 pb, sans slippage) | 1,11 | 33,4 % | −21,4 % | — |
 
 Le Sharpe bat largement le hold ; c'est le **budget de drawdown (−25 %) qui casse**, sur la
-baisse du 08/11/2021 au 21/11/2022 : −17 % déjà perdus au premier jour baissier (retard du
-momentum 126 j), puis la **poche BTC (~21 % de l'équité) flotte dans les −77 % de BTC** et
-fait ~70 % de la perte. Les deux règles de Jonas — plancher BTC qui flotte et maxDD ≤ 25 % —
-sont **incompatibles sur 2021-2022**. Apport de la macro : −2,7 %/an, IC 95 % [−8,0 ; +2,9]
-⇒ indécidable. **Pas de forward** (la règle l'interdit). Suite : décision de Jonas — toute
-variante est une nouvelle hypothèse, choisie en connaissant ce résultat.
+baisse du 08/11/2021 au 21/11/2022. Décomposition exacte (refaite le 07/10, même run) :
+**−16,8 points pendant le retard du signal** (08/11 → 19/12/2021, alts −11,8), **−15,4 points
+sur la poche BTC, constituée par un ACHAT au signal** (BTC 7 % → 30 % du capital, puis
+−66 %), −2,6 de reste. La poche « 25 % du plus haut » est un achat dans 9 épisodes sur 9
+(25 sur 26 pour VC2T), car le moteur ne tient qu'environ 15 % de BTC en haussier.
+*Corrigé le 07/10 : la première version de ce paragraphe disait « la poche (~21 % de
+l'équité) flotte dans les −77 % de BTC et fait ~70 % de la perte », et concluait que plancher
+BTC et budget étaient incompatibles — c'était faux, la poche était un achat.* Apport de la
+macro : −2,7 %/an, IC 95 % [−8,0 ; +2,9] ⇒ indécidable. **Pas de forward** (la règle
+l'interdit).
+
+---
+
+### Suite de A2 (ter) — VC3 : poche « maximum », en spot (07/10)
+
+**Décisions de Jonas après la mesure de VC2**, question par question :
+- **12:59 UTC — la poche BTC est un MAXIMUM** : au signal baissier, BTC = min(BTC tenu, 25 %
+  du plus haut de l'équité). La règle ne fait plus que vendre, jamais acheter. C'est la
+  lecture de ses propres mots (« un allègement, jamais une vente complète ») ;
+- **13:07 UTC — spot, cible 20 %** : le levier de VC2 n'a jamais servi (brut max 1,00, 0,60
+  en médiane haussière), mais les perpétuels coûtaient 2,7 %/an de funding. Spot = aucun
+  funding, exposition brute plafonnée à 1 (pas d'emprunt), frais spot 0,10 % par côté + le
+  même slippage. Jonas pensait que « le problème, c'est peut-être de ne pas se servir du
+  levier » : le levier ne détecte rien, il multiplie, et viser plus de risque aurait demandé
+  de relever le budget (cible 30 % ≈ −35 % sur 2022 en calcul grossier) ;
+- **13:13 UTC — « teste aussi l'overfitting potentiel avec beta »** : batterie
+  anti-surapprentissage écrite dans le préenregistrement, seuils compris, avant la mesure.
+
+Tout le reste de C2 est inchangé (5 votes, seuils, moteur haussier, alts, veille). Prix : les
+clôtures des perpétuels du lake servent de proxy du spot ; écart vérifié contre l'API spot
+Binance sur la fenêtre (≤ 10 pb cumulés par paire, seule exception SOL le 09/11/2022, FTX).
+
+**Préenregistrement** (commit `b342ea0`, `scripts/preenregistrer_vc3.py`) : **VC3**, empreinte
+`7adef08a837a8c50`, seule, sans témoin, compteur 59 → 60. Porte : maxDD net ≥ −25 % ET Sharpe
+net > hold BTC **spot** ET causalité ET **R1** (la médiane de 10 voisins de calendrier passe
+aussi la porte). R2 à R4 informent ou alertent.
+
+**Mesure du 07/10 — VC3 CONFIRMÉE, de justesse, avec deux alertes** (`scripts/mesurer_vc3.py`,
+run `02a300c116bb` ; les 10 voisins sont journalisés, compteur 60 → 70) :
+
+| | Sharpe net | CAGR | maxDD | turnover |
+|---|---|---|---|---|
+| **VC3** (poche max, spot) | **0,80** | 22,1 % | **−23,2 %** | 2,2x/an |
+| VC3 hors échantillon (≥ 01/07/2024) | 0,72 | 19,0 % | −19,6 % | 1,9x/an |
+| hold BTC spot (la porte) | 0,45 | 15,6 % | −76,7 % | — |
+| VC2 (perpétuels, poche achetée) | 0,72 | 20,7 % | −34,8 % | 2,7x/an |
+| voie C figée (5 pb, sans slippage) | 1,11 | 33,4 % | −21,4 % | — |
+
+La batterie anti-surapprentissage :
+- **R1 plateau (porte) — passe, mais de peu.** Médiane des 10 voisins : maxDD −24,3 %, Sharpe
+  0,75. **4 voisins sur 10 crèvent le budget, tous sur les fenêtres de momentum** (vote BTC
+  90/180 j : −25,9 / −29,4 % ; moteur 90/180 j : −25,8 / −27,6 %). Les fenêtres des alts, de
+  la σ et la bande ne bougent presque rien. Le budget tient donc à la fenêtre de 126 j, des
+  deux côtés.
+- **R2 Sharpe dégonflé** : DSR 0,42 à N = 70, 0,06 à N = 5 880 (avec la grille de la voie C
+  dont VC3 hérite le moteur). Le Sharpe ne résiste pas au nombre d'essais, comme attendu.
+- **R3 — ALERTE.** Bootstrap par blocs : maxDD médian −28 %, P(maxDD < −25 %) = 66 à 68 %
+  selon la longueur de bloc. Écart de Sharpe au hold BTC : +0,35, IC 95 % [−0,31 ; +0,98].
+- **R4 — ALERTE.** 2024 fait 50 % du gain (en log). Par année : 2021 +2,8 % · 2022 −5,0 % ·
+  2023 +56,9 % · 2024 +69,5 % · 2025 +10,2 % · 2026 (au 05/09) −0,6 %.
+
+**Lecture** : VC3 n'est pas tuée, elle n'est pas validée. Le gain réel par rapport à VC2 est
+d'avoir cessé d'acheter du BTC au signal baissier (−35 % → −23 %). Mais la marge sous le
+budget est mince, elle dépend de la fenêtre de 126 j, et son propre bootstrap la dépasse
+deux fois sur trois. Dans une vraie baisse, il faut s'attendre plutôt à −30 % qu'à −23 %.
+**Forward** : admise au dry-run de 6 mois, rattrapage du 06/09 au 07/10, live dès le 08/10,
+critères préenregistrés (maxDD ≤ 25 %, vol réalisée 10-30 %).
 
 ---
 
