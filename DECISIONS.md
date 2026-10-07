@@ -180,6 +180,56 @@ de config = nouveau journal, et une ligne ici. Pas de verdict avant ~6 mois de l
 
 ---
 
+### Suite de A2 (bis) — la voie C2 : long uniquement, régime BTC à votes (07/10)
+
+**Déclencheur** : diagnostic du 07/10 sur la config figée (données ≤ 05/09) — la jambe carry
+fait ~90 % du turnover (classement quotidien de 6 funding, composition changée 63-77 % des
+jours) et coûte plus en frais qu'elle n'encaisse de funding. Jonas en a tiré une refonte, et
+l'a fixée **règle par règle, avant toute mesure**, le 07/10. La voie C2 a vocation à vivre
+dans ARIT, devenu multi-stratégies (ARIT `DECISIONS.md`, 28/09 et 07/10), où elle
+**remplace AritV1**.
+
+**Cadre** : long uniquement · perpétuels USDT-M · levier max 2 · les 6 paires · frais du
+barème ARIT (taker 5 pb + slippage 5 pb BTC/ETH, 10 pb les 4 autres, par côté) · funding des
+longs déduit · pas de coupe-circuit journalier · aucune règle par trade d'AritV1.
+
+**Le régime** — 5 votes, chaque jour, données ≤ J−1 (FRED ≤ J−2 : publication J+1 ~20 h UTC) :
+
+| Vote | +1 | −1 | 0 |
+|---|---|---|---|
+| Momentum BTC | rendement 126 j > 0 | < 0 | — |
+| Taux réel 10 ans (DFII10) | baisse ≥ 0,10 pt sur 60 obs. | hausse ≥ 0,10 pt | sinon / périmé |
+| Inflation anticipée 10 ans (T10YIE) | hausse ≥ 0,10 pt sur 60 obs. | baisse ≥ 0,10 pt | sinon / périmé |
+| NASDAQ-100 (c6/c7 d'ARIT) | **jamais** (A4) | sous son plus bas de 20 sessions ET BTC couplé | sinon / périmé |
+| Fear & Greed (seuils ARIT figés) | ≥ 45 | < 25 | sinon / périmé |
+
+Somme ≥ +2 ⇒ **haussier** · ≤ −2 ⇒ **baissier** · entre les deux ⇒ **veille**.
+
+**Les positions** :
+- **haussier** : (inverse-vol 180 j + tendance propre long uniquement) / 2 × levier du
+  vol-targeting de la config figée (cible 20 %, σ 30 j, levier 0,25-2, hystérésis 0,25,
+  bande 20 %), quotidien ;
+- **baissier** (épisode, jusqu'au prochain haussier) : au signal, poche BTC amenée à 25 % du
+  plus haut de l'équité (achat ou vente), plafonnée à 100 % du capital du jour, puis elle
+  flotte ; alts −50 % au signal, puis chaque alt sort en entier quand SON rendement 126 j
+  est négatif ; aucun rachat avant le retour en haussier ;
+- **veille** : aucun ajout ; l'exposition peut seulement baisser, au prorata, si le brut
+  voulu par le moteur haussier passe sous le brut tenu de plus que la bande.
+
+**Mesure** : préenregistrées le 07/10 — **VC2** (complète, empreinte `744700fa7d8980fc`) et
+**VC2T** (témoin sans macro, `7880a72b6e116005`), famille de 2, compteur 57 → 59. Script :
+`scripts/preenregistrer_vc2.py`. Backtest 2021-06-12 → 2026-09-05, **informatif** (fenêtre
+déjà vue). Porte : maxDD net ≥ −25 % ET Sharpe net > hold BTC ET causalité. L'écart
+VC2 − VC2T mesure ce que la macro apporte (attendu : indécidable).
+**Forward** : rattrapage du 06/09 au 06/10, **live à partir du 07/10** ; dry-run de 6 mois,
+critères maxDD ≤ 25 %, vol réalisée 10-30 %, puis slippage ≤ 2× modèle et zéro incident dès
+que l'exécution existe. Le suivi de la config figée du 03/10 continue en parallèle.
+
+**Reste ouvert** : le châssis d'exécution — propre à chaque stratégie selon Jonas, à trancher
+avant un dry-run avec ordres.
+
+---
+
 ## En attente de Jonas
 
 | # | Objet | État | Depuis |
