@@ -34,8 +34,17 @@ class DataError(RuntimeError):
     """Donnee absente du lake, ou timeframe non derivable."""
 
 
-def _table_source(paire: univers.Paire, timeframe: str) -> tuple[str, bool]:
-    """(timeframe a lire, faut-il resampler). Le 5m est la base de toute derivation."""
+def _table_source(paire: univers.Paire | univers.Indice, timeframe: str) -> tuple[str, bool]:
+    """(timeframe a lire, faut-il resampler). Le 5m est la base de toute derivation.
+
+    Un indice n'a que le 1d et pas de 5m : rien ne se derive, tout autre timeframe est une
+    erreur de lecture, dite tout de suite plutot que decouverte sur un fichier absent.
+    """
+    if univers.est_indice(paire):
+        if timeframe in univers.TIMEFRAMES_INDICES:
+            return timeframe, False
+        raise DataError(f"{paire.base} est un indice quotidien : seul le 1d existe, "
+                        f"{timeframe} n'est pas derivable (pas de 5m a la source)")
     if timeframe in univers.TIMEFRAMES:
         return timeframe, False
     pas = univers.pas_minutes(timeframe)
@@ -47,7 +56,10 @@ def _table_source(paire: univers.Paire, timeframe: str) -> tuple[str, bool]:
 
 def disponible(paire: str, timeframe: str) -> bool:
     p = univers.resoudre(paire)
-    source, _ = _table_source(p, timeframe)
+    try:
+        source, _ = _table_source(p, timeframe)
+    except DataError:
+        return False            # un timeframe impossible pour cet actif n'est pas disponible
     return config.chemin_parquet(p.slug, source).exists()
 
 
@@ -104,6 +116,99 @@ def resample(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
              .dropna(subset=["open"])
              .reset_index())
     return out
+
+
+def funding(paire: str) -> pd.DataFrame:
+    """Taux de financement 8h de la paire (copie BETA a jour, a defaut feathers d'ARIT).
+
+    Rend un DataFrame (date, funding_rate), trie et tz-aware. `date` est l'horodatage de
+    REGLEMENT de la periode — le taux est celui qui a ete paye a cette date, pour la periode
+    [date-8h, date]. Pour une entree a un instant t, le taux SANS look-ahead est donc celui
+    dont le reglement est STRICTEMENT anterieur a t (cf. merge_asof allow_exact_matches=False
+    dans le pipeline).
+    """
+    p = univers.resoudre(paire)
+    if univers.est_indice(p):
+        # DataError et pas KeyError : pour le pipeline, « pas de funding » est un etat
+        # normal d'un indice (la colonne est simplement absente), pas une paire inconnue.
+        raise DataError(f"{p.base} est un indice : pas de taux de financement "
+                        "(le funding est propre aux perpetuels)")
+    chemin = config.chemin_feather_funding(p.slug)
+    if not chemin.exists():
+        raise DataError(f"{p.base} funding absent, ni dans BETA ni dans ARIT ({chemin.name})")
+    df = pd.read_feather(chemin)
+    df["date"] = pd.to_datetime(df["date"], utc=True)
+    return df[["date", "funding_rate"]].sort_values("date").reset_index(drop=True)
+
+
+def fear_greed() -> pd.DataFrame:
+    """Fear & Greed Index quotidien, lu dans les donnees macro d'ARIT (lecture seule).
+
+    Rend un DataFrame (date, fng), date = minuit UTC du jour. Le F&G du jour n'est public
+    qu'a la fin de ce jour (source alternative.me) : pour l'utiliser SANS look-ahead, le
+    pipeline le decale d'un jour (voir `_joindre_macro`).
+    """
+    chemin = config.chemin_macro("fear_greed.json")
+    if not chemin.exists():
+        raise DataError(f"F&G absent ({chemin.name})")
+    import json
+    brut = json.loads(chemin.read_text(encoding="utf-8"))
+    lignes = [(pd.Timestamp(int(x["timestamp"]), unit="s", tz="UTC"), float(x["value"]))
+              for x in brut.get("data", []) if x.get("timestamp")]
+    df = pd.DataFrame(lignes, columns=["date", "fng"])
+    return df.sort_values("date").reset_index(drop=True)
+
+
+def macro_globales() -> pd.DataFrame:
+    """Series macro GLOBALES quotidiennes (FRED), lues dans ARIT (lecture seule).
+
+    Rend un DataFrame indexe par date (minuit UTC), une colonne par indicateur : vix,
+    tips10y (taux reel), breakeven10y (inflation attendue), hy_oas/ig_oas (spreads credit),
+    dxy (dollar), spread_2s10s (courbe), fedfunds. Les valeurs manquantes FRED ('.') sont
+    NaN. Une serie absente est simplement omise : la jointure reste utilisable.
+    """
+    noms = {
+        "vix.csv": "vix", "tips10y.csv": "tips10y", "breakeven10y.csv": "breakeven10y",
+        "hy_oas.csv": "hy_oas", "ig_oas.csv": "ig_oas", "dxy.csv": "dxy",
+        "spread_2s10s.csv": "spread_2s10s", "fedfunds.csv": "fedfunds",
+        "BAA10Y.csv": "baa10y", "AAA10Y.csv": "aaa10y",
+    }
+    morceaux = []
+    for fichier, nom in noms.items():
+        chemin = config.chemin_macro(fichier, globale=True)
+        if not chemin.exists():
+            continue
+        df = pd.read_csv(chemin, parse_dates=["observation_date"])
+        if len(df.columns) < 2:
+            continue
+        colonne = df.columns[1]
+        df = df.rename(columns={"observation_date": "date", colonne: nom})[["date", nom]]
+        df[nom] = pd.to_numeric(df[nom], errors="coerce")
+        morceaux.append(df.set_index("date"))
+    if not morceaux:
+        return pd.DataFrame()
+    out = pd.concat(morceaux, axis=1)
+    out.index = pd.to_datetime(out.index, utc=True)
+    return out.sort_index()
+
+
+def nasdaq100() -> pd.Series:
+    """Cloture du NASDAQ-100 (FRED NASDAQ100), SESSIONS US seulement, index minuit UTC.
+
+    Volontairement hors de `macro_globales` : ce n'est pas une serie a joindre a toutes les
+    candidates, c'est l'entree du vote c6/c7 de la voie C2 (meme serie que le veto d'ARIT).
+    Les jours sans cotation ('.' chez FRED) sont retires : la cassure et la correlation se
+    calculent sur les sessions, jamais sur un calendrier 7/7 forward-fille.
+    """
+    chemin = config.chemin_macro("nasdaq100.csv", globale=True)
+    if not chemin.exists():
+        raise DataError(f"NASDAQ-100 absent ({chemin.name}) : lancer la mise a jour du lake")
+    df = pd.read_csv(chemin, na_values=["."])
+    if len(df.columns) < 2:
+        raise DataError(f"{chemin.name} illisible")
+    s = pd.Series(pd.to_numeric(df[df.columns[1]], errors="coerce").to_numpy(),
+                  index=pd.to_datetime(df[df.columns[0]], utc=True).dt.normalize())
+    return s.dropna().sort_index()
 
 
 def _avertir_si_suspect(paire: univers.Paire, timeframe: str) -> None:

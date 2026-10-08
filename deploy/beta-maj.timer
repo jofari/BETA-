@@ -1,0 +1,11 @@
+[Unit]
+Description=BETA - mise a jour du lake, chaque jour a 00:20 UTC
+
+[Timer]
+# Apres la cloture de la bougie 1d (00:00 UTC) et le reglement de funding de minuit.
+OnCalendar=*-*-* 00:20:00 UTC
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

@@ -3,7 +3,7 @@ name = "beta"
 version = "0.1.0"
 description = "Banc d'essai d'edges : lake de donnees, backtests, batterie statistique"
 requires-python = ">=3.12"
-dependencies = ["pandas", "numpy", "scipy", "pyarrow", "duckdb"]
+dependencies = ["pandas", "numpy", "scipy", "pyarrow", "duckdb", "yfinance"]
 
 [tool.ruff]
 line-length = 100

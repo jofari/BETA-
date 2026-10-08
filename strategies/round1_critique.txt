@@ -1,0 +1,12 @@
+Critique sévère de tes 7 idées, avant qu'on aille plus loin. Trois angles, réponds à chacun précisément, puis re-classe.
+
+**1. Le mur des données sur les liquidations (ton idée n°1).**
+Tu proposes « événement = |r| > 3σ » comme proxy d'une cascade de liquidation. Mais on n'a PAS de données de liquidation historiques dans le lake — le flux Binance de liquidations est forward-only, on ne peut pas le reconstruire. Donc ton test mesurerait « gros jour baissier → rebond », PAS « cascade de liquidation → rebond ». C'est une conflation critique : un −15 % peut être une vraie cascade forcée OU une fuite d'information lente. Peux-tu définir un proxy qui isole RÉELLEMENT la liquidation (croisement funding + OI + range intrajournalière ?), ou admets-tu que sans la donnée de liquidation, ton test se réduit à du « gros move → rebond » générique — c'est-à-dire exactement le mean-reversion qu'on a déjà tué (R2/R8) ? Si tu n'as pas de proxy propre, l'idée n°1 est intestable avec nos données, dis-le net.
+
+**2. Bêta déguisé partout.**
+Tes deux idées les plus « répliquées » — nuit/séance (n°2) et TSMOM (n°4) — sont des PRIMES DE RISQUE, pas de l'alpha. La prime overnight EST la prime actions concentrée sur 17h30 ; le TSMOM EST du bêta tendance. Jonas les appellera « bêta déguisé », et il aura raison. Question directe : dans TA liste, qu'est-ce qui est RÉELLEMENT de l'alpha (battre le benchmark ajusté du risque, net de frais), par opposition à du bêta reconditionné ? Si la réponse honnête est « rien, sauf peut-être n°1 et n°3 », dis-le sans détour.
+
+**3. Le décalage de résolution.**
+N°1, n°3 et n°6 vivent à la résolution intrajournalière (minutes à heures), or notre bot est du swing quotidien (horizon 1-7 jours) et notre donnée exploitable est quotidienne. Le vrai tueur n'est peut-être pas « pas d'edge » mais « l'edge est à une fréquence qu'on ne trade pas ». Est-ce qu'UNE SEULE de tes idées survit à une exécution à l'horizon quotidien, ou est-ce qu'on cherche un edge de HFT avec un bot de swing ? Si c'est le cas, dis-le franchement — c'est un arbitrage de positionnement, pas de méthode.
+
+Sois impitoyable avec tes propres idées. Après avoir répondu, donne un classement révisé (et n'hésite pas à retirer une idée si elle meurt sous ta propre critique).

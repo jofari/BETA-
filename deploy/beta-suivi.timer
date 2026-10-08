@@ -1,0 +1,10 @@
+[Unit]
+Description=BETA - suivi forward de la voie C, chaque jour a 00:45 UTC
+
+[Timer]
+# Apres beta-maj (00:20 UTC, ~2 min) : le lake contient la journee close de la veille.
+OnCalendar=*-*-* 00:45:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -43,12 +43,15 @@ En ligne de commande :
 
 ## Le dashboard
 
-Six onglets, port **7474** (ALPHA occupe 7373) :
+Sept onglets, port **7474** (ALPHA occupe 7373) :
 
 - **Stratégie** — le R moyen affiché **à côté de son MDE**, avec un bandeau qui dit en clair
   quand l'écart est sous le seuil de détection. Courbe d'équity en R cumulés, distribution
   des R, ventilation par sens / paire / stratégie, raisons de **sortie** et raisons de
   **rejet**. Le hold-out est exclu par défaut ; l'inclure affiche un avertissement permanent.
+- **Forward** — ce que font les stratégies figées APRÈS leur gel : les suivis au cours de
+  clôture (`SUIVI_*.jsonl`) et le paper trading (`PAPER_*.jsonl`) des trois voies C, côte à
+  côte avec BTC ; positions, consignes du jour, coût d'exécution mesuré contre le modèle.
 - **Comparaison** — le classement, les courbes superposées (AritV1 en pointillé), la matrice
   de corrélation et la p-value du *meilleur* du lot. C'est le seul onglet qui répond à
   « celle-ci apporte-t-elle quelque chose que je n'ai pas déjà ? ».
@@ -63,6 +66,13 @@ Six onglets, port **7474** (ALPHA occupe 7373) :
 Zéro dépendance front, zéro CDN : les graphiques sont dessinés au canvas. Même palette
 qu'ALPHA, accent vert au lieu de bleu pour distinguer les deux onglets d'un coup d'œil.
 
+**Sur le VPS** (depuis le 08/10), le même dashboard tourne en service (`beta-web`) sur
+`127.0.0.1:7474`, en **lecture seule** (`--lecture-seule` : aucun POST, noms d'hôte locaux
+seulement) et sans rien exposer à Internet. Depuis le PC, `VPS.cmd` ouvre un tunnel SSH et
+le navigateur : `http://127.0.0.1:7574/#forward` pour BETA, `http://127.0.0.1:7580` pour le
+tableau de bord du VPS (état, marché DS1, liquidations, news — `/usr/local/lib/vps-dash`).
+Les journaux SUIVI_ et PAPER_ n'existent que là-bas : sur le PC, l'onglet Forward est vide.
+
 ## Reconstruire les données
 
 ```powershell
@@ -73,9 +83,20 @@ cd C:\Users\jofar\BETA
 Le script est **idempotent** : le relancer ne re-télécharge rien d'inutile et reconstruit un
 lake identique.
 
+**Mise à jour (depuis le 03/10)** : BETA tient **sa propre copie** dans `data/raw/` et
+`data/macro/`. Les fichiers d'ARIT ne servent plus qu'à **amorcer** un feather absent (copie,
+lecture seule) ; ensuite freqtrade **complète** chaque fichier à partir de sa dernière bougie
+(6 paires × 4 timeframes, funding 8h, mark), puis le F&G et les 10 séries FRED sont
+retéléchargés. Le script finit par un tableau de **fraîcheur** et sort en erreur si une série
+est en retard. Avant, les 4 paires historiques, le funding et la macro restaient figés à la
+date des fichiers d'ARIT (constat du 03/10 : tout s'arrêtait entre le 05 et le 09/09).
+
+Sur le VPS : `deploy/beta-maj.timer`, chaque jour à 00:20 UTC (~2 min, ~0,7 Go de pic). Suivi :
+`systemctl status beta-maj` et `journalctl -u beta-maj`.
+
 | Option | Effet |
 |---|---|
-| `--sans-telechargement` | aucun appel réseau : importe ARIT et convertit seulement |
+| `--sans-telechargement` | aucun appel réseau : amorce depuis ARIT et convertit seulement |
 | `--etat` | affiche le catalogue et sort |
 | `--purge` | repart d'un lake vide (`data/` est jetable) |
 
@@ -87,6 +108,7 @@ from beta.lake import lecture, strategie
 df = lecture.load("BTC", "4h")                                # tout l'historique
 df = lecture.load("ETH", "1h", debut="2023-01-01", fin="2024-01-01")
 df = lecture.load("SOL", "15m")                               # dérivé du 5m, exact
+df = lecture.load("SP500", "1d")                              # indice : 1d, rien d'autre
 lecture.catalogue()                                           # ce que contient le lake
 
 trades = strategie.lire("trades", train_seulement=True)       # hold-out exclu
@@ -312,6 +334,22 @@ goulot du projet est le nombre de signaux, donc c'est l'historique qui compte.
 
 Timeframes stockés : `5m` `1h` `4h` `1d`. Tout autre multiple de 5 min est **dérivé du 5m
 par resampling** — exact, pas approché. On ne télécharge pas ce qu'on peut calculer.
+
+Depuis le 14/09, **5 séries quotidiennes hors crypto** (`univers.INDICES`, source yfinance) :
+
+| Base | Ticker | Série |
+|---|---|---|
+| `SP500` | `^GSPC` | S&P 500 |
+| `NASDAQ` | `^IXIC` | Nasdaq Composite |
+| `CAC40` | `^FCHI` | CAC 40 |
+| `MSCIWORLD` | `URTH` | iShares MSCI World ETF (coté depuis 2012) |
+| `XAUUSD` | `GC=F` | or, future COMEX continu |
+
+`1d` seulement, depuis 2010, prix imprimés (pas d'ajustement), bougie du jour en cours
+retirée. Même schéma parquet et même catalogue que les perpétuels, audité en jours
+**ouvrés** ; pas de funding ni de Fear & Greed (crypto-only), séries FRED jointes
+normalement. `lecture.load("SP500", "1d")` — un autre timeframe est une `DataError`.
+`python beta.py lake` les télécharge avec le reste ; `--sans-telechargement` les saute.
 
 ## Le catalogue, et pourquoi il compte plus que les données
 

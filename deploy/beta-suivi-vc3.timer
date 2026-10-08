@@ -1,0 +1,11 @@
+[Unit]
+Description=BETA - suivi forward de VC3, chaque jour a 00:50 UTC
+
+[Timer]
+# Apres beta-maj (00:20 UTC, ~2 min) : le lake contient la journee close de la veille. Cinq
+# minutes apres beta-suivi (voie C, quelques secondes) : les deux suivis ne se chevauchent pas.
+OnCalendar=*-*-* 00:50:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

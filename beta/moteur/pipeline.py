@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 from beta import config
-from beta.lake import lecture
+from beta.lake import lecture, univers
 from beta.moteur import espace_r
 from beta.moteur.contrats import Candidate, Run, Verdict
 from beta.protocole import experiences, holdout
@@ -51,15 +51,102 @@ def _bornes_du_split(run: Run) -> tuple[str | None, str | None]:
 
 
 def series_du_run(run: Run) -> dict[str, pd.DataFrame]:
-    """OHLCV de chaque paire du run, deja borne au split autorise."""
+    """OHLCV de chaque paire du run, deja borne au split autorise.
+
+    Le funding rate est joint comme colonne `funding_rate` (chantier D5) : la colonne vaut
+    le taux dont le reglement est STRICTEMENT anterieur a l'ouverture de la bougie — donc
+    connu au moment de l'entree, sans look-ahead. Une paire sans funding reste utilisable :
+    la colonne est simplement absente, et les candidates qui n'en ont pas besoin l'ignorent.
+    """
     debut, fin = _bornes_du_split(run)
     series = {}
     for paire in run.paires:
         try:
-            series[paire] = lecture.load(paire, run.timeframe, debut=debut, fin=fin)
+            df = lecture.load(paire, run.timeframe, debut=debut, fin=fin)
+            df = _joindre_funding(df, paire)
+            df = _joindre_macro(df, paire)
+            series[paire] = df
         except lecture.DataError as exc:
             log.error("%s %s indisponible : %s", paire, run.timeframe, exc)
     return series
+
+
+def _est_indice(paire: str) -> bool:
+    """Vrai pour SP500, XAUUSD... Un nom inconnu n'est pas un indice : on laisse la lecture
+    le refuser avec son propre message plutot que de le decider ici."""
+    try:
+        return univers.est_indice(univers.resoudre(paire))
+    except KeyError:
+        return False
+
+
+def _joindre_funding(df: pd.DataFrame, paire: str) -> pd.DataFrame:
+    """Joint la colonne funding_rate a l'OHLCV, sans look-ahead.
+
+    merge_asof direction backward + allow_exact_matches=False : pour chaque bougie, le taux
+    retenu est celui dont le reglement est STRICTEMENT avant l'ouverture de la bougie. Un
+    taux regle exactement a l'ouverture est ecarte (il n'est pas encore certain a cet
+    instant). Si le funding est absent, rend df inchange — et un indice n'en a jamais
+    (le funding est propre aux perpetuels) : il ressort tel quel, sans meme le chercher.
+    """
+    if _est_indice(paire):
+        return df
+    try:
+        f = lecture.funding(paire)
+    except lecture.DataError:
+        return df
+    if f.empty or df.empty:
+        return df
+    df = df.sort_values("date")
+    # Le lake (DuckDB) rend du datetime64[us], le feather du [ms] : merge_asof exige le
+    # meme dtype. On aligne le funding sur l'OHLCV.
+    f = f.copy()
+    f["date"] = f["date"].astype(df["date"].dtype)
+    joint = pd.merge_asof(df, f, on="date", direction="backward",
+                          allow_exact_matches=False)
+    return joint
+
+
+def _joindre_macro(df: pd.DataFrame, paire: str | None = None) -> pd.DataFrame:
+    """Joint les colonnes macro (fng + series globales FRED) a l'OHLCV, decalees d'un jour.
+
+    Toutes les series macro sont quotidiennes et publiees en fin de journee : on decale leur
+    date d'un jour puis merge_asof backward (allow_exact_matches=False). Une bougie ne voit
+    donc que la valeur de la veille ou d'avant — jamais celle du jour en cours. Macro absente
+    => df inchange.
+
+    Pour un indice (`paire` = SP500, XAUUSD...), le Fear & Greed est ignore — c'est un
+    indicateur du sentiment CRYPTO — et seules les series globales FRED (VIX, spreads de
+    credit, dollar, courbe, fed funds) sont jointes, exactement comme pour une paire.
+    """
+    if paire is not None and _est_indice(paire):
+        fng = pd.DataFrame({"date": [], "fng": []})
+    else:
+        try:
+            fng = lecture.fear_greed()
+        except lecture.DataError:
+            fng = pd.DataFrame({"date": [], "fng": []})
+    globales = lecture.macro_globales()
+    if df.empty or (fng.empty and globales.empty):
+        return df
+
+    fng_i = fng.set_index("date") if "date" in fng.columns else fng
+    if fng_i.empty:
+        macro = globales
+    elif globales.empty:
+        macro = fng_i
+    else:
+        macro = fng_i.join(globales, how="outer")
+    # Le F&G est quotidien (week-end compris) mais FRED ne l'est pas : le join externe cree
+    # des lignes week-end avec NaN sur les colonnes FRED. On les forward-fill (valeur de
+    # vendredi) AVANT le decalage, sinon le NaN du week-end se propage au lundi via le lag.
+    macro = macro.rename_axis("date").ffill()
+    macro = macro.reset_index()
+    macro["date"] = pd.to_datetime(macro["date"], utc=True) + pd.Timedelta(days=1)
+    macro["date"] = macro["date"].astype(df["date"].dtype)
+    df = df.sort_values("date")
+    return pd.merge_asof(df, macro, on="date", direction="backward",
+                         allow_exact_matches=False)
 
 
 def trades_du_run(run: Run, series: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -72,7 +159,8 @@ def trades_du_run(run: Run, series: dict[str, pd.DataFrame]) -> pd.DataFrame:
         trades = espace_r.evaluer(
             df, signaux, take_profit_r=run.take_profit_r,
             horizon_bougies=run.horizon_bougies, stop_atr=run.stop_atr,
-            cout_aller_retour_pct=run.cout_aller_retour_pct, paire=paire)
+            cout_aller_retour_pct=run.cout_aller_retour_pct,
+            spread=run.spread, funding=run.funding, paire=paire)
         if not trades.empty:
             morceaux.append(trades)
     if not morceaux:
@@ -89,6 +177,13 @@ def _resultats_synthetiques(run: Run, series: dict[str, pd.DataFrame],
     paires, et le temoin n'a pas besoin d'etre plus riche que la question qu'il pose
     (« cette forme de signal gagne-t-elle sur une serie sans structure ? »). C'est une
     limite assumee, elle est ecrite dans les reserves du verdict.
+
+    Le temoin paie les MEMES couts que le reel : le spread, estime sur ses propres meches,
+    et le funding, que `_reconstruire_ohlcv` recopie de la serie mere sur les memes dates.
+    Sans cette recopie, l'ecart reel/synthetique contenait un cout de detention au lieu de
+    ne contenir qu'un edge, et une candidate qui tient longtemps gagnait la porte par sa
+    duree. Les colonnes exogenes qui ne sont pas des couts (fng, macro) ne sont pas
+    recopiees : une candidate qui en depend ne signale donc pas sur le temoin.
     """
     if not series:
         return []
@@ -101,7 +196,8 @@ def _resultats_synthetiques(run: Run, series: dict[str, pd.DataFrame],
             trades = espace_r.evaluer(
                 faux, signaux, take_profit_r=run.take_profit_r,
                 horizon_bougies=run.horizon_bougies, stop_atr=run.stop_atr,
-                cout_aller_retour_pct=run.cout_aller_retour_pct, paire=f"{paire}~{i}")
+                cout_aller_retour_pct=run.cout_aller_retour_pct,
+                spread=run.spread, funding=run.funding, paire=f"{paire}~{i}")
         except Exception as exc:                     # noqa: BLE001 - un chemin ne doit pas
             log.debug("chemin synthetique %d ecarte : %s", i, exc)   # tuer le temoin entier
             continue
@@ -143,6 +239,7 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
     resultat = batterie.evaluer(
         sequence, equity=courbe, series_marche=series,
         n_essais=n, cout_aller_retour_pct=run.cout_aller_retour_pct,
+        spread=run.spread, funding=run.funding,
         resultats_synthetiques=synthetiques, equities_voisines=equities_voisines,
         nom=run.candidate.nom, univers_candidates=univers_candidates,
         famille=famille, graine=run.graine)

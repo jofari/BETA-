@@ -1,0 +1,47 @@
+Tu vas écrire et EXECUTER une mesure : le portefeuille ARP vol-cible avec levier borne [0,33 ; 2,0], NET de frais. C'est la « voie C » — la gestion du risque comme edge, apres la voie A (allocation) et la voie B (trading). Le but n'est PAS de trouver une strategie, c'est de chiffrer si la gestion de portefeuille (diversification + vol-targeting + levier borne) tient debout une fois les frais payes, et si elle est robuste.
+
+Machine : VPS Linux, repertoire /root/BETA-. Python : /root/venvs/arit/bin/python. Donnees via /root/BETA-/beta/lake/lecture.py.
+
+## Donnees (source unique : beta.lake.lecture)
+- 6 perps Binance : BTC, ETH, SOL, BNB, LINK, XRP.
+- OHLCV daily : `load(paire, '1d')` -> DataFrame, colonne 'close'.
+- Funding par paire : `funding(paire)` -> DataFrame [date, funding_rate]. Regle 3 fois/jour (8h), week-end compris. Pour une position quotidienne, agrege en somme quotidienne : vois /root/BETA-/beta/strategies/voie_b_trading.py (fonction `funding_quotidien`, ~ligne 80) pour le bon patron.
+
+## Le portefeuille composite (avant vol-targeting)
+Trois jambes, chacune produisant un vecteur de positions (fraction de capital par actif et par jour), calculees sur les donnees jusqu'a t, appliquees au rendement de t+1 (shift(1) partout). AUCUN look-ahead.
+
+1. **Jambe base (inverse-vol)** : w_i = (1/sigma_i) / somme(1/sigma_j), sigma_i = vol realisee 180j de l'actif i.
+2. **Jambe trend (TSMOM)** : pour chaque actif, m_i = signe(rendement cumule sur 126j), position proportionnelle a m_i / sigma_i (normalisee a 1/vol ; le signe porte la direction).
+3. **Jambe carry (funding)** : cross-sectional. Rang par funding quotidien (somme 8h) : long les 3 funding les plus bas, short les 3 plus hauts, poids egaux.
+
+Combine les 3 jambes a poids egaux (1/3 chacun, FIXE a priori — PAS optimise). Le composite est la somme.
+
+## Vol-targeting + levier
+- sigma_realisee(t) = vol annualisee (sqrt(252)) du rendement du composite sur 30 jours (et aussi sur 60j, pour la robustesse).
+- levier L(t) = clamp(sigma_cible / sigma_realisee(t), 0.33, 2.0).
+- rendement final(t+1) = L(t) x rendement_composite(t+1).
+
+## Frais (a soustraire, pas a ignorer)
+- Taker Binance : 5 bps par cote, sur chaque variation de position (turnover) a chaque reequilibrage.
+- Funding reellement regle : position_long x funding_quotidien (le long PAIE un funding positif, RECOIT un negatif ; le short l'inverse). S'applique a TOUTES les jambes — pour carry c'est la source du rendement, pour trend/base c'est un cout reel.
+- Slippage : ajoute 2 bps si tu veux etre severe, et dis-le.
+
+## Frequence de reequilibrage
+Teste DEUX frequences : quotidienne et hebdomadaire. Le turnover (et donc les frais) en depend — montre les deux.
+
+## Evaluation (robuste, pas optimisee)
+- Split temporel : train <= 2024-06-30, test OOS 2024-07-01 -> aujourd'hui.
+- sigma_cible et la fenetre (30j/60j) sont FIXEES avant le split, choisies sur le train uniquement. Pas de grid-search sur le test.
+- Robustesse : montre la BANDE pour sigma_cible {25%, 45%, 70%} et fenetre {30j, 60j}.
+
+## A rapporter (tableau, pas de prose)
+Pour CHAQUE variante (3 jambes separees, composite, puis composite vol-cible aux 3 cibles x 2 fenetres x 2 frequences), en train ET en OOS, brut ET net :
+Sharpe, vol annualisee, max drawdown, CAGR, turnover annuel moyen, levier moyen.
+References : BTC buy-and-hold (train/OOS), et inverse-vol nu (doit ressortir ~Sharpe 0.86 train / 0.45 OOS — mon chiffre de CONTROLE ; si tu trouves autre chose, c'est un bug a corriger).
+
+## Les 3 questions (verdict honnete en fin de rapport)
+1. Net de frais, le vol-targeting survit-il ? (brut vs net, et a quelle frequence)
+2. Les 3 jambes battent-elles l'inverse-vol nu seul ?
+3. L'edge est-il robuste (bande de sensibilite) ou depend-il d'une cible/fenetre precise = sur-ajustement ?
+
+Sois brutalement honnete : si le net tue tout, dis-le. Ecris le script dans /root/BETA-/beta/strategies/voie_c_voltarget.py (code et docstrings SANS accents, `logging` pas `print` sauf le rapport final), execute-le, et rapporte le tableau complet + les 3 verdicts. Ne modifie AUCUN fichier existant du lake ni d'ARIT.

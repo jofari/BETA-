@@ -161,7 +161,7 @@ def attacher_stop_du_journal(trades: pd.DataFrame, entrees: pd.DataFrame) -> pd.
         return trades.drop(columns=interne)
 
     cle = entrees.copy()
-    cle["ts_entree"] = pd.to_datetime(cle["ts_utc"], utc=True)
+    cle["ts_entree"] = pd.to_datetime(cle["ts_utc"], utc=True, format="ISO8601")
     garde = [c for c in ("pair", "ts_entree", "sl_initial", "conviction", "regime")
              if c in cle.columns]
     cle = (cle[garde].rename(columns={"pair": "paire", "sl_initial": "sl_journal"})
@@ -251,7 +251,7 @@ def _horodater(df: pd.DataFrame) -> pd.DataFrame:
     types d'evenements, ce qui projette tout l'historique dans le hold-out.
     """
     df = df.copy()
-    df["ts_utc"] = pd.to_datetime(df["ts_utc"], utc=True, errors="coerce")
+    df["ts_utc"] = pd.to_datetime(df["ts_utc"], utc=True, errors="coerce", format="ISO8601")
     depuis_id = (df["signal_id"].map(_ts_depuis_signal_id) if "signal_id" in df.columns
                  else pd.Series(pd.NaT, index=df.index))
     df["ts_bougie"] = depuis_id.fillna(df["ts_utc"])

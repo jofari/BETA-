@@ -1,0 +1,24 @@
+# BETA — le dashboard web sur le VPS, en LECTURE SEULE, sur 127.0.0.1:7474.
+# Rien n'est expose a Internet : on y accede depuis le PC par le tunnel SSH de VPS.cmd
+# (http://127.0.0.1:7574/#forward). Lecture seule = aucun POST, hotes locaux seulement.
+# Installe par : cp deploy/beta-web.service /etc/systemd/system/
+#                systemctl daemon-reload && systemctl enable --now beta-web
+# Apres une avance rapide du depot : systemctl restart beta-web.
+[Unit]
+Description=BETA - dashboard web (lecture seule, 127.0.0.1:7474)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/arit/bin/python beta.py serve --host 127.0.0.1 --port 7474 --no-browser --lecture-seule --lien-vps http://127.0.0.1:7580
+Restart=on-failure
+RestartSec=10
+Nice=10
+CPUQuota=50%
+# ~330 Mo mesures apres avoir ouvert tous les onglets.
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

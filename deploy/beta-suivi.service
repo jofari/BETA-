@@ -1,0 +1,17 @@
+# BETA — suivi forward de la voie C (config figee le 2026-10-03). Ne passe aucun ordre.
+# Installe par : cp deploy/beta-suivi.{service,timer} /etc/systemd/system/
+#                systemctl daemon-reload && systemctl enable --now beta-suivi.timer
+# Lake en retard ou config modifiee = unite en "failed" : `systemctl --failed`.
+[Unit]
+Description=BETA - suivi forward de la voie C
+After=beta-maj.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/arit/bin/python scripts/voie_c_suivi.py
+TimeoutStartSec=900
+Nice=10
+CPUQuota=50%
+MemoryMax=1G

@@ -35,17 +35,20 @@ const COMPARAISON = (() => {
 
   /* ---------- classement -------------------------------------------------------------- */
 
+  // Les rendus qui viennent d'app.js sont appeles a travers une fleche : ce fichier est
+  // charge AVANT app.js, et y citer `entier` ou `pct` nu leve une ReferenceError qui
+  // empeche COMPARAISON d'exister — et, par ricochet, le reste du chargement de la page.
   const COLONNES = [
     ["rang", "#", (v) => v],
     ["candidate", "stratégie",
      (v) => `${echapper(titreDe(v))}<br><code class="comp-module">${echapper(v)}</code>`],
     ["issue", "issue", (v) => `<span class="puce ${v === "confirmee" ? "ok" : "alerte"}">${echapper(v)}</span>`],
-    ["n", "n", entier],
+    ["n", "n", (v) => entier(v)],
     ["r_moyen", "R moyen", (v) => signe(v)],
     ["mde_r", "MDE", (v) => signe(v)],
-    ["win_rate", "win rate", pct],
-    ["portes_echouees", "portes ✗", entier],
-    ["portes_non_executees", "non exéc.", entier],
+    ["win_rate", "win rate", (v) => pct(v)],
+    ["portes_echouees", "portes ✗", (v) => entier(v)],
+    ["portes_non_executees", "non exéc.", (v) => entier(v)],
     ["vs_arit_ecart_rendement_pct", "vs AritV1 (rdt)", (v) => signe(v, 1) + " pts"],
     ["vs_arit_ecart_sharpe", "vs AritV1 (Sharpe)", (v) => signe(v, 2)],
     ["vs_arit_correlation", "corr. AritV1", (v) => nb(v, 3)],

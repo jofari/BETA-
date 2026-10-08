@@ -52,6 +52,7 @@ PORTES = ("S1_benjamini_hochberg", "S2_sharpe_degonfle", "S3_bootstrap",
 def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
             series_marche: dict[str, pd.DataFrame] | None = None,
             n_essais: int = 30, cout_aller_retour_pct: float = 0.0,
+            spread: bool = False, funding: bool = False,
             resultats_synthetiques: list[float] | None = None,
             equities_voisines: dict[str, pd.DataFrame] | None = None,
             nom: str = "candidate", famille: pd.DataFrame | None = None,
@@ -62,6 +63,11 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
     Tout argument absent desactive sa porte plutot que de la faire passer : une porte non
     executee vaut `None`, jamais `True`. La difference entre « verifie » et « pas verifie »
     est precisement ce qu'un rapport de backtest ordinaire perd.
+
+    `spread` et `funding` ne servent qu'a S8 : ils disent a la reference de payer les memes
+    couts de detention que la candidate. Les trades, eux, arrivent ici deja nets — c'est le
+    moteur qui les a factures. Juger une candidate chargee contre un hold nu ferait de S8
+    une porte que le seul fait de tenir une position fait franchir.
     """
     metriques = descriptif.resumer(trades)
     portes: dict[str, bool | None] = dict.fromkeys(PORTES)
@@ -124,7 +130,8 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
 
     # --- S8 : buy-and-hold, reference imposee ----------------------------------------
     if equity is not None and series_marche:
-        ref = reference.hold(series_marche, cout_aller_retour_pct)
+        ref = reference.hold(series_marche, cout_aller_retour_pct,
+                             spread=spread, funding=funding)
         moi = reference.strategie_journaliere(equity)
         comparaison = reference.comparer(moi, ref)
         detail["S8_buy_and_hold"] = {"hold": ref, "candidate": moi, **comparaison}

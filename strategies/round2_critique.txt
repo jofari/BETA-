@@ -1,0 +1,12 @@
+Bien tué — c'est le boulot. Mais maintenant pousse le FOND, pas le classement.
+
+**1. Élargir l'univers + coupe transversale = du bêta mieux mesuré, pas de l'alpha.**
+Tu admets toi-même que la coupe transversale est « niveau 2 ». Élargir à 25 perps divise le MDE par 2,2 — ça rend l'ARP plus *détectable*, ça ne le transforme pas en niveau 3. Alors sois net : élargir change-t-il RÉELLEMENT la nature de ce qu'on trouve, ou va-t-on passer trois semaines à télécharger 20 paires pour obtenir... un portefeuille d'ARP un peu plus significatif ? C'est « repousser le can », pas changer de catégorie. Dis-le.
+
+**2. La vraie question n'est pas « quelle idée », c'est « l'alpha de niveau 3 est-il atteignable pour Jonas, oui ou non ».**
+Jonas est un particulier, 17 ans, données quotidiennes, bot swing 1-7 jours, pas de broker actions, pas d'infra HFT. Toi tu penses « carnet d'ordres » quand tu dis « changer l'enveloppe ». Mais carnet d'ordres = co-location = infra de market-maker = hors de portée d'un particulier. Données alternatives = chères/rares. Donc : « changer l'enveloppe » est-il un vrai chemin pour LUI, ou un fantasme que l'industrie entière (avec l'infra) échoue déjà largement à exploiter ? Réponds franchement : un particulier swing peut-il raisonnablement espérer du niveau 3, ou la réponse honnête est-elle « non, et il faut qu'on le lui dise » ?
+
+**3. Le week-end (ton n°3 révisé) — le seul candidat niveau 3 swing-natif.**
+Tu le classes 2-3, N~40, périssable. C'est la SEULE idée restante à la fois swing-native et informationnelle (pas une prime de risque). Avec N~40, il ne passera jamais la barre de façon convaincante. Question : ça vaut même deux heures de test, ou on l'écrit dans IDEES.jsonl et on passe ? Si même le meilleur candidat niveau 3 est condamné par le N, ça confirme le point 2.
+
+**Ce que je veux de toi maintenant, et c'est tout :** un verdict franc, pas un classement de plus. Pour un particulier swing avec ces données, le niveau 3 est-il atteignable — oui ou non ? Et si non, quelle est la meilleure chose HONNÊTE à construire à la place (un portefeuille d'ARP vol-managé, et à quoi ressemble son Sharpe réaliste ?). Sois brutalement honnête.

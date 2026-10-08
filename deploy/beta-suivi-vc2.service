@@ -1,0 +1,19 @@
+# BETA — suivi forward de VC2 (voie C2, INFIRMEE le 07/10) : a titre informatif, a la demande
+# de Jonas (08/10), pour le paper trading. Aucun critere de dry-run. Ne passe aucun ordre.
+# Installe par : cp deploy/beta-suivi-vc2.{service,timer} /etc/systemd/system/
+#                systemctl daemon-reload && systemctl enable --now beta-suivi-vc2.timer
+# Unite en "failed" (`systemctl --failed`, puis `journalctl -u beta-suivi-vc2`) : lake en
+# retard ou troue (1), config modifiee (2), causalite rompue (3).
+[Unit]
+Description=BETA - suivi forward de VC2 (voie C2, informatif)
+After=beta-maj.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/arit/bin/python scripts/c2_suivi.py --id VC2
+TimeoutStartSec=900
+Nice=10
+CPUQuota=50%
+MemoryMax=1G

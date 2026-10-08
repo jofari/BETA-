@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from beta.moteur import espace_r
 from beta.stats import (batterie, bootstrap, diversification, montecarlo, multitest,
                         reference, synthetique, walkforward)
 
@@ -146,6 +147,31 @@ def test_un_resultat_tres_superieur_aux_synthetiques_passe():
     assert synthetique.comparer(10.0, list(np.linspace(-1, 1, 100)))["passe"]
 
 
+@pytest.mark.parametrize("generateur", ["gbm", "phase"])
+def test_le_chemin_synthetique_herite_du_funding_de_la_serie_mere(generateur):
+    """Le temoin doit payer le meme funding que le reel, sinon l'ecart mesure un cout."""
+    mere = _serie_marche(n=200)
+    mere["funding_rate"] = np.linspace(0.0001, 0.0003, len(mere))
+    chemin = next(iter(synthetique.GENERATEURS[generateur](mere, n_chemins=1)))
+    assert "funding_rate" in chemin.columns
+    # Recopie a sa place, NON melangee : le funding suit le calendrier, pas le prix.
+    assert np.allclose(chemin["funding_rate"].to_numpy(), mere["funding_rate"].to_numpy())
+    assert (chemin["date"].to_numpy() == mere["date"].to_numpy()).all()
+
+
+def test_le_temoin_synthetique_paie_bien_le_funding():
+    """Herite la colonne ne suffit pas : il faut que le moteur la facture sur le temoin."""
+    mere = _serie_marche(n=200)
+    mere["funding_rate"] = 0.0002
+    chemin = next(iter(synthetique.GENERATEURS["phase"](mere, n_chemins=1)))
+    signaux = pd.DataFrame({"sens": np.where(np.arange(len(chemin)) % 40 == 0, 1, 0)})
+    options = {"take_profit_r": 2.0, "horizon_bougies": 20}
+    sans = espace_r.evaluer(chemin, signaux, **options)
+    avec = espace_r.evaluer(chemin, signaux, funding=True, **options)
+    assert (avec["funding_r"] > 0).all()                 # un long paie un funding positif
+    assert avec["r"].sum() < sans["r"].sum()
+
+
 # --- S6 walk-forward -----------------------------------------------------------------
 
 def _trades(n=200, mu=0.2, graine=0) -> pd.DataFrame:
@@ -195,6 +221,63 @@ def test_le_hold_mesure_bien_la_hausse_du_marche():
     assert resultat["n_paires"] == 1
 
 
+def test_le_hold_paie_le_funding_d_un_long_perpetuel():
+    """Un long perpetuel tenu des mois paie le funding. Le hold en est un."""
+    df = _serie_marche(n=800, graine=1)
+    df["funding_rate"] = 0.0001                  # positif : le long paie
+    nu = reference.hold({"BTC": df})
+    charge = reference.hold({"BTC": df}, funding=True)
+    assert charge["cout_funding_pct"] > 0.0
+    assert charge["rendement_total_pct"] < nu["rendement_total_pct"]
+    assert charge["rendement_total_pct"] == pytest.approx(
+        nu["rendement_total_pct"] - charge["cout_funding_pct"])
+
+
+def test_un_funding_negatif_paie_le_hold_au_lieu_de_lui_couter():
+    """Le signe compte : un funding negatif est un revenu pour un long, pas un cout."""
+    df = _serie_marche(n=800, graine=1)
+    df["funding_rate"] = -0.0001
+    nu = reference.hold({"BTC": df})
+    charge = reference.hold({"BTC": df}, funding=True)
+    assert charge["rendement_total_pct"] > nu["rendement_total_pct"]
+
+
+def test_le_hold_d_un_indice_sans_colonne_funding_ne_change_pas_de_rendement():
+    """Un indice n'a pas de perpetuel : demander le funding ne doit rien couter, ni lever."""
+    rng = np.random.default_rng(3)
+    closes = 100 * np.exp(np.cumsum(rng.normal(0.0004, 0.01, 500)))
+    indice = pd.DataFrame({"date": pd.date_range("2020-01-01", periods=500, freq="1D",
+                                                 tz="UTC"),
+                           "open": closes, "high": closes * 1.004, "low": closes * 0.996,
+                           "close": closes, "volume": np.ones(500)})
+    assert "funding_rate" not in indice.columns
+    nu = reference.hold({"SP500": indice})
+    charge = reference.hold({"SP500": indice}, funding=True)
+    assert charge["cout_funding_pct"] == 0.0
+    assert charge["rendement_total_pct"] == pytest.approx(nu["rendement_total_pct"])
+
+
+def test_le_hold_paie_un_spread_complet_en_plus_des_frais():
+    df = _serie_marche(n=800, graine=1)
+    nu = reference.hold({"BTC": df}, 0.07)
+    charge = reference.hold({"BTC": df}, 0.07, spread=True)
+    assert charge["cout_spread_pct"] > 0.0
+    assert charge["rendement_total_pct"] == pytest.approx(
+        nu["rendement_total_pct"] - charge["cout_spread_pct"])
+
+
+def test_le_hold_nu_reste_exactement_celui_d_avant_les_couts_de_detention():
+    """Compatibilite : l'appel a deux arguments ne doit rien payer de nouveau."""
+    df = _serie_marche(n=800, graine=1)
+    df["funding_rate"] = 0.0001
+    resultat = reference.hold({"BTC": df}, 0.07)
+    courbe = df.set_index(pd.to_datetime(df["date"], utc=True))["close"] \
+        .resample("1D").last().dropna()
+    attendu = float(courbe.iloc[-1] / courbe.iloc[0] - 1.0) * 100.0 - 0.07
+    assert resultat["rendement_total_pct"] == pytest.approx(attendu)
+    assert resultat["cout_detention_pct"] == 0.0
+
+
 def test_ne_pas_battre_le_hold_fait_echouer_la_porte():
     comparaison = reference.comparer({"rendement_total_pct": 10.0, "sharpe_annuel": 0.5,
                                       "drawdown_max_pct": -20.0},
@@ -238,6 +321,30 @@ def test_la_batterie_declare_indecidable_un_echantillon_trop_petit():
     resultat = batterie.evaluer(trades, n_essais=36)
     assert batterie.issue(resultat["portes"], len(trades)) == "indecidable"
     assert any("indecidable par construction" in r for r in resultat["reserves"])
+
+
+def test_la_batterie_fait_payer_a_la_reference_les_couts_de_la_candidate():
+    """S8 ne vaut que si les deux camps paient pareil : la propagation doit arriver au hold.
+
+    Sans elle, la candidate arrive nette de funding et de spread devant un hold nu, et la
+    porte se franchit par le seul fait de tenir une position.
+    """
+    marche = _serie_marche(n=400, graine=2)
+    marche["funding_rate"] = 0.0002
+    trades = pd.DataFrame({
+        "r": edge(n=200, mu=0.1), "rendement_pct": edge(n=200, mu=0.1),
+        "ts_entree": pd.date_range("2020-01-01", periods=200, freq="2D", tz="UTC"),
+        "ts_sortie": pd.date_range("2020-01-02", periods=200, freq="2D", tz="UTC")})
+    equity = _equity(n=200)
+    nu = batterie.evaluer(trades, equity=equity, series_marche={"BTC": marche},
+                          n_essais=36)
+    charge = batterie.evaluer(trades, equity=equity, series_marche={"BTC": marche},
+                              n_essais=36, spread=True, funding=True)
+    hold_nu = nu["detail"]["S8_buy_and_hold"]["hold"]
+    hold_charge = charge["detail"]["S8_buy_and_hold"]["hold"]
+    assert hold_nu["cout_detention_pct"] == 0.0
+    assert hold_charge["cout_funding_pct"] > 0.0 and hold_charge["cout_spread_pct"] > 0.0
+    assert hold_charge["rendement_total_pct"] < hold_nu["rendement_total_pct"]
 
 
 def test_la_batterie_infirme_une_strategie_perdante():

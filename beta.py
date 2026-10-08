@@ -52,7 +52,8 @@ def _script(nom: str, *args: str) -> int:
 
 def cmd_serve(args) -> int:
     from beta.rapport import serveur
-    return serveur.servir(hote=args.host, port=args.port, ouvrir=not args.no_browser)
+    return serveur.servir(hote=args.host, port=args.port, ouvrir=not args.no_browser,
+                          lecture_seule=args.lecture_seule, lien_vps=args.lien_vps)
 
 
 def cmd_lake(args) -> int:
@@ -347,7 +348,7 @@ def _intentions(args) -> list[str]:
 
 def cmd_doctor(_args) -> int:
     from beta import config
-    from beta.lake import catalogue, strategie
+    from beta.lake import catalogue, lecture, strategie, univers
     from beta.protocole import experiences, holdout
 
     print(f"racine        {RACINE}")
@@ -371,12 +372,22 @@ def cmd_doctor(_args) -> int:
     if etat.empty:
         print("lake OHLCV    VIDE — lancer `python beta.py lake`")
     else:
+        crypto = etat[etat["marche"] != univers.MARCHE_INDICES]
         suspectes = int(etat["suspect"].sum())
-        print(f"lake OHLCV    {len(etat)} series · {etat['paire'].nunique()} paires · "
+        print(f"lake OHLCV    {len(etat)} series · {crypto['paire'].nunique()} paires · "
               f"{int(etat['n_bougies'].sum()):,} bougies · {suspectes} suspecte(s)"
               .replace(",", " "))
         print(f"              borne commune : {str(etat['fin'].min())[:10]} "
               "(limite d'un run multi-paires)")
+
+    # Les indices sont dans le meme catalogue, mais ils se comptent a part : 5 series 1d
+    # sans funding ni F&G, et « 11 paires » ferait croire a 11 perpetuels.
+    presents = [i.base for i in univers.INDICES if lecture.disponible(i.base, "1d")]
+    absents = [i.base for i in univers.INDICES if i.base not in presents]
+    print(f"indices 1d    {len(presents)}/{len(univers.INDICES)} : "
+          f"{', '.join(presents) or '-'}"
+          + (f"  ·  absents : {', '.join(absents)} — lancer `python beta.py lake`"
+             if absents else ""))
 
     manquantes = []
     for table in strategie.TABLES:
@@ -404,6 +415,10 @@ def parseur() -> argparse.ArgumentParser:
     serve.add_argument("--host", default=HOTE)
     serve.add_argument("--port", type=int, default=PORT)
     serve.add_argument("--no-browser", action="store_true")
+    serve.add_argument("--lecture-seule", action="store_true",
+                       help="aucun POST, hotes locaux seulement (VPS, derriere un tunnel SSH)")
+    serve.add_argument("--lien-vps", default=None,
+                       help="adresse du dashboard VPS, affichee en lien dans l'en-tete")
     serve.set_defaults(fonction=cmd_serve)
 
     lake = subs.add_parser("lake", help="construit ou actualise le lake OHLCV")

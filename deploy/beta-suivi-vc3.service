@@ -1,0 +1,19 @@
+# BETA — suivi forward de VC3 (voie C2), dry-run de 6 mois depuis le 2026-10-08. Ne passe
+# aucun ordre.
+# Installe par : cp deploy/beta-suivi-vc3.{service,timer} /etc/systemd/system/
+#                systemctl daemon-reload && systemctl enable --now beta-suivi-vc3.timer
+# Unite en "failed" (`systemctl --failed`, puis `journalctl -u beta-suivi-vc3`) : lake en
+# retard ou troue (1), config modifiee (2), causalite rompue (3), maxDD du dry-run franchi (4).
+[Unit]
+Description=BETA - suivi forward de VC3 (voie C2)
+After=beta-maj.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/arit/bin/python scripts/c2_suivi.py --id VC3
+TimeoutStartSec=900
+Nice=10
+CPUQuota=50%
+MemoryMax=1G

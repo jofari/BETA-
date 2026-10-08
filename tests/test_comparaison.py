@@ -25,6 +25,11 @@ def boite(tmp_path, monkeypatch):
     """Une boite et un registre d'experiences jetables : on ne touche pas aux vrais."""
     monkeypatch.setattr(idees, "REGISTRE", tmp_path / "IDEES.jsonl")
     monkeypatch.setattr(experiences, "REGISTRE", tmp_path / "EXPERIMENTS.jsonl")
+    # Sans ce patch, `compteur()` lit le JOURNAL_RUNS REEL : des qu'une hypothese est
+    # reellement mesuree sous un id que le test reutilise (R9, R10...), le compteur ne
+    # monte plus dans le test et `promouvoir` ne fait plus +1. Le banc de test doit etre
+    # isole du registre reel, journal compris.
+    monkeypatch.setattr(experiences, "JOURNAL_RUNS", tmp_path / "RUNS.jsonl")
     return tmp_path / "IDEES.jsonl"
 
 

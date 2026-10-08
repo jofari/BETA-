@@ -1,0 +1,20 @@
+# BETA — mise a jour quotidienne du lake (paires, funding, indices, FRED, F&G).
+# Installe par : cp deploy/beta-maj.{service,timer} /etc/systemd/system/
+#                systemctl daemon-reload && systemctl enable --now beta-maj.timer
+# Echec (serie en retard, telechargement rate) = unite en "failed" : `systemctl --failed`.
+[Unit]
+Description=BETA - mise a jour du lake
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/arit/bin/python scripts/build_lake.py
+TimeoutStartSec=3600
+# Ne jamais gener ARIT ni DS1 qui tournent sur la meme machine.
+Nice=10
+CPUQuota=50%
+MemoryMax=2G
+MemorySwapMax=512M

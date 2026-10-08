@@ -4,7 +4,9 @@ Idempotent. Le relancer ne re-telecharge rien d'inutile et reconstruit un lake i
 
 Usage :
   & C:\\Users\\jofar\\venvs\\arit\\Scripts\\python.exe scripts/build_lake.py
-      [--sans-telechargement]   n'appelle pas le reseau : importe et convertit seulement
+      [--sans-telechargement]   n'appelle pas le reseau : amorce depuis ARIT et convertit seulement
+
+Sur le VPS, lance chaque jour par deploy/beta-maj.timer (00:20 UTC).
       [--purge]                 repart d'un lake vide (data/ est jetable)
       [--etat]                  affiche le catalogue et sort
 """
@@ -20,7 +22,7 @@ RACINE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RACINE))
 
 from beta import config  # noqa: E402
-from beta.lake import catalogue, construction, lecture, telechargement, univers  # noqa: E402
+from beta.lake import catalogue, lecture, maj, telechargement, univers  # noqa: E402
 
 # La console Windows est en cp1252 : un message d'erreur de freqtrade contenant un accent
 # (ou un caractere de remplacement) fait planter le script SUR SON PROPRE RAPPORT D'ERREUR,
@@ -69,44 +71,37 @@ def main() -> int:
         log.info("lake purge")
     config.preparer_dossiers()
 
-    # 1. Les paires qu'ARIT a deja : lecture seule, aucun reseau. C'est gratuit, donc
-    #    d'abord — un echec reseau plus loin laisse quand meme un lake exploitable.
-    echecs: list[str] = []
-    for paire in univers.a_importer():
-        for timeframe in univers.TIMEFRAMES:
-            try:
-                construction.importer_depuis_arit(paire, timeframe)
-            except construction.LakeError as exc:
-                echecs.append(f"{paire.base} {timeframe} (import ARIT) : {exc}")
-                log.error("%s %s : %s", paire.base, timeframe, exc)
+    # 1-2. Les 6 paires et la macro : amorcage depuis ARIT (copie, lecture seule) des
+    #      feathers absents, puis freqtrade COMPLETE chaque fichier, puis integration au
+    #      lake, puis F&G + FRED. Depuis le 03/10 : avant, les 4 paires historiques, le
+    #      funding et la macro restaient figes a la date des fichiers d'ARIT.
+    echecs: list[str] = maj.mettre_a_jour(reseau=not args.sans_telechargement)
+    for echec in echecs:
+        log.error("%s", echec)
 
-    # 2. Les paires nouvelles : telechargement parallele, puis conversion.
-    manquantes = univers.a_telecharger()
-    if manquantes and not args.sans_telechargement:
-        resultats = telechargement.telecharger(manquantes)
-        for base, etat in resultats.items():
-            if etat != "ok":
-                echecs.append(f"{base} (telechargement) : {etat}")
-    elif manquantes:
-        log.info("--sans-telechargement : %s non telechargee(s)",
-                 ", ".join(p.base for p in manquantes))
-
-    for paire in manquantes:
-        for timeframe in univers.TIMEFRAMES:
-            source = config.chemin_feather_brut(paire.slug, timeframe)
-            if not source.exists():
-                if not args.sans_telechargement:
-                    echecs.append(f"{paire.base} {timeframe} : feather absent apres "
-                                  f"telechargement")
-                continue
-            try:
-                construction.integrer_telechargement(paire, timeframe)
-            except construction.LakeError as exc:
-                echecs.append(f"{paire.base} {timeframe} (conversion) : {exc}")
-                log.error("%s %s : %s", paire.base, timeframe, exc)
+    # 3. Les indices quotidiens (yfinance) : reseau aussi, donc apres tout ce qui est gratuit.
+    #    Le parquet et sa ligne de catalogue sortent directement de `telecharger_indices`.
+    if not args.sans_telechargement:
+        try:
+            for base, etat in telechargement.telecharger_indices().items():
+                if etat != "ok":
+                    echecs.append(f"{base} 1d (yfinance) : {etat}")
+        except telechargement.DownloadError as exc:
+            echecs.append(f"indices (yfinance) : {exc}")
+            log.error("indices : %s", exc)
+    else:
+        log.info("--sans-telechargement : indices non telecharges (%s)",
+                 ", ".join(i.base for i in univers.INDICES))
 
     print()
     code = _afficher_etat()
+    if not args.sans_telechargement:
+        print("\nfraicheur :")
+        for f in maj.fraicheur():
+            derniere = f["derniere"].strftime("%Y-%m-%d %H:%M") if f["derniere"] is not None else "absente"
+            print(f"  {'EN RETARD' if f['en_retard'] else 'ok':9s} {f['serie']:22s} {derniere}")
+            if f["en_retard"]:
+                echecs.append(f"{f['serie']} en retard (derniere : {derniere})")
     if echecs:
         print(f"\n{len(echecs)} probleme(s) :")
         for echec in echecs:
