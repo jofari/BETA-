@@ -47,6 +47,12 @@ class ServeurExclusif(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
     allow_reuse_address = False
     daemon_threads = True
+    # Sur le VPS, le dashboard est servi a travers un tunnel SSH (`beta-web.service`) :
+    # aucun POST, et seuls les noms d'hote locaux sont acceptes — une page web malveillante
+    # ouverte dans le navigateur ne peut alors ni declencher une action, ni lire les
+    # donnees par rebinding DNS. Sur le PC, rien ne change.
+    lecture_seule = False
+    lien_vps: str | None = None
 
 
 def _propre(valeur):
@@ -183,6 +189,11 @@ def donnees_candidate(params: dict) -> dict:
     return atelier.code_de(module)
 
 
+def donnees_forward() -> dict:
+    from beta.rapport import forward
+    return forward.vue()
+
+
 _ROUTES_BRUTES = {
     "/api/lake": lambda p: donnees_lake(),
     "/api/strategie": lambda p: donnees_strategie(bool(p.get("holdout"))),
@@ -193,12 +204,17 @@ _ROUTES_BRUTES = {
     "/api/candidate": donnees_candidate,
     "/api/comparaison": donnees_comparaison,
     "/api/idees": lambda p: donnees_idees(),
+    "/api/forward": lambda p: donnees_forward(),
 }
 
 # Toutes les routes passent par `propre` : aucune ne peut renvoyer de NaN au navigateur,
 # et une nouvelle route ne peut pas oublier de le faire.
 ROUTES = {chemin: (lambda p, f=fonction: propre(f(p)))
           for chemin, fonction in _ROUTES_BRUTES.items()}
+
+# Les GET qui dependent du serveur lui-meme (mode lecture seule, lien VPS) et non des
+# donnees : traites dans le handler, qui seul voit `self.server`.
+ROUTES_SERVEUR = ("/api/serveur",)
 
 # Corps maximal accepte en POST. Le client n'envoie qu'un nom d'action et un run_id :
 # au-dela, c'est que quelque chose d'autre parle au serveur.
@@ -245,10 +261,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except OSError as exc:
             self._json({"erreur": str(exc)}, 500)
 
+    def _hote_refuse(self) -> bool:
+        """En lecture seule : refuse tout nom d'hote qui n'est pas local (rebinding DNS)."""
+        if not self.server.lecture_seule:
+            return False
+        hote = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
+        if hote in ("127.0.0.1", "localhost", "::1"):
+            return False
+        self._json({"erreur": "hote refuse"}, 403)
+        return True
+
     def do_GET(self) -> None:        # noqa: N802 — impose par BaseHTTPRequestHandler
+        if self._hote_refuse():
+            return None
         analyse = urlparse(self.path)
         route = analyse.path.rstrip("/") or "/"
         params = parse_qs(analyse.query)
+        if route in ROUTES_SERVEUR:
+            return self._json({"lecture_seule": self.server.lecture_seule,
+                               "lien_vps": self.server.lien_vps})
         if route in ("/", "/index.html"):
             return self._statique("index.html")
         if route in ROUTES:
@@ -282,6 +313,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         geste et le code d'une candidate — du CODE, donc, mais qui ne s'execute que dans le
         sous-processus de l'epreuve, et jamais avant que le sas ait lu ce qu'il contient.
         """
+        if self._hote_refuse():
+            return None
+        if self.server.lecture_seule:
+            return self._json({"erreur": "serveur en lecture seule (VPS)"}, 403)
         route = urlparse(self.path).path.rstrip("/")
         if route == "/api/atelier":
             return self._post_atelier()
@@ -345,12 +380,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json({"erreur": f"{type(exc).__name__}: {exc}"}, 500)
 
 
-def servir(hote: str = HOTE, port: int = PORT, ouvrir: bool = True) -> int:
+def servir(hote: str = HOTE, port: int = PORT, ouvrir: bool = True,
+           lecture_seule: bool = False, lien_vps: str | None = None) -> int:
     try:
         serveur = ServeurExclusif((hote, port), Handler)
     except OSError as exc:
         log.error("port %d indisponible (%s) — un BETA tourne peut-etre deja", port, exc)
         return 1
+    serveur.lecture_seule, serveur.lien_vps = lecture_seule, lien_vps
     url = f"http://{hote}:{port}"
     log.info("BETA sur %s — Ctrl+C pour arreter", url)
     if ouvrir:

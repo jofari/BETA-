@@ -43,12 +43,15 @@ En ligne de commande :
 
 ## Le dashboard
 
-Six onglets, port **7474** (ALPHA occupe 7373) :
+Sept onglets, port **7474** (ALPHA occupe 7373) :
 
 - **Stratégie** — le R moyen affiché **à côté de son MDE**, avec un bandeau qui dit en clair
   quand l'écart est sous le seuil de détection. Courbe d'équity en R cumulés, distribution
   des R, ventilation par sens / paire / stratégie, raisons de **sortie** et raisons de
   **rejet**. Le hold-out est exclu par défaut ; l'inclure affiche un avertissement permanent.
+- **Forward** — ce que font les stratégies figées APRÈS leur gel : les suivis au cours de
+  clôture (`SUIVI_*.jsonl`) et le paper trading (`PAPER_*.jsonl`) des trois voies C, côte à
+  côte avec BTC ; positions, consignes du jour, coût d'exécution mesuré contre le modèle.
 - **Comparaison** — le classement, les courbes superposées (AritV1 en pointillé), la matrice
   de corrélation et la p-value du *meilleur* du lot. C'est le seul onglet qui répond à
   « celle-ci apporte-t-elle quelque chose que je n'ai pas déjà ? ».
@@ -62,6 +65,13 @@ Six onglets, port **7474** (ALPHA occupe 7373) :
 
 Zéro dépendance front, zéro CDN : les graphiques sont dessinés au canvas. Même palette
 qu'ALPHA, accent vert au lieu de bleu pour distinguer les deux onglets d'un coup d'œil.
+
+**Sur le VPS** (depuis le 08/10), le même dashboard tourne en service (`beta-web`) sur
+`127.0.0.1:7474`, en **lecture seule** (`--lecture-seule` : aucun POST, noms d'hôte locaux
+seulement) et sans rien exposer à Internet. Depuis le PC, `VPS.cmd` ouvre un tunnel SSH et
+le navigateur : `http://127.0.0.1:7574/#forward` pour BETA, `http://127.0.0.1:7580` pour le
+tableau de bord du VPS (état, marché DS1, liquidations, news — `/usr/local/lib/vps-dash`).
+Les journaux SUIVI_ et PAPER_ n'existent que là-bas : sur le PC, l'onglet Forward est vide.
 
 ## Reconstruire les données
 

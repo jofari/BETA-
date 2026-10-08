@@ -364,6 +364,7 @@ async function charger() {
   } finally {
     bouton.disabled = false;
   }
+  FORWARD.charger();
   rendreStrategie();
   rendreLake();
   rendreProtocole();
@@ -377,8 +378,11 @@ function ongletActif(nom) {
   etat.onglet = nom;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("is-active", t.dataset.onglet === nom));
-  ["strategie", "candidates", "comparaison", "atelier", "lake", "protocole"].forEach((o) =>
-    ($("#onglet-" + o).hidden = o !== nom));
+  ["strategie", "forward", "candidates", "comparaison", "atelier", "lake", "protocole"]
+    .forEach((o) => ($("#onglet-" + o).hidden = o !== nom));
+  // L'onglet ouvert vit dans l'adresse : un lien (depuis le dashboard VPS) peut y mener.
+  history.replaceState(null, "", "#" + nom);
+  if (nom === "forward" && FORWARD.aDesDonnees()) FORWARD.redessiner();
   // Un canvas d'onglet masque a une largeur nulle : la fiche se redessine a l'affichage.
   if (nom === "candidates" && FICHE.aDesDonnees()) FICHE.redessiner();
   if (nom === "comparaison" && COMPARAISON.aDesDonnees()) COMPARAISON.redessiner();
@@ -395,4 +399,24 @@ $("#rafraichir").addEventListener("click", charger);
 $("#holdout").addEventListener("change", charger);
 window.addEventListener("resize", () => ongletActif(etat.onglet));
 
+/* Servi depuis le VPS (tunnel SSH), le serveur est en lecture seule : on le dit dans
+   l'en-tete, on ouvre l'onglet Forward par defaut, et on relie le dashboard VPS. */
+async function identifierServeur() {
+  let info = {};
+  try {
+    info = await fetch("/api/serveur").then((r) => r.json());
+  } catch (exc) {
+    info = {};
+  }
+  $("#badge-lecture-seule").hidden = !info.lecture_seule;
+  if (info.lien_vps) {
+    $("#lien-vps").href = info.lien_vps;
+    $("#lien-vps").hidden = false;
+  }
+  const demande = location.hash.slice(1);
+  if (demande && document.querySelector(`.tab[data-onglet="${demande}"]`)) ongletActif(demande);
+  else if (info.lecture_seule) ongletActif("forward");
+}
+
+identifierServeur();
 charger();

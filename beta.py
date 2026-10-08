@@ -52,7 +52,8 @@ def _script(nom: str, *args: str) -> int:
 
 def cmd_serve(args) -> int:
     from beta.rapport import serveur
-    return serveur.servir(hote=args.host, port=args.port, ouvrir=not args.no_browser)
+    return serveur.servir(hote=args.host, port=args.port, ouvrir=not args.no_browser,
+                          lecture_seule=args.lecture_seule, lien_vps=args.lien_vps)
 
 
 def cmd_lake(args) -> int:
@@ -414,6 +415,10 @@ def parseur() -> argparse.ArgumentParser:
     serve.add_argument("--host", default=HOTE)
     serve.add_argument("--port", type=int, default=PORT)
     serve.add_argument("--no-browser", action="store_true")
+    serve.add_argument("--lecture-seule", action="store_true",
+                       help="aucun POST, hotes locaux seulement (VPS, derriere un tunnel SSH)")
+    serve.add_argument("--lien-vps", default=None,
+                       help="adresse du dashboard VPS, affichee en lien dans l'en-tete")
     serve.set_defaults(fonction=cmd_serve)
 
     lake = subs.add_parser("lake", help="construit ou actualise le lake OHLCV")

@@ -95,7 +95,7 @@ def test_chaque_id_utilise_par_le_js_existe_dans_le_html():
 def test_aucune_ressource_externe():
     """Zero CDN : la page doit fonctionner hors ligne, comme ALPHA."""
     for fichier in ("index.html", "app.js", "fiche.js", "atelier.js",
-                    "comparaison.js", "style.css"):
+                    "comparaison.js", "forward.js", "style.css"):
         contenu = (WEB / fichier).read_text(encoding="utf-8")
         for motif in ("http://", "https://"):
             for occurrence in re.findall(rf"{motif}[^\s\"')]+", contenu):
@@ -110,7 +110,7 @@ ROUTES_POST = {"/api/action", "/api/atelier", "/api/idee"}
 
 
 def test_toutes_les_routes_du_js_existent_cote_serveur():
-    lisibles = set(serveur.ROUTES) | ROUTES_POST
+    lisibles = set(serveur.ROUTES) | set(serveur.ROUTES_SERVEUR) | ROUTES_POST
     for fichier in sorted(WEB.glob("*.js")):
         js = fichier.read_text(encoding="utf-8")
         for route in re.findall(r'fetch\("(/api/[^"?]+)', js):
