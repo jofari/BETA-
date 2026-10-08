@@ -307,6 +307,15 @@ deux fois sur trois. Dans une vraie baisse, il faut s'attendre plutôt à −30 
 **Forward** : admise au dry-run de 6 mois, rattrapage du 06/09 au 07/10, live dès le 08/10,
 critères préenregistrés (maxDD ≤ 25 %, vol réalisée 10-30 %).
 
+**Suivi installé le 08/10** : `scripts/vc3_suivi.py`, timer `beta-suivi-vc3` à 00:50 UTC →
+`SUIVI_VC3.jsonl` (racine, ajout seul). Config et dates relues dans le registre, empreinte
+épinglée. Chaque journée close : état, 5 votes, position tenue, rendement net, holds BTC spot
+et équipondéré ; la dernière ligne porte la consigne du lendemain, calculée par la même chaîne
+prolongée d'un jour (vérifié chaque jour : la prolongation ne change aucune journée close).
+Journal initial : 32 jours de rattrapage (06/09 → 07/10) ; première journée live le 08/10,
+écrite le 09/10. MaxDD live sous −25 % = unité en « failed » : c'est une alarme, pas une
+panne, et la suite est une décision de Jonas. **Aucun ordre passé.**
+
 ---
 
 ## En attente de Jonas
