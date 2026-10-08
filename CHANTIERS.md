@@ -649,7 +649,7 @@ ARIT en conclut « momentum = beta, pas d'alpha », parce qu'il compare à un bu
 long-only. **BETA a exactement l'outil qui tranche autrement** : S8 (B&H imposé), la triple
 barrière, et **6 paires dont 2 qui n'ont jamais servi à cette mesure**. C'est la deuxième
 candidate qui manque au banc depuis le 19/08 — celle sans laquelle S7 et S9 tournent à vide.
-Notée **I12** (gratuit) ; la promouvoir est un geste de Jonas (arbitrage **B-c**).
+Notée **I16** (gratuit) ; la promouvoir est un geste de Jonas (arbitrage **B-c**).
 
 Trois autres idées versées depuis la même session ARIT, toutes gratuites :
 

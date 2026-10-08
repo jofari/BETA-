@@ -184,7 +184,7 @@ mêlée à cinq scores et à une porte de conviction.
 **Défaut proposé : mesurer R4**, parce que c'est la seule des trois qui répond à une question
 qu'ARIT ne peut pas se poser chez lui.
 
-### B-c — I12 (momentum 14-60 j) : la promouvoir en candidate n° 2 ?
+### B-c — I16 (momentum 14-60 j) : la promouvoir en candidate n° 2 ?
 
 C'est le seul résultat de la session ARIT qui **survit hors échantillon sur les 4 actifs**
 (Sharpe holdout 0,78 à 0,98, contre un B&H à 0,55-0,83). ARIT conclut « c'est du beta, pas de
@@ -414,5 +414,5 @@ contre le vrai carnet** — plutôt que le seul suivi au cours de clôture, ou l
 | ~~**A1**~~ | ~~Ce que compte N : hypothèses ou mesures~~ | ✅ **tranchée 20/08 — (b)**, appliquée | 19/08 |
 | **B-a** | R3 (funding) : la mesurer quand même, ou l'écarter ? Sa prémisse (86 % du profit de MacroFlip) est attaquée par les mesures ARIT du 05/09 | 🔴 ouverte | 11/09 |
 | **B-b** | R4 (macro seule) : D6 est débloqué le jour où ARIT enterre la macro — mesurer, ou classer ? | 🔴 ouverte | 11/09 |
-| **B-c** | I12 (momentum 14-60 j) : la promouvoir en **candidate n° 2** du banc, lookback 30 j figé ? | 🔴 ouverte | 11/09 |
+| **B-c** | I16 (momentum 14-60 j) : la promouvoir en **candidate n° 2** du banc, lookback 30 j figé ? | 🔴 ouverte | 11/09 |
 | ~~**A2**~~ | ~~Nature de l'edge : alpha vs ARP (options A/B/C)~~ | ✅ **tranchée — (A)**, suivi forward depuis le 03/10 | 22/09 |
