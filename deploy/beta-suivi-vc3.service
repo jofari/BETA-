@@ -12,7 +12,7 @@ After=beta-maj.service
 Type=oneshot
 WorkingDirectory=/root/BETA-
 Environment=ARIT_HOME=/root/ARIT2.0
-ExecStart=/root/venvs/arit/bin/python scripts/vc3_suivi.py
+ExecStart=/root/venvs/arit/bin/python scripts/c2_suivi.py --id VC3
 TimeoutStartSec=900
 Nice=10
 CPUQuota=50%

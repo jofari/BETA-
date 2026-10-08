@@ -1,0 +1,12 @@
+[Unit]
+Description=BETA - paper trading des trois voies C, chaque jour a 01:00 UTC
+
+[Timer]
+# Apres les suivis (voie C 00:45, VC2 et VC3 00:50, quelques secondes chacun) : les consignes
+# du jour sont ecrites. Le modele traite a 00:00 UTC ; l'ecart a l'ouverture mesure aussi ce
+# delai d'une heure.
+OnCalendar=*-*-* 01:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

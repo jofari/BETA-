@@ -307,14 +307,43 @@ deux fois sur trois. Dans une vraie baisse, il faut s'attendre plutôt à −30 
 **Forward** : admise au dry-run de 6 mois, rattrapage du 06/09 au 07/10, live dès le 08/10,
 critères préenregistrés (maxDD ≤ 25 %, vol réalisée 10-30 %).
 
-**Suivi installé le 08/10** : `scripts/vc3_suivi.py`, timer `beta-suivi-vc3` à 00:50 UTC →
-`SUIVI_VC3.jsonl` (racine, ajout seul). Config et dates relues dans le registre, empreinte
-épinglée. Chaque journée close : état, 5 votes, position tenue, rendement net, holds BTC spot
-et équipondéré ; la dernière ligne porte la consigne du lendemain, calculée par la même chaîne
-prolongée d'un jour (vérifié chaque jour : la prolongation ne change aucune journée close).
-Journal initial : 32 jours de rattrapage (06/09 → 07/10) ; première journée live le 08/10,
-écrite le 09/10. MaxDD live sous −25 % = unité en « failed » : c'est une alarme, pas une
-panne, et la suite est une décision de Jonas. **Aucun ordre passé.**
+**Suivi installé le 08/10** : `scripts/c2_suivi.py --id VC3`, timer `beta-suivi-vc3` à
+00:50 UTC → `SUIVI_VC3.jsonl` (racine, ajout seul). Config et dates relues dans le registre,
+empreinte épinglée. Chaque journée close : état, 5 votes, position tenue, rendement net, holds
+BTC spot et équipondéré ; la dernière ligne porte la consigne du lendemain, calculée par la
+même chaîne prolongée d'un jour (vérifié chaque jour : la prolongation ne change aucune
+journée close). Journal initial : 32 jours de rattrapage (06/09 → 07/10) ; première journée
+live le 08/10, écrite le 09/10. MaxDD live sous −25 % = unité en « failed » : c'est une
+alarme, pas une panne, et la suite est une décision de Jonas. **Aucun ordre passé.**
+
+---
+
+### Paper trading des trois voies C (Jonas, 08/10)
+
+**Demande** : « déployer les 3 voies C en paper pour voir les résultats sur du long terme ».
+Choix de Jonas (08/10) : la **voie C figée**, **VC2** et **VC3**, en **exécution simulée
+contre le vrai carnet** — plutôt que le seul suivi au cours de clôture, ou le testnet Binance
+(prix et liquidité artificiels).
+
+- **VC2 suivie à titre informatif** (`c2_suivi.py --id VC2`, timer `beta-suivi-vc2`,
+  `SUIVI_VC2.jsonl`). Elle reste INFIRMÉE par sa règle : aucun critère de dry-run, et un bon
+  forward ne la réhabilite pas — il faudrait un nouveau préenregistrement, avec ce résultat
+  dans `deja_connu`. Même précaution pour le choix final : retenir après coup la meilleure des
+  trois en paper serait une sélection de plus, à compter comme telle.
+- **Le paper** (`beta/paper.py`, `scripts/paper.py`, timer `beta-paper` à 01:00 UTC →
+  `PAPER_VOIE_C.jsonl`, `PAPER_VC2.jsonl`, `PAPER_VC3.jsonl`) : 10 000 USDT fictifs par voie
+  (taille du canari). Chaque jour, la consigne de chaque suivi est exécutée au marché contre le
+  carnet Binance du moment (perpétuels pour C et VC2, spot pour VC3), avec les pas de lot, les
+  minimums, les frais du barème et le funding réellement réglé. Par ordre : l'écart au milieu
+  du carnet (coût de la liquidité) et à l'ouverture de 00:00 UTC (liquidité + délai), à
+  comparer au slippage du modèle — le critère « ≤ 2× le modèle » du dry-run. Aucune clé,
+  aucun ordre : routes publiques seulement. Le premier jour construit toute la position (voie
+  C : la cible du moteur), les suivants ne touchent que ce que le modèle change.
+- **Premier jour : 09/10 à 01:00 UTC.** Essai réel le 08/10 dans un répertoire jetable : à
+  10 k, chaque ordre se remplit au premier niveau, 0 à 0,4 pb du milieu (le modèle suppose 5 à
+  10 pb) ; le pas de 0,001 BTC en perpétuels décale le poids de BTC d'environ 0,3 point.
+- **Ce que le paper ne dit pas** : la marge et la liquidation (non simulées, brut ≤ 2), la
+  file d'attente et les pannes d'un vrai châssis. Le châssis d'exécution reste ouvert (ARIT).
 
 ---
 

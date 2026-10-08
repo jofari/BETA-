@@ -1,0 +1,10 @@
+[Unit]
+Description=BETA - suivi forward de VC2, chaque jour a 00:50 UTC
+
+[Timer]
+# Comme VC3 : apres beta-maj (00:20 UTC, ~2 min), avant le paper (01:00 UTC).
+OnCalendar=*-*-* 00:50:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

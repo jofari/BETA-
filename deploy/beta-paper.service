@@ -1,0 +1,21 @@
+# BETA — paper trading des trois voies C (voie C figee, VC2, VC3) : execution SIMULEE des
+# consignes du jour contre le vrai carnet Binance, 10 000 USDT fictifs par voie. Aucune cle,
+# aucun ordre : seules les routes publiques de Binance sont lues.
+# Installe par : cp deploy/beta-paper.{service,timer} /etc/systemd/system/
+#                systemctl daemon-reload && systemctl enable --now beta-paper.timer
+# Unite en "failed" (`systemctl --failed`, puis `journalctl -u beta-paper`) : une voie n'a pas
+# pu s'executer (marche illisible, ou consigne absente parce que son suivi n'est pas passe).
+[Unit]
+Description=BETA - paper trading des trois voies C
+After=network-online.target beta-suivi.service beta-suivi-vc2.service beta-suivi-vc3.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/arit/bin/python scripts/paper.py
+TimeoutStartSec=600
+Nice=10
+CPUQuota=50%
+MemoryMax=1G

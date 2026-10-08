@@ -1,4 +1,5 @@
-"""Suivi forward de VC3 : journal en ajout seul, empreinte gardee, consigne = position du lendemain."""
+"""Suivi forward de la voie C2 (VC2, VC3) : journal en ajout seul, empreintes gardees,
+consigne = position du lendemain."""
 
 import importlib.util
 import json
@@ -11,15 +12,15 @@ import pytest
 from beta.strategies import voie_c2 as c2
 
 _spec = importlib.util.spec_from_file_location(
-    "vc3_suivi", Path(__file__).resolve().parents[1] / "scripts" / "vc3_suivi.py")
+    "c2_suivi", Path(__file__).resolve().parents[1] / "scripts" / "c2_suivi.py")
 suivi = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(suivi)
 
 H, B, V = c2.HAUSSIER, c2.BAISSIER, c2.VEILLE
 
 
-def _lancer(journal, monkeypatch):
-    monkeypatch.setattr("sys.argv", ["vc3_suivi", "--journal", str(journal)])
+def _lancer(journal, monkeypatch, id_exp="VC3"):
+    monkeypatch.setattr("sys.argv", ["c2_suivi", "--id", id_exp, "--journal", str(journal)])
     return suivi.main()
 
 
@@ -34,10 +35,15 @@ def cfg():
 
 # ------------------------------------------------------------------------- registre, journal
 
-def test_empreinte_et_dates_du_registre(cfg):
-    # Si ce test casse, VC3 a ete repreenregistree : ce n'est plus le meme dry-run.
-    assert c2.empreinte(cfg) == suivi.EMPREINTE == "7adef08a837a8c50"
-    assert suivi.dates_du_registre() == (_jour("2026-09-06"), _jour("2026-10-08"))
+@pytest.mark.parametrize("id_exp,empreinte,live,admise", [
+    ("VC3", "7adef08a837a8c50", "2026-10-08", True),       # confirmee : dry-run a juger
+    ("VC2", "744700fa7d8980fc", "2026-10-07", False),      # infirmee : suivi informatif
+])
+def test_empreintes_dates_et_statut_du_registre(id_exp, empreinte, live, admise):
+    # Si ce test casse, l'experience a ete repreenregistree : ce n'est plus le meme suivi.
+    assert c2.empreinte(c2.config(id_exp)) == suivi.EMPREINTES[id_exp] == empreinte
+    assert suivi.dates_du_registre(id_exp) == (_jour("2026-09-06"), _jour(live))
+    assert suivi.admise_au_dry_run(id_exp) is admise
 
 
 def test_nature_live_ou_rattrapage():
@@ -48,16 +54,18 @@ def test_nature_live_ou_rattrapage():
     assert suivi.nature(_jour("2026-10-08"), live, _jour("2026-10-11")) == "rattrapage"
 
 
-def test_journal_en_ajout_seul(tmp_path, monkeypatch):
+@pytest.mark.parametrize("id_exp", ["VC3", "VC2"])
+def test_journal_en_ajout_seul(tmp_path, monkeypatch, id_exp):
     journal = tmp_path / "suivi.jsonl"
-    _lancer(journal, monkeypatch)
+    _lancer(journal, monkeypatch, id_exp)
     premier = journal.read_text()
     lignes = [json.loads(l) for l in premier.splitlines()]
+    debut_live = f"{suivi.dates_du_registre(id_exp)[1]:%Y-%m-%d}"
     assert lignes[0]["date"] == "2026-09-06"
-    assert all(l["config"] == suivi.EMPREINTE for l in lignes)
-    assert all(l["type"] == "rattrapage" for l in lignes if l["date"] < "2026-10-08")
+    assert all(l["config"] == suivi.EMPREINTES[id_exp] for l in lignes)
+    assert all(l["type"] == "rattrapage" for l in lignes if l["date"] < debut_live)
     assert [("consigne_lendemain" in l) for l in lignes] == [False] * (len(lignes) - 1) + [True]
-    _lancer(journal, monkeypatch)
+    _lancer(journal, monkeypatch, id_exp)
     assert journal.read_text() == premier          # rien de reecrit, rien de duplique
 
 
@@ -81,9 +89,11 @@ def reelles():
     return c2.donnees(fin=c2.FIN_BACKTEST)
 
 
-@pytest.fixture(scope="module")
-def chemin(reelles, cfg):
-    return c2.calculer(reelles, cfg)
+@pytest.fixture(scope="module", params=["VC3", "VC2"])
+def experience(request, reelles):
+    """VC3 (poche maximum, spot) et VC2 (poche achetee, perpetuels) : deux chemins differents."""
+    cfg = c2.config(request.param)
+    return cfg, c2.calculer(reelles, cfg)
 
 
 def _temoins(chemin) -> dict[str, int]:
@@ -104,7 +114,8 @@ def _temoins(chemin) -> dict[str, int]:
     return {nom: next(i for i in range(1, len(etat)) if f(i)) for nom, f in cas.items()}
 
 
-def test_la_consigne_de_la_veille_est_la_position_du_jour(reelles, cfg, chemin):
+def test_la_consigne_de_la_veille_est_la_position_du_jour(reelles, experience):
+    cfg, chemin = experience
     for nom, i in _temoins(chemin).items():
         veille = chemin["jours"][i - 1]
         c = suivi.suivre(c2.tronquer(reelles, veille), cfg)["consigne"]
