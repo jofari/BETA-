@@ -7,8 +7,10 @@ journee CLOSE d >= debut du rattrapage pas encore journalisee, ajoute une ligne 
 SUIVI_<id>.jsonl : l'etat du regime et ses 5 votes, la position tenue pendant d, son
 rendement brut et net, et les deux holds de reference (BTC, equipondere ; funding deduit pour
 une config en perpetuels) ; sur la derniere ligne, la consigne pour d+1, que le paper trading
-(`scripts/paper.py`) execute. Le journal ne fait que CROITRE : une ligne ecrite n'est jamais
-reecrite.
+(`scripts/paper.py`) execute, avec ses `indicateurs` (10/10) : les valeurs brutes lues par
+chaque vote et par le moteur, et l'ecart a la cible compare a la bande — de quoi verifier
+l'analyse a l'oeil dans l'onglet Forward. Le journal ne fait que CROITRE : une ligne ecrite
+n'est jamais reecrite.
 
 Deux experiences, et deux statuts differents dans le registre :
     VC3  CONFIRMEE le 07/10 (`scripts/mesurer_vc3.py`) : dry-run de 6 mois, live des le
@@ -117,7 +119,8 @@ def prolonger(d: dict) -> dict:
 def suivre(d: dict, cfg: dict) -> dict:
     """La chaine sur les journees closes, et la consigne pour le lendemain."""
     res = c2.calculer(d, cfg)
-    ext = c2.calculer(prolonger(d), cfg)
+    prolonge = prolonger(d)
+    ext = c2.calculer(prolonge, cfg)
     n = len(res["jours"])
     ecarts = {
         "votes": float(np.abs(ext["votes"].to_numpy()[:n] - res["votes"].to_numpy()).max()),
@@ -143,7 +146,36 @@ def suivre(d: dict, cfg: dict) -> dict:
         "ordres": position - derive,
         "donnees": {k: f"{v.index.max():%Y-%m-%d}" for k, v in d.items()},
     }
+    res["consigne"]["indicateurs"] = indicateurs(prolonge, cfg, res["consigne"], derive,
+                                                 ext["cible"].iloc[-1].to_numpy(dtype=float))
     return res
+
+
+def indicateurs(prolonge: dict, cfg: dict, consigne: dict, derive: np.ndarray,
+                cible: np.ndarray) -> dict:
+    """Les valeurs brutes de la consigne (affichage), et l'ecart qui decide d'un ordre.
+
+    Ne fait jamais tomber le suivi : un ecart avec la chaine est journalise (`coherent` faux,
+    erreur au journal systemd) et la consigne, elle, reste celle de la chaine.
+    """
+    ind = c2.indicateurs(prolonge, cfg, consigne["date"])
+    voulu = np.nan_to_num(cible)
+    plafond = cfg.get("plafond_brut")
+    if plafond is not None and np.abs(voulu).sum() > plafond:
+        voulu = voulu * (plafond / float(np.abs(voulu).sum()))
+    ind["execution"] = {
+        "brut_tenu": round(float(np.abs(derive).sum()), 6),
+        "brut_voulu": round(float(np.abs(voulu).sum()), 6),
+        "ecart": round(float(np.abs(voulu - derive).sum()), 6),
+        "bande": cfg["haussier"]["bande"],
+    }
+    lus = {k: v["vote"] for k, v in ind["votes"].items()}
+    if not ind["coherent"] or lus != consigne["votes"] or ind["etat"] != consigne["etat"]:
+        log.error("indicateurs incoherents avec la chaine (votes %s / %s, etat %s / %s) : "
+                  "affichage a ne pas croire", lus, consigne["votes"], ind["etat"],
+                  consigne["etat"])
+        ind["coherent"] = False
+    return ind
 
 
 def nature(jour: pd.Timestamp, debut_live: pd.Timestamp, aujourdhui: pd.Timestamp) -> str:
@@ -265,6 +297,7 @@ def main() -> int:
                 "position": _poids(c["position"]),
                 "ordres": _poids(c["ordres"]) if c["trade"] else {},
                 "donnees": c["donnees"],
+                "indicateurs": c["indicateurs"],
             }
         nouvelles.append(ligne)
 
@@ -313,7 +346,8 @@ def main() -> int:
     log.info("consigne pour %s : %s (votes %s = %+d), %s (turnover %.1f%%), brut %.2f",
              f"{c['date']:%Y-%m-%d}", c["etat"].upper(),
              " ".join(f"{v:+d}" for v in c["votes"].values()), c["somme"],
-             "REEQUILIBRER" if c["trade"] else "ne rien faire", c["turnover"] * 100,
+             "REEQUILIBRER" if c["trade"] else "garder les positions (aucun ordre)",
+             c["turnover"] * 100,
              float(np.abs(c["position"]).sum()))
 
     hier = pd.Timestamp(dt.datetime.now(dt.timezone.utc).date(), tz="UTC") - UN_JOUR

@@ -119,6 +119,13 @@ const FORWARD = (() => {
 
   /* ---------- cartes par voie ------------------------------------------------------------ */
 
+  // La position d'AUJOURD'HUI : celle de la consigne (decidee a 00:00 UTC, executee par le
+  // paper vers 01:00). La derniere ligne du suivi porte celle d'HIER : comparer le paper a
+  // celle-la melange deux journees des qu'il y a eu un reequilibrage (piege du 10/10).
+  const positionDuJour = (s) => (s.consigne && (s.consigne.position || s.consigne.cible))
+    || s.derniere.positions || null;
+  const brutDe = (pos) => pos ? Object.values(pos).reduce((a, x) => a + Math.abs(x), 0) : null;
+
   function carte(v) {
     const s = v.suivi, p = v.paper;
     const tete = `<div class="voie-tete"><span class="pastille" style="background:${teinte(v.nom)}">
@@ -133,14 +140,20 @@ const FORWARD = (() => {
       : (d.levier ? `levier ${Number(d.levier).toFixed(2)}` : "");
     const live = s.live ? `${s.live.n} j live, ${pc(s.live.net)}, maxDD ${pc(s.live.mdd)}`
                         : "pas encore de journée live";
-    const consigne = c ? `${c.date || "demain"} : <strong>${c.trade ? "rééquilibrer" : "ne rien faire"}</strong>`
+    // « aucun ordre » ne veut PAS dire « ne rien detenir » : la position est gardee telle quelle.
+    const consigne = c ? `${c.date || "demain"} : <strong>${c.trade ? "rééquilibrer"
+      : "garder les positions"}</strong>` + (c.trade ? "" : ' <span class="muet">(aucun ordre)</span>')
       + (c.etat ? ` (${c.etat})` : "") : "—";
+    const investi = brutDe(positionDuJour(s));
+    const exposition = investi === null ? "—" : `<strong>${poids(investi)}</strong> investi`
+      + ` <span class="muet">· ${poids(Math.max(0, 1 - investi))} non investi (cash)</span>`;
     const lignes = [
       ["Depuis le " + s.debut, `<span class="${ton(s.tout.net)}">${pc(s.tout.net)}</span>`
         + ` <span class="muet">· BTC ${pc(s.btc)}</span>`],
       ["MaxDD / vol", `${pc(s.tout.mdd)} · ${s.tout.vol === null ? "—" : pc(s.tout.vol, 1)}`],
       ["Live", live],
       ["Régime", regime ? `${regime} <span class="muet">${votes}</span>` : votes || "—"],
+      ["Exposition", exposition],
       ["Consigne", consigne],
       ["Paper", p ? `<span class="${ton(p.rendement)}">${pc(p.rendement)}</span> sur ${p.n_jours} j`
         + ` <span class="muet">· modèle ${pc(p.modele)}</span>` : "démarre au prochain passage"],
@@ -149,23 +162,147 @@ const FORWARD = (() => {
       `<dt>${k}</dt><dd>${x}</dd>`).join("")}</dl></div>`;
   }
 
+  /* ---------- indicateurs : ce que la strategie a lu pour decider ------------------------ */
+
+  const nombre = (v, d = 2) => manque(v) ? "—" : Number(v).toLocaleString("fr-FR",
+    { minimumFractionDigits: d, maximumFractionDigits: d });
+  const signe = (x) => x > 0 ? "+" + x : x < 0 ? "−" + (-x) : "0";
+  const pcfr = (v, d = 1) => manque(v) ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "")
+    + nombre(100 * Math.abs(v), d) + " %";
+  const part = (v, d = 1) => manque(v) ? "—" : nombre(100 * v, d) + " %";
+  const puceVote = (x) => `<span class="puce ${x > 0 ? "ok" : x < 0 ? "alerte" : ""}">${signe(x)}</span>`;
+  const pt = (v) => manque(v) ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + nombre(Math.abs(v), 2) + " pt";
+  const fraicheur = (v) => v.perimee
+    ? `<span class="neg">périmée (${nombre(v.age_h, 0)} h &gt; ${v.params.perime_h} h) → 0</span>` : "";
+
+  function ligneVote(nom, v) {
+    const p = v.params || {};
+    if (nom === "momentum_btc") {
+      return ["Momentum BTC " + p.fenetre_j + " j", v.lu,
+              `clôture ${nombre(v.valeur, 0)} $`,
+              `${p.fenetre_j} j plus tôt (${v.date_reference}) : ${nombre(v.reference, 0)} $ → `
+              + `<strong>${pcfr(v.variation)}</strong>`,
+              `+1 si BTC est plus haut qu'il y a ${p.fenetre_j} j, −1 s'il est plus bas`];
+    }
+    if (nom === "nasdaq") {
+      const couple = { COUPLE: "couplé", DECOUPLE: "découplé", TRANSITION: "en transition" };
+      return ["Nasdaq-100", v.lu, nombre(v.valeur, 0),
+              `plus bas des ${p.cassure_obs} séances précédentes ${nombre(v.plus_bas, 0)} → `
+              + `<strong>${v.cassure ? "cassure" : "pas de cassure"}</strong> · corrélation BTC `
+              + `${p.rho_court} j ${nombre(v.rho_court, 2)} / ${p.rho_long} j ${nombre(v.rho_long, 2)}`
+              + ` → <strong>${couple[v.couplage] || "—"}</strong> ${fraicheur(v)}`,
+              `−1 seulement si BTC est couplé (${p.rho_court} j ≥ ${nombre(p.arme_si, 1)} et `
+              + `${p.rho_long} j ≥ ${nombre(p.confirme_long_si, 1)}) ET le Nasdaq casse son plus bas `
+              + `${p.cassure_obs} séances ; jamais +1`];
+    }
+    if (nom === "fear_greed") {
+      return ["Fear & Greed", v.lu, nombre(v.valeur, 0), fraicheur(v) || "—",
+              `&lt; ${p.bas} → −1 ; ≥ ${p.haut} → +1 ; entre les deux → 0`];
+    }
+    const titres = { taux_reel_10a: "Taux réel 10 ans US (DFII10)",
+                     inflation_anticipee_10a: "Inflation anticipée 10 ans (T10YIE)" };
+    const hausse = p.signe_hausse > 0 ? "+1" : "−1", baisse = p.signe_hausse > 0 ? "−1" : "+1";
+    return [titres[nom] || nom, v.lu, nombre(v.valeur, 2) + " %",
+            `${p.fenetre_obs} séances plus tôt (${v.date_reference}) : ${nombre(v.reference, 2)} % → `
+            + `<strong>${pt(v.variation)}</strong> ${fraicheur(v)}`,
+            `hausse ≥ ${nombre(p.seuil_pt, 2)} pt → ${hausse} ; baisse ≥ ${nombre(p.seuil_pt, 2)} pt `
+            + `→ ${baisse} ; sinon 0`];
+  }
+
+  function decision(ind, c) {
+    const ex = ind.execution;
+    if (!ex) return "";
+    const ecart = `écart à la cible ${nombre(100 * ex.ecart, 1)} pts, bande ${nombre(100 * ex.bande, 0)} pts`;
+    if (ind.etat === "haussier") {
+      return `Investi voulu <strong>${part(ex.brut_voulu)}</strong> · tenu ${part(ex.brut_tenu)}`
+        + ` · ${ecart} → <strong>${c.trade ? "rééquilibrer vers le voulu"
+        : "garder les positions (sous la bande, aucun ordre)"}</strong>`;
+    }
+    if (ind.etat === "veille") {
+      return `Veille : aucun ajout. Investi tenu ${part(ex.brut_tenu)}, voulu du moteur `
+        + `${part(ex.brut_voulu)} → <strong>${c.trade ? "réduire au prorata"
+        : "garder les positions"}</strong> <span class="muet">(réduction seulement si le tenu `
+        + `dépasse le voulu de plus de ${nombre(100 * ex.bande, 0)} pts)</span>`;
+    }
+    return `Baissier : poche BTC ≤ 25 % du plus haut de l'équité, alts −50 % au signal puis `
+      + `sortie de chaque alt dont le momentum 126 j est négatif → <strong>${c.trade
+      ? "ordres de réduction" : "garder les positions"}</strong>`;
+  }
+
+  function tableMoteur(m) {
+    const lignes = Object.entries(m.paires).map(([paire, x]) => [
+      paire, part(x.vol_180j, 0),
+      { html: pcfr(x.momentum), classe: x.momentum >= 0 ? "pos" : "neg" },
+      x.tendance_active ? "oui" : "non", part(x.poids_base), part(x.poids_tendance),
+      part(x.composite), { html: part(x.voulu), classe: "fort" }]);
+    lignes.push(["total", "", "", "", "", "", part(m.somme_composite),
+                 { html: part(m.brut_voulu), classe: "fort" }]);
+    return table(["paire", "vol 180 j", "momentum 126 j", "tendance", "poids base",
+                  "poids tendance", "composite", "voulu (× levier)"], lignes);
+  }
+
+  function blocIndicateurs(v, ouvert) {
+    const c = v.suivi && v.suivi.consigne, ind = c && c.indicateurs;
+    if (!ind) return "";
+    const s = ind.seuils, m = ind.moteur, h = m ? m.params : {};
+    const alerte = ind.coherent ? "" : '<p class="erreur">Indicateurs incohérents avec la chaîne '
+      + "de calcul : ne pas s'y fier (voir journalctl -u beta-suivi-*).</p>";
+    const votes = table(["indicateur", "lu le", "valeur", "comparaison", "règle", "vote"],
+      Object.entries(ind.votes).map(([nom, x]) => ligneVote(nom, x).concat([puceVote(x.vote)])));
+    const moteur = !m ? "" : `<h3>Moteur de sizing (régime haussier)</h3>
+      <p class="sous">Volatilité du portefeuille sur ${h.fenetre} j : <strong>${part(m.sigma)}</strong>
+        pour une cible de <strong>${part(m.cible_vol, 0)}</strong> → levier calculé ${nombre(m.levier_calcule, 2)} (borné ${nombre(h.lmin, 2)}–${nombre(h.lmax, 1)}) ;
+        levier en vigueur <strong>${nombre(m.levier, 2)}</strong> (ne bouge que si le calcul s'en écarte
+        de plus de ${nombre(h.seuil_levier, 2)}). Poids = ${nombre(100 * h.poids_jambes, 0)} % jambe de base
+        (inverse de la vol ${h.fenetre_vol_jambes} j) + ${nombre(100 * h.poids_jambes, 0)} % jambe de tendance
+        (la même, seulement si le momentum ${h.fenetre_mom} j est positif), × levier`
+        + (m.plafond_brut ? `, plafonné à ${part(m.plafond_brut, 0)} investi (spot, sans emprunt)` : "")
+        + `. Vols annualisées en racine de 252, comme la cible. Lu le ${m.lu}.</p>
+      ${tableMoteur(m)}`;
+    return `<details class="indicateurs" ${ouvert ? "open" : ""}>
+      <summary><span class="pastille" style="background:${teinte(v.nom)}"></span>
+        ${echapper(v.titre)} — consigne du ${ind.date} :
+        <span class="puce regime-${ind.etat}">${ind.etat}</span>
+        somme des votes <strong>${signe(ind.somme)}</strong>
+        <span class="muet">(haussier ≥ ${signe(s.haussier)}, baissier ≤ ${signe(s.baissier)})</span></summary>
+      ${alerte}${votes}
+      <p class="indic-decision">${decision(ind, c)}</p>
+      ${moteur}
+    </details>`;
+  }
+
+  function panneauIndicateurs(vue) {
+    const blocs = vue.voies.filter((v) => v.suivi && v.suivi.consigne
+                                          && v.suivi.consigne.indicateurs);
+    if (!blocs.length) {
+      return '<p class="vide">Les indicateurs sont journalisés avec chaque consigne depuis le '
+        + "10/10 : ils apparaissent au prochain passage du suivi (00:45-00:50 UTC).</p>";
+    }
+    return blocs.map((v, i) => blocIndicateurs(v, i === 0)).join("");
+  }
+
   /* ---------- tableaux ------------------------------------------------------------------- */
 
   function tablePositions(vue) {
     const avec = vue.voies.filter((v) => v.suivi);
     const entetes = ["paire"].concat(avec.flatMap((v) =>
-      [`${echapper(v.titre)}<br><span class="muet">suivi</span>`,
+      [`${echapper(v.titre)}<br><span class="muet">consigne${v.suivi.consigne
+        && v.suivi.consigne.date ? " du " + v.suivi.consigne.date.slice(5) : ""}</span>`,
        `<span class="muet">paper</span>`]));
-    const lignes = vue.paires.map((paire) => [paire].concat(avec.flatMap((v) => [
-      poids(v.suivi.derniere.positions ? v.suivi.derniere.positions[paire] : null),
-      { html: v.paper ? poids(v.paper.poids[paire]) : "—", classe: "muet" }])));
-    lignes.push(["brut"].concat(avec.flatMap((v) => {
-      const pos = v.suivi.derniere.positions || {};
-      const brut = Object.values(pos).reduce((a, x) => a + Math.abs(x), 0);
-      const brutPaper = v.paper ? Object.values(v.paper.poids).reduce((a, x) => a + Math.abs(x), 0)
-                                : null;
-      return [{ html: poids(brut), classe: "fort" }, { html: poids(brutPaper), classe: "muet" }];
+    const lignes = vue.paires.map((paire) => [paire].concat(avec.flatMap((v) => {
+      const pos = positionDuJour(v.suivi);
+      return [poids(pos ? pos[paire] : null),
+              { html: v.paper ? poids(v.paper.poids[paire]) : "—", classe: "muet" }];
     })));
+    // Exposition brute = somme des |poids| = la part INVESTIE ; le reste est du cash (spot) ou
+    // de la marge libre (perpetuels).
+    const bruts = avec.map((v) => [brutDe(positionDuJour(v.suivi)) || 0,
+                                   v.paper ? brutDe(v.paper.poids) : null]);
+    lignes.push(["investi (brut)"].concat(bruts.flatMap(([s, p]) =>
+      [{ html: poids(s), classe: "fort" }, { html: poids(p), classe: "muet" }])));
+    lignes.push(["non investi (cash)"].concat(bruts.flatMap(([s, p]) =>
+      [poids(Math.max(0, 1 - s)), { html: p === null ? "—" : poids(Math.max(0, 1 - p)),
+                                    classe: "muet" }])));
     return table(entetes, lignes);
   }
 
@@ -214,6 +351,7 @@ const FORWARD = (() => {
       return;
     }
     $$("#forward-voies").innerHTML = vue.voies.map(carte).join("");
+    $$("#forward-indicateurs").innerHTML = panneauIndicateurs(vue);
     $$("#forward-positions").innerHTML = tablePositions(vue);
     $$("#forward-execution").innerHTML = tableExecution(vue);
     $$("#forward-ordres").innerHTML = tableOrdres(vue);

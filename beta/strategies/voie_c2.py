@@ -220,10 +220,13 @@ def moteur_haussier(closes: pd.DataFrame, h: dict) -> dict:
     comp = h["poids_jambes"] * (base + tendance)
     r_comp = (comp.shift(1) * rend).sum(axis=1, skipna=False)
     sigma = vo.sigma_composite(r_comp, "glissant", h["fenetre"])
-    levier = vv.hysteresis((h["cible"] / sigma.replace(0.0, np.nan))
-                           .clip(h["lmin"], h["lmax"]), h["seuil_levier"])
+    levier_calcule = (h["cible"] / sigma.replace(0.0, np.nan)).clip(h["lmin"], h["lmax"])
+    levier = vv.hysteresis(levier_calcule, h["seuil_levier"])
     cible = comp.shift(1).mul(levier.shift(1), axis=0)
-    return {"composite": comp, "sigma": sigma, "levier": levier, "cible": cible}
+    # Les briques intermediaires ne servent qu'a l'affichage (`indicateurs`).
+    return {"composite": comp, "sigma": sigma, "levier": levier, "cible": cible,
+            "levier_calcule": levier_calcule, "inverse": inverse, "base": base,
+            "tendance": tendance, "momentum": momentum}
 
 
 # =========================================================================================
@@ -320,6 +323,196 @@ def calculer(d: dict, cfg: dict, depart: pd.Timestamp = DEPART_SIMULATION) -> di
             "levier": mh["levier"].shift(1).reindex(jours),
             "sigma": mh["sigma"].shift(1).reindex(jours), "cible": mh["cible"].reindex(jours),
             "moteur": mh, **sortie}
+
+
+# =========================================================================================
+# Indicateurs : les valeurs BRUTES derriere chaque vote et derriere le moteur (affichage)
+# =========================================================================================
+#
+# Rien ici ne decide. Chaque vote est RE-DERIVE de ses valeurs brutes par un autre chemin que
+# `votes` (report de la derniere observation sur le calendrier, puis decalage) ; les tests
+# verifient sur tout l'historique que les deux chemins donnent le meme vote. En production, un
+# ecart n'est pas avale : `coherent` passe a faux et le dashboard le montre.
+
+COUPLAGE = {1.0: "COUPLE", -1.0: "DECOUPLE", 0.0: "TRANSITION"}
+
+
+def _report(obs: pd.DataFrame, cal: pd.DatetimeIndex) -> pd.DataFrame:
+    """Chaque jour du calendrier recoit la derniere ligne datee <= ce jour, et sa date."""
+    obs = obs.assign(date_obs=obs.index)
+    return obs.reindex(cal.union(obs.index)).ffill().reindex(cal)
+
+
+def _fraicheur(out: pd.DataFrame, cal: pd.DatetimeIndex, perime_h: float) -> pd.DataFrame:
+    """Age de l'observation reportee ; un score perime ou absent vote 0, comme `_aligner`."""
+    out["age_h"] = (pd.Series(cal, index=cal) - out["date_obs"]) / pd.Timedelta(hours=1)
+    frais = out["date_obs"].notna() & (out["age_h"] <= perime_h)
+    out["perimee"] = ~frais
+    out["vote"] = out["score"].where(frais, 0.0).fillna(0.0)
+    return out
+
+
+def _detail_momentum(closes: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    btc, fen = closes["BTC"], cfg["vote_momentum"]["fenetre"]
+    out = pd.DataFrame({"valeur": btc, "reference": btc.shift(fen),
+                        "date_reference": pd.Series(closes.index, index=closes.index).shift(fen),
+                        "date_obs": closes.index}, index=closes.index)
+    out["variation"] = out["valeur"] / out["reference"] - 1.0
+    out["vote"] = np.sign(out["variation"])
+    return out
+
+
+def _detail_variation(obs: pd.Series, p: dict, cal: pd.DatetimeIndex) -> pd.DataFrame:
+    obs = obs.dropna()
+    n = p["fenetre_obs"]
+    df = pd.DataFrame({"valeur": obs, "reference": obs.shift(n),
+                       "date_reference": pd.Series(obs.index, index=obs.index).shift(n)})
+    df["variation"] = (df["valeur"] - df["reference"]).round(6)
+    signe = float(p["signe_hausse"])
+    df["score"] = np.where(df["variation"] >= p["seuil_pt"], signe,
+                           np.where(df["variation"] <= -p["seuil_pt"], -signe, 0.0))
+    df.loc[df["variation"].isna(), "score"] = np.nan
+    return _fraicheur(_report(df, cal), cal, p["perime_h"])
+
+
+def _detail_fng(fng: pd.Series, p: dict, cal: pd.DatetimeIndex) -> pd.DataFrame:
+    obs = fng.dropna()
+    df = pd.DataFrame({"valeur": obs})
+    df["score"] = np.where(obs < p["bas"], -1.0, np.where(obs >= p["haut"], 1.0, 0.0))
+    return _fraicheur(_report(df, cal), cal, p["perime_h"])
+
+
+def _detail_nasdaq(nas: pd.Series, btc: pd.Series, p: dict,
+                   cal: pd.DatetimeIndex) -> pd.DataFrame:
+    nas = nas.dropna()
+    if nas.empty:
+        return pd.DataFrame({"vote": 0.0, "date_obs": pd.NaT}, index=cal)
+    plus_bas = nas.shift(1).rolling(p["cassure_obs"]).min()
+    btc_s = btc.reindex(nas.index.union(btc.index)).ffill().reindex(nas.index)
+    r_btc, r_nas = np.log(btc_s).diff(), np.log(nas).diff()
+    rho_c = r_btc.rolling(p["rho_court"]).corr(r_nas)
+    rho_l = r_btc.rolling(p["rho_long"]).corr(r_nas)
+    couplage = pd.Series(np.nan, index=nas.index)
+    couplage[(rho_c >= p["arme_si"]) & (rho_l >= p["confirme_long_si"])] = 1.0
+    couplage[rho_c < p["desarme_sous"]] = -1.0
+    couplage = couplage.ffill().fillna(0.0)
+    cassure = (nas < plus_bas).astype(float)
+    df = pd.DataFrame({"valeur": nas, "plus_bas": plus_bas, "cassure": cassure,
+                       "rho_court": rho_c, "rho_long": rho_l, "couplage": couplage})
+    df["score"] = np.where((couplage == 1.0) & (cassure == 1.0), -1.0, 0.0)
+    return _fraicheur(_report(df, cal), cal, p["perime_h"])
+
+
+def details_votes(d: dict, cfg: dict) -> dict[str, pd.DataFrame]:
+    """Pour chaque vote, une table indexee par jour de DECISION t : les valeurs lues (deja
+    decalees, donc datees <= t-1 ou <= t-2) et le vote qui en sort, colonne `vote`."""
+    closes = d["closes"]
+    cal, dec = closes.index, cfg["decalages"]
+    sortie = {"momentum_btc": _detail_momentum(closes, cfg).shift(dec["prix_j"])}
+    for nom, p in cfg["votes_macro"].items():
+        if nom == "fear_greed":
+            det, decalage = _detail_fng(d["fng"], p, cal), dec["fng_j"]
+        elif nom == "nasdaq":
+            det, decalage = _detail_nasdaq(d[p["fred"]], closes["BTC"], p, cal), dec["fred_j"]
+        else:
+            det, decalage = _detail_variation(d[p["fred"]], p, cal), dec["fred_j"]
+        sortie[nom] = det.shift(decalage)
+    for det in sortie.values():
+        det["vote"] = det["vote"].fillna(0.0)
+    return sortie
+
+
+def _nombre(x, chiffres: int = 6):
+    """Valeur JSON : None pour une valeur absente, flottant arrondi sinon."""
+    if x is None or pd.isna(x):
+        return None
+    return round(float(x), chiffres)
+
+
+def _date(x) -> str | None:
+    return None if x is None or pd.isna(x) else f"{pd.Timestamp(x):%Y-%m-%d}"
+
+
+def _vote_lisible(nom: str, r: pd.Series, cfg: dict) -> dict:
+    sortie = {"lu": _date(r.get("date_obs")), "valeur": _nombre(r.get("valeur")),
+              "vote_recalcule": int(r["vote"])}
+    if nom == "momentum_btc":
+        sortie.update(reference=_nombre(r["reference"]),
+                      date_reference=_date(r["date_reference"]),
+                      variation=_nombre(r["variation"]),
+                      params={"fenetre_j": cfg["vote_momentum"]["fenetre"]})
+        return sortie
+    p = cfg["votes_macro"][nom]
+    sortie.update(age_h=_nombre(r.get("age_h"), 1), perimee=bool(r.get("perimee", True)),
+                  params={k: v for k, v in p.items() if k != "fred"})
+    if nom == "nasdaq":
+        sortie.update(plus_bas=_nombre(r.get("plus_bas")),
+                      cassure=bool(r.get("cassure") == 1.0),
+                      rho_court=_nombre(r.get("rho_court"), 3),
+                      rho_long=_nombre(r.get("rho_long"), 3),
+                      couplage=COUPLAGE.get(r.get("couplage")) if pd.notna(r.get("couplage"))
+                      else None)
+    elif nom != "fear_greed":
+        sortie.update(reference=_nombre(r.get("reference")),
+                      date_reference=_date(r.get("date_reference")),
+                      variation=_nombre(r.get("variation")))
+    return sortie
+
+
+def _moteur_lisible(mh: dict, closes: pd.DataFrame, cfg: dict, t: pd.Timestamp) -> dict | None:
+    """Le moteur haussier tel qu'il sert la journee t : briques lues a t-1, comme `cible`."""
+    i = closes.index.get_loc(t)
+    if i == 0:
+        return None
+    h, j = cfg["haussier"], closes.index[i - 1]
+    fen = h["fenetre_mom"]
+    voulu = np.nan_to_num(mh["cible"].loc[t].to_numpy(dtype=float))
+    brut_moteur = float(np.abs(voulu).sum())
+    plafond = cfg.get("plafond_brut")
+    echelle = plafond / brut_moteur if plafond is not None and brut_moteur > plafond else 1.0
+    paires = {}
+    for k, p in enumerate(closes.columns):
+        inverse = mh["inverse"].at[j, p]
+        reference = closes[p].iloc[i - 1 - fen] if i - 1 - fen >= 0 else np.nan
+        paires[p] = {
+            "vol_180j": _nombre(np.sqrt(vc.PPA) / inverse if pd.notna(inverse) else None),
+            "momentum": _nombre(closes.at[j, p] / reference - 1.0),
+            "tendance_active": bool(mh["momentum"].at[j, p] > 0),
+            "poids_base": _nombre(mh["base"].at[j, p]),
+            "poids_tendance": _nombre(mh["tendance"].at[j, p]),
+            "composite": _nombre(mh["composite"].at[j, p]),
+            "voulu": _nombre(voulu[k] * echelle),
+        }
+    return {
+        "lu": f"{j:%Y-%m-%d}", "cible_vol": h["cible"], "sigma": _nombre(mh["sigma"].at[j]),
+        "levier_calcule": _nombre(mh["levier_calcule"].at[j]),
+        "levier": _nombre(mh["levier"].at[j]),
+        "params": {k: h[k] for k in ("fenetre_vol_jambes", "fenetre_mom", "poids_jambes",
+                                     "fenetre", "lmin", "lmax", "seuil_levier", "bande")},
+        "somme_composite": _nombre(mh["composite"].loc[j].sum()),
+        "brut_moteur": _nombre(brut_moteur), "plafond_brut": plafond,
+        "brut_voulu": _nombre(brut_moteur * echelle), "paires": paires,
+    }
+
+
+def indicateurs(d: dict, cfg: dict, t: pd.Timestamp) -> dict:
+    """Tout ce qui fait la ligne t, en valeurs brutes et lisibles (JSON) : chaque vote avec ce
+    qu'il a lu, l'etat, et le moteur haussier. Pour verifier l'analyse a l'oeil."""
+    det = details_votes(d, cfg)
+    officiels = votes(d, cfg).loc[t]
+    lus = {}
+    for nom, table in det.items():
+        lus[nom] = _vote_lisible(nom, table.loc[t], cfg)
+        lus[nom]["vote"] = int(officiels[nom])
+    somme = sum(v["vote"] for v in lus.values())
+    s = cfg["seuils_etat"]
+    etat = HAUSSIER if somme >= s["haussier"] else BAISSIER if somme <= s["baissier"] else VEILLE
+    return {
+        "date": f"{t:%Y-%m-%d}", "votes": lus, "somme": somme, "seuils": dict(s), "etat": etat,
+        "coherent": all(v["vote"] == v["vote_recalcule"] for v in lus.values()),
+        "moteur": _moteur_lisible(moteur_haussier(d["closes"], cfg["haussier"]),
+                                  d["closes"], cfg, t),
+    }
 
 
 # =========================================================================================

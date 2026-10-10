@@ -358,6 +358,16 @@
     <div class="trio" id="forward-voies"></div>
 
     <div class="carte">
+      <h2>Indicateurs — ce que la stratégie a lu pour décider</h2>
+      <p class="sous">Les valeurs brutes derrière chaque vote du régime et derrière le sizing, pour la
+        consigne la plus récente, telles que le suivi les a lues (prix : clôture de la veille ;
+        F&amp;G : veille ; séries FRED et Nasdaq : avant-veille, leur heure de publication).
+        Chaque vote est recalculé à partir de ces valeurs et comparé à celui de la chaîne : un
+        écart s'affiche en rouge. Aucun indicateur n'est ajouté ici qui ne serve pas à décider.</p>
+      <div id="forward-indicateurs"></div>
+    </div>
+
+    <div class="carte">
       <h2>Suivi au cours de clôture</h2>
       <p class="sous">Les consignes de chaque stratégie, exécutées au cours de clôture de 00:00 UTC
         avec les frais de son modèle. Base 100 la veille du premier jour suivi. Trait fin :
@@ -380,7 +390,9 @@
     <div class="duo">
       <div class="carte">
         <h2>Positions</h2>
-        <p class="sous">En fraction de l'équité : la dernière journée du suivi, et le compte paper.</p>
+        <p class="sous">En fraction de l'équité : la position du jour selon la consigne du suivi
+          (décidée à 00:00 UTC), et le compte paper qui l'a exécutée vers 01:00. Investi = somme
+          des poids ; le reste n'est pas investi (cash en spot, marge libre en perpétuels).</p>
         <div class="tableau-wrap" id="forward-positions"></div>
       </div>
       <div class="carte">

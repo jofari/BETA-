@@ -1,4 +1,6 @@
-"""Voie C2 : config preenregistree, votes, decalages, regles d'etat, causalite."""
+"""Voie C2 : config preenregistree, votes, decalages, regles d'etat, causalite, indicateurs."""
+
+import json
 
 import numpy as np
 import pandas as pd
@@ -268,3 +270,80 @@ def reelles():
 def test_causalite_troncature_et_perturbation(reelles, id_exp, t):
     ecarts = c2.epreuve_causalite(reelles, c2.config(id_exp), pd.Timestamp(t, tz="UTC"))
     assert all(e == 0.0 for e in ecarts.values()), ecarts
+
+
+# ------------------------------------------------------------------ indicateurs (affichage)
+
+@pytest.mark.parametrize("id_exp", ["VC2", "VC2T", "VC3"])
+def test_indicateurs_redonnent_chaque_vote_sur_tout_l_historique(reelles, id_exp):
+    # Deux chemins de calcul differents (report de la derniere observation contre `_aligner`) :
+    # s'ils divergent un seul jour, le dashboard afficherait une analyse que la chaine n'a pas
+    # faite.
+    cfg = c2.config(id_exp)
+    officiels = c2.votes(reelles, cfg)
+    details = c2.details_votes(reelles, cfg)
+    assert list(details) == list(officiels.columns)
+    for nom, table in details.items():
+        assert table.index.equals(officiels.index), nom
+        assert np.array_equal(table["vote"].to_numpy(), officiels[nom].to_numpy()), nom
+
+
+def test_l_historique_exerce_tous_les_cas_des_votes(reelles, cfg3):
+    # Sans quoi l'egalite ci-dessus ne prouverait rien : chaque vote prend toutes ses valeurs,
+    # et les cas « serie perimee » (jours feries US) arrivent vraiment.
+    details = c2.details_votes(reelles, cfg3)
+    attendu = {"momentum_btc": {-1.0, 1.0}, "taux_reel_10a": {-1.0, 0.0, 1.0},
+               "inflation_anticipee_10a": {-1.0, 0.0, 1.0}, "nasdaq": {-1.0, 0.0},
+               "fear_greed": {-1.0, 0.0, 1.0}}
+    for nom, valeurs in attendu.items():
+        assert set(details[nom]["vote"].unique()) >= valeurs, nom
+    for nom in ("taux_reel_10a", "inflation_anticipee_10a"):
+        assert details[nom]["perimee"].fillna(True).astype(bool).iloc[200:].any(), nom
+
+
+def _premier(chemin, condition):
+    return next(i for i in range(1, len(chemin["jours"])) if condition(i))
+
+
+@pytest.mark.parametrize("cas", ["reequilibrage haussier", "baissier", "veille"])
+def test_indicateurs_lisibles_et_fideles_a_la_chaine(reelles, cfg3, cas):
+    chemin = c2.calculer(reelles, cfg3)
+    etat, to = chemin["etat"].to_numpy(), chemin["turnover"]
+    i = _premier(chemin, {"reequilibrage haussier": lambda i: etat[i] == H and to[i] > 0,
+                          "baissier": lambda i: etat[i] == B,
+                          "veille": lambda i: etat[i] == V}[cas])
+    t = chemin["jours"][i]
+    ind = c2.indicateurs(reelles, cfg3, t)
+    assert json.loads(json.dumps(ind)) == ind                 # JSON tel quel, sans NaN
+    assert ind["coherent"] and ind["etat"] == etat[i]
+    assert ind["somme"] == int(chemin["votes"].iloc[i].sum())
+    assert {k: v["vote"] for k, v in ind["votes"].items()} == {
+        k: int(v) for k, v in chemin["votes"].iloc[i].items()}
+    mom = ind["votes"]["momentum_btc"]
+    assert mom["lu"] == f"{t - pd.Timedelta(days=1):%Y-%m-%d}"        # cloture de la veille
+    assert np.sign(mom["variation"]) == mom["vote"]
+    m = ind["moteur"]
+    assert m["levier"] == pytest.approx(chemin["levier"].iat[i], abs=1e-6)
+    assert m["sigma"] == pytest.approx(chemin["sigma"].iat[i], abs=1e-6)
+    voulu = np.array([m["paires"][p]["voulu"] for p in c2.vc.PAIRES])
+    assert voulu.sum() == pytest.approx(m["brut_voulu"], abs=1e-5)
+    assert m["brut_voulu"] <= cfg3["plafond_brut"] + 1e-9
+    if cas == "reequilibrage haussier":                  # la position prise EST le voulu
+        assert np.allclose(voulu, chemin["positions"][i], atol=1e-6)
+
+
+@pytest.mark.parametrize("t", ["2022-11-09", "2025-04-07"])
+def test_indicateurs_ne_lisent_que_ce_qui_est_public(reelles, cfg3, t):
+    # Meme perturbation que `epreuve_causalite` : tout ce qui n'est pas public a t 00:00 UTC
+    # est fausse ; les indicateurs de t ne doivent pas bouger d'un chiffre.
+    t = pd.Timestamp(t, tz="UTC")
+    vrai = c2.indicateurs(c2.tronquer(reelles, t), cfg3, t)
+    fausse = {k: v.copy() for k, v in c2.tronquer(reelles, t).items()}
+    fausse["closes"].loc[t] = fausse["closes"].loc[t] * 1.5
+    fausse["fng"].loc[t] = 1.0
+    for cle in ("DFII10", "T10YIE", "NASDAQ100"):
+        serie = fausse[cle]
+        for jour in (t - pd.Timedelta(days=1), t):
+            serie.loc[jour] = serie.iloc[-1] * (0.5 if cle == "NASDAQ100" else 1.0) + 5.0
+        fausse[cle] = serie.sort_index()
+    assert c2.indicateurs(fausse, cfg3, t) == vrai

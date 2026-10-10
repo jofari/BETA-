@@ -65,6 +65,10 @@ def test_journal_en_ajout_seul(tmp_path, monkeypatch, id_exp):
     assert all(l["config"] == suivi.EMPREINTES[id_exp] for l in lignes)
     assert all(l["type"] == "rattrapage" for l in lignes if l["date"] < debut_live)
     assert [("consigne_lendemain" in l) for l in lignes] == [False] * (len(lignes) - 1) + [True]
+    ind = lignes[-1]["consigne_lendemain"]["indicateurs"]          # ecrits avec la consigne
+    assert ind["coherent"] and ind["date"] == lignes[-1]["consigne_lendemain"]["date"]
+    assert {k: v["vote"] for k, v in ind["votes"].items()} == lignes[-1]["consigne_lendemain"][
+        "votes"]
     _lancer(journal, monkeypatch, id_exp)
     assert journal.read_text() == premier          # rien de reecrit, rien de duplique
 
@@ -125,6 +129,14 @@ def test_la_consigne_de_la_veille_est_la_position_du_jour(reelles, experience):
         assert np.array_equal(c["position"], chemin["positions"][i]), nom
         assert c["turnover"] == chemin["turnover"][i] and c["trade"] == (c["turnover"] > 0), nom
         assert np.isclose(np.abs(c["ordres"]).sum(), c["turnover"], atol=1e-12), nom
+        # les indicateurs expliquent la consigne : memes votes, et en haussier l'ordre part
+        # exactement quand l'ecart a la cible depasse la bande
+        ind = c["indicateurs"]
+        assert ind["coherent"] and ind["etat"] == c["etat"], nom
+        assert {k: v["vote"] for k, v in ind["votes"].items()} == c["votes"], nom
+        ex = ind["execution"]
+        if c["etat"] == H and ex["brut_tenu"] > 0:
+            assert c["trade"] == (ex["ecart"] > ex["bande"]), nom
 
 
 def _synthetiques(n=420, debut="2023-01-01"):
@@ -154,3 +166,17 @@ def test_maxdd_compte_depuis_le_capital_initial():
     b = suivi.bilan(np.array([-0.02, -0.0073]))
     assert b["mdd"] == pytest.approx(b["net"]) and b["mdd"] < -0.027
     assert suivi.bilan(np.array([0.01, 0.02]))["mdd"] == 0.0
+
+
+def test_des_indicateurs_incoherents_sont_signales_sans_bloquer(cfg, monkeypatch):
+    d = _synthetiques()
+    vrais = c2.indicateurs
+
+    def faux(d, cfg, t):
+        ind = vrais(d, cfg, t)
+        ind["votes"]["fear_greed"]["vote"] = -ind["votes"]["fear_greed"]["vote"] or 1
+        return ind
+
+    monkeypatch.setattr(c2, "indicateurs", faux)
+    c = suivi.suivre(d, cfg)["consigne"]              # la consigne part quand meme
+    assert c["indicateurs"]["coherent"] is False

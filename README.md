@@ -52,6 +52,10 @@ Sept onglets, port **7474** (ALPHA occupe 7373) :
 - **Forward** — ce que font les stratégies figées APRÈS leur gel : les suivis au cours de
   clôture (`SUIVI_*.jsonl`) et le paper trading (`PAPER_*.jsonl`) des trois voies C, côte à
   côte avec BTC ; positions, consignes du jour, coût d'exécution mesuré contre le modèle.
+  Panneau **Indicateurs** (10/10) : pour VC2/VC3, les valeurs brutes lues par chaque vote du
+  régime (momentum BTC, DFII10, T10YIE, Nasdaq-100, F&G) et par le moteur de sizing (vol,
+  levier, poids par paire, écart à la cible contre la bande), journalisées avec la consigne ;
+  chaque vote y est recalculé et comparé à la chaîne (`voie_c2.indicateurs`).
 - **Comparaison** — le classement, les courbes superposées (AritV1 en pointillé), la matrice
   de corrélation et la p-value du *meilleur* du lot. C'est le seul onglet qui répond à
   « celle-ci apporte-t-elle quelque chose que je n'ai pas déjà ? ».
