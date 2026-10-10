@@ -24,6 +24,7 @@ VOIES = (
     ("VC2", "VC2 — poche achetée", "perpétuels"),
 )
 N_ORDRES = 40                       # derniers ordres paper affiches
+TOLERANCE_LEVIER = 1e-6             # arrondis d'execution : 100,0000x % investi n'est pas du levier
 
 
 def _lire(chemin: Path) -> list[dict]:
@@ -75,6 +76,34 @@ def suivi(lignes: list[dict]) -> dict | None:
     }
 
 
+def allocation(ligne: dict) -> dict | None:
+    """Le compte paper apres sa derniere execution : ce que vaut chaque ligne, le cash, et s'il
+    y a un effet de levier.
+
+    Comptabilite de `beta.paper` : equite = cash + somme(q * milieu), q < 0 = short (perpetuels).
+    Effet de levier = on expose plus que l'equite : exposition brute > 100 %, ce qui oblige le
+    cash a passer sous zero (emprunt). A ne pas confondre avec le « levier » du moteur, qui n'est
+    qu'un multiplicateur de vol-cible applique aux poids (0,74 = 74 % des poids de base).
+    """
+    if not all(k in ligne for k in ("quantites", "milieux", "equite", "cash")):
+        return None
+    equite = ligne["equite"]
+    actifs = []
+    for paire, q in ligne["quantites"].items():
+        prix = ligne["milieux"].get(paire)
+        valeur = q * prix if prix is not None else 0.0
+        actifs.append({"paire": paire, "quantite": q, "prix": prix, "valeur": valeur,
+                       "poids": valeur / equite if equite else None})
+    brute = sum(abs(a["valeur"]) for a in actifs) / equite if equite else None
+    nette = sum(a["valeur"] for a in actifs) / equite if equite else None
+    return {
+        "date": ligne["date"], "execute_le": ligne.get("execute_le"), "equite": equite,
+        "cash": ligne["cash"], "part_cash": ligne["cash"] / equite if equite else None,
+        "actifs": actifs, "exposition_brute": brute, "exposition_nette": nette,
+        "effet_levier": bool(brute is not None and brute > 1.0 + TOLERANCE_LEVIER),
+    }
+
+
 def paper(lignes: list[dict], modele: list[dict]) -> dict | None:
     """Le paper depuis son premier jour, et le suivi sur les memes journees de detention.
 
@@ -112,6 +141,7 @@ def paper(lignes: list[dict], modele: list[dict]) -> dict | None:
         "carnet_pb": moyenne("cout_carnet_pb"), "ouverture_pb": moyenne("ecart_ouverture_pb"),
         "modele_pb": moyenne("slippage_modele_pb"),
         "poids": derniere["poids"], "cash": derniere["cash"],
+        "allocation": allocation(derniere),
         "ignores": sum(len(l["ignores"]) for l in lignes),
         "ordres": ordres[-N_ORDRES:][::-1],
     }

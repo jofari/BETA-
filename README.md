@@ -56,6 +56,9 @@ Sept onglets, port **7474** (ALPHA occupe 7373) :
   régime (momentum BTC, DFII10, T10YIE, Nasdaq-100, F&G) et par le moteur de sizing (vol,
   levier, poids par paire, écart à la cible contre la bande), journalisées avec la consigne ;
   chaque vote y est recalculé et comparé à la chaîne (`voie_c2.indicateurs`).
+  Carte **Allocation et effet de levier** (10/10) : le contenu de chaque compte paper (actifs,
+  cash, valeurs), l'exposition brute/nette et un badge « effet de levier : oui/non »
+  (exposition brute > 100 %) — distinct du « multiplicateur vol-cible » du moteur.
 - **Comparaison** — le classement, les courbes superposées (AritV1 en pointillé), la matrice
   de corrélation et la p-value du *meilleur* du lot. C'est le seul onglet qui répond à
   « celle-ci apporte-t-elle quelque chose que je n'ai pas déjà ? ».

@@ -123,3 +123,41 @@ def test_sur_le_pc_rien_ne_change(lancer):
     port = lancer(False)
     statut, corps = _requete(port, "GET", "/api/serveur", hote="nom-de-machine:7474")
     assert statut == 200 and corps["lecture_seule"] is False
+
+
+# ------------------------------------------------------------------- allocation, levier
+
+def _execution(cash, quantites, milieux, equite=None):
+    equite = equite if equite is not None else cash + sum(q * milieux[p]
+                                                          for p, q in quantites.items())
+    return {"date": "2026-10-10", "execute_le": "2026-10-10T01:00:18+00:00", "cash": cash,
+            "quantites": quantites, "milieux": milieux, "equite": equite}
+
+
+def test_allocation_spot_sans_levier():
+    a = forward.allocation(_execution(3_000.0, {"BTC": 0.05, "ETH": 1.0},
+                                      {"BTC": 100_000.0, "ETH": 2_000.0}))
+    assert a["equite"] == pytest.approx(10_000.0)
+    assert [x["valeur"] for x in a["actifs"]] == pytest.approx([5_000.0, 2_000.0])
+    assert a["part_cash"] == pytest.approx(0.30)
+    assert a["exposition_brute"] == pytest.approx(0.70) and a["exposition_nette"] == pytest.approx(0.70)
+    assert a["effet_levier"] is False
+
+
+def test_allocation_levier_quand_l_exposition_depasse_l_equite():
+    # perpetuels : 13 500 $ de BTC pour 10 000 $ d'equite -> cash negatif, levier x1,35
+    a = forward.allocation(_execution(-3_500.0, {"BTC": 0.135}, {"BTC": 100_000.0}))
+    assert a["exposition_brute"] == pytest.approx(1.35) and a["effet_levier"] is True
+    assert a["part_cash"] == pytest.approx(-0.35)
+
+
+def test_allocation_un_short_compte_dans_le_brut_pas_dans_le_net():
+    a = forward.allocation(_execution(10_000.0, {"BTC": 0.06, "ETH": -3.0},
+                                      {"BTC": 100_000.0, "ETH": 2_000.0}, equite=10_000.0))
+    assert a["exposition_brute"] == pytest.approx(1.20) and a["exposition_nette"] == pytest.approx(0.0)
+    assert a["effet_levier"] is True
+
+
+def test_allocation_a_100_pourcent_pile_n_est_pas_du_levier():
+    a = forward.allocation(_execution(0.0, {"BTC": 0.1}, {"BTC": 100_000.0}))
+    assert a["exposition_brute"] == pytest.approx(1.0) and a["effet_levier"] is False

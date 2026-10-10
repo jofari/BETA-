@@ -26,6 +26,14 @@
   --status-serious: #ec835a;
   --status-critical: #d03b3b;
 
+  /* Une couleur par actif, la meme partout (allocation) ; le cash reste neutre et hachure. */
+  --actif-btc: #f7931a;
+  --actif-eth: #8a92f0;
+  --actif-sol: #2cc4b0;
+  --actif-bnb: #e8c13c;
+  --actif-link: #3987e5;
+  --actif-xrp: #b8b6ad;
+
   --radius: 10px;
   --gap: 14px;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -362,3 +370,22 @@ details.indicateurs table td { vertical-align: top; }
 .indic-decision { margin: 10px 0 0; font-size: 12.5px; color: var(--text-secondary); }
 .indic-decision strong, details.indicateurs strong { color: var(--text-primary); }
 a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* ---------- allocation et effet de levier ---------- */
+.alloc-voie { padding: 10px 0; border-top: 1px solid var(--border); }
+.alloc-voie:first-child { border-top: 0; padding-top: 0; }
+.alloc-tete { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px;
+  margin-bottom: 8px; }
+.alloc-tete .puce { margin-left: auto; }
+.barre-alloc { display: flex; height: 22px; border-radius: 6px; overflow: hidden;
+  background: var(--plane); border: 1px solid var(--border); }
+.barre-alloc .segment { display: block; height: 100%; }
+.barre-alloc .segment + .segment { box-shadow: inset 1px 0 0 var(--plane); }
+.barre-alloc .segment.cash, .pastille.cash {
+  background: repeating-linear-gradient(135deg, var(--series-neutre) 0 4px, var(--raised) 4px 8px); }
+.barre-alloc .segment.short { opacity: 0.55; }
+.alloc-detail { margin-top: 6px; }
+.alloc-detail summary { cursor: pointer; font-size: 12px; color: var(--text-muted); }
+.alloc-detail summary:hover { color: var(--accent); }
+.puce.levier-non { color: var(--status-good); border-color: #0ca30c55; }
+.puce.levier-oui { color: var(--status-warning); border-color: #fab21955; }

@@ -137,7 +137,8 @@ const FORWARD = (() => {
     const regime = d.etat ? `<span class="puce regime-${d.etat}">${d.etat}</span>` : "";
     const votes = d.votes ? Object.entries(d.votes).map(([k, x]) =>
       `${VOTES[k] || k} ${x > 0 ? "+" : ""}${x}`).join(" · ") + ` = ${d.somme > 0 ? "+" : ""}${d.somme}`
-      : (d.levier ? `levier ${Number(d.levier).toFixed(2)}` : "");
+      : (d.levier ? `multiplicateur vol-cible ${Number(d.levier).toFixed(2)}`
+        + ' <span class="muet">(pas un effet de levier)</span>' : "");
     const live = s.live ? `${s.live.n} j live, ${pc(s.live.net)}, maxDD ${pc(s.live.mdd)}`
                         : "pas encore de journée live";
     // « aucun ordre » ne veut PAS dire « ne rien detenir » : la position est gardee telle quelle.
@@ -147,6 +148,12 @@ const FORWARD = (() => {
     const investi = brutDe(positionDuJour(s));
     const exposition = investi === null ? "—" : `<strong>${poids(investi)}</strong> investi`
       + ` <span class="muet">· ${poids(Math.max(0, 1 - investi))} non investi (cash)</span>`;
+    const alloc = p && p.allocation;
+    const brute = alloc ? alloc.exposition_brute : investi;
+    const levier = manque(brute) ? "—" : (alloc ? alloc.effet_levier : brute > 1 + 1e-6)
+      ? `<span class="puce levier-oui">oui ×${brute.toFixed(2)}</span>`
+      : `<span class="puce levier-non">non</span> <span class="muet">· exposé à ${poids(brute)}`
+        + " du capital</span>";
     const lignes = [
       ["Depuis le " + s.debut, `<span class="${ton(s.tout.net)}">${pc(s.tout.net)}</span>`
         + ` <span class="muet">· BTC ${pc(s.btc)}</span>`],
@@ -154,12 +161,75 @@ const FORWARD = (() => {
       ["Live", live],
       ["Régime", regime ? `${regime} <span class="muet">${votes}</span>` : votes || "—"],
       ["Exposition", exposition],
+      ["Effet de levier", levier],
       ["Consigne", consigne],
       ["Paper", p ? `<span class="${ton(p.rendement)}">${pc(p.rendement)}</span> sur ${p.n_jours} j`
         + ` <span class="muet">· modèle ${pc(p.modele)}</span>` : "démarre au prochain passage"],
     ];
     return `<div class="carte voie">${tete}<dl class="voie-dl">${lignes.map(([k, x]) =>
       `<dt>${k}</dt><dd>${x}</dd>`).join("")}</dl></div>`;
+  }
+
+  /* ---------- allocation du compte paper et effet de levier ------------------------------ */
+
+  const ACTIFS = ["BTC", "ETH", "SOL", "BNB", "LINK", "XRP"];
+  const teinteActif = (p) => couleur("--actif-" + p.toLowerCase()) || couleur("--text-muted");
+
+  function barreAllocation(a) {
+    // Largeur totale = max(100 %, exposition brute) : du levier deborderait du capital.
+    const echelle = Math.max(1, a.exposition_brute || 0);
+    const segments = a.actifs.filter((x) => Math.abs(x.poids) > 5e-4).map((x) =>
+      `<span class="segment${x.poids < 0 ? " short" : ""}" title="${x.paire} ${part(x.poids)}"
+        style="width:${(100 * Math.abs(x.poids) / echelle).toFixed(3)}%;
+        background:${teinteActif(x.paire)}"></span>`);
+    if (a.part_cash > 5e-4) {
+      segments.push(`<span class="segment cash" title="cash ${part(a.part_cash)}"
+        style="width:${(100 * a.part_cash / echelle).toFixed(3)}%"></span>`);
+    }
+    return `<div class="barre-alloc">${segments.join("")}</div>`;
+  }
+
+  function legendeAllocation(a) {
+    const actifs = a.actifs.filter((x) => Math.abs(x.poids) > 5e-4).map((x) =>
+      `<li><span class="pastille" style="background:${teinteActif(x.paire)}"></span>${x.paire}`
+      + ` <strong>${part(x.poids)}</strong>${x.poids < 0 ? " (short)" : ""}</li>`);
+    actifs.push(`<li><span class="pastille cash"></span>${a.part_cash < 0 ? "emprunt" : "cash"}`
+      + ` <strong>${part(Math.abs(a.part_cash))}</strong></li>`);
+    return `<ul class="legende">${actifs.join("")}</ul>`;
+  }
+
+  function detailAllocation(a) {
+    const lignes = a.actifs.map((x) => [x.paire, nombre(x.quantite, x.quantite < 1 ? 4 : 2),
+      nombre(x.prix, x.prix < 10 ? 4 : 2) + " $", nombre(x.valeur, 0) + " $", part(x.poids)]);
+    lignes.push([a.part_cash < 0 ? "emprunt (cash négatif)" : "cash", "", "",
+                 nombre(a.cash, 0) + " $", part(a.part_cash)]);
+    lignes.push([{ html: "<strong>équité</strong>" }, "", "", { html: `<strong>${nombre(a.equite, 0)}
+      $</strong>` }, "100,0 %"]);
+    return table(["actif", "quantité", "prix (milieu)", "valeur", "% du capital"], lignes);
+  }
+
+  function ligneAllocation(v) {
+    const a = v.paper && v.paper.allocation;
+    if (!a) return "";
+    const badge = a.effet_levier
+      ? `<span class="puce levier-oui">effet de levier : OUI ×${a.exposition_brute.toFixed(2)}</span>`
+      : '<span class="puce levier-non">effet de levier : non</span>';
+    const net = Math.abs(a.exposition_brute - a.exposition_nette) > 1e-4
+      ? ` · nette ${part(a.exposition_nette)}` : "";
+    return `<div class="alloc-voie">
+      <div class="alloc-tete"><span class="pastille" style="background:${teinte(v.nom)}"></span>
+        <strong>${echapper(v.titre)}</strong> <span class="muet">${echapper(v.instrument)} ·
+        ${nombre(a.equite, 0)} $ · exposé à ${part(a.exposition_brute)}${net}</span>${badge}</div>
+      ${barreAllocation(a)}${legendeAllocation(a)}
+      <details class="alloc-detail"><summary>quantités, prix et valeurs (paper du ${a.date},
+        exécuté ${(a.execute_le || "").slice(11, 16)} UTC)</summary>${detailAllocation(a)}</details>
+    </div>`;
+  }
+
+  function panneauAllocation(vue) {
+    const blocs = vue.voies.map(ligneAllocation).filter(Boolean);
+    return blocs.length ? blocs.join("")
+      : '<p class="vide">Aucun compte paper sur cette machine (le paper tourne sur le VPS).</p>';
   }
 
   /* ---------- indicateurs : ce que la strategie a lu pour decider ------------------------ */
@@ -351,6 +421,7 @@ const FORWARD = (() => {
       return;
     }
     $$("#forward-voies").innerHTML = vue.voies.map(carte).join("");
+    $$("#forward-allocation").innerHTML = panneauAllocation(vue);
     $$("#forward-indicateurs").innerHTML = panneauIndicateurs(vue);
     $$("#forward-positions").innerHTML = tablePositions(vue);
     $$("#forward-execution").innerHTML = tableExecution(vue);
