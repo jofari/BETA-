@@ -348,7 +348,14 @@ const FORWARD = (() => {
       return '<p class="vide">Les indicateurs sont journalisés avec chaque consigne depuis le '
         + "10/10 : ils apparaissent au prochain passage du suivi (00:45-00:50 UTC).</p>";
     }
-    return blocs.map((v, i) => blocIndicateurs(v, i === 0)).join("");
+    // Le put/call ratio des options (DS1) est du CONTEXTE : aucune strategie ne le lit. Il vit
+    // dans le dashboard VPS, a cote des autres donnees DS1 ; on y mene d'un clic.
+    const vps = document.querySelector("#lien-vps");
+    const contexte = vps && !vps.hidden && vps.href ? `<p class="sous">Contexte, non utilisé
+      pour décider : <a href="${vps.href.replace(/#.*$/, "")}#options" target="_blank"
+      rel="noopener">put/call ratio des options BTC/ETH (onglet Options du dashboard VPS ↗)</a></p>`
+      : "";
+    return blocs.map((v, i) => blocIndicateurs(v, i === 0)).join("") + contexte;
   }
 
   /* ---------- tableaux ------------------------------------------------------------------- */
