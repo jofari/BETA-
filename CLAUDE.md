@@ -1,6 +1,6 @@
 # CLAUDE.md — BETA, doctrine du projet
 
-**Banc d'essai d'edges.** Ouvert le 2026-08-18 (décision F1 d'ARIT ; les arbitrages vivent depuis le 19/08 dans `DECISIONS.md` de ce dépôt).
+**Banc d'essai d'edges.** Ouvert le 2026-08-18 (décision F1 d'ARIT ; les arbitrages vivent depuis le 19/08 dans `docs/DECISIONS.md` de ce dépôt).
 Objectif : tester **plusieurs** hypothèses d'edge sur les mêmes données, avec une batterie
 statistique qui les tue quand elles ne valent rien — et le dire.
 
@@ -72,7 +72,7 @@ d'edge.
     `RUNS.jsonl` et `IDEES.jsonl`. Un compteur qu'un nettoyage remet à zéro est un compteur
     qui ment, et une idée perdue par un nettoyage est une idée qu'on n'aura pas deux fois.
     ⚠️ Les deux premiers ne mesurent pas la même chose — hypothèses d'un côté, mesures de
-    l'autre — et l'écart est un arbitrage ouvert (`DECISIONS.md` § A1).
+    l'autre — et l'écart est un arbitrage ouvert (`docs/DECISIONS.md` § A1).
 11. **Noter une idée est GRATUIT ; la promouvoir COÛTE.** `IDEES.jsonl` n'a aucune forme
     imposée et n'avance pas le compteur ; `promouvoir()` écrit le préenregistrement et
     avance le compteur d'un cran, donc durcit le seuil de toutes les autres hypothèses.

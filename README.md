@@ -398,8 +398,15 @@ scripts/epreuve_mcp.py       traverse le pont MCP pour de vrai
 EXPERIMENTS.jsonl            les hypothèses, append-only          <- hors de data/, exprès
 RUNS.jsonl                   les mesures effectuées, append-only  <- hors de data/, exprès
 IDEES.jsonl                  les idées, gratuites, append-only    <- hors de data/, exprès
+SUIVI_*.jsonl · PAPER_*.jsonl  journaux forward, écrits ET poussés chaque jour par le VPS
+                               (beta-journaux) : ne pas déplacer sans changer le code ET le VPS
 .mcp.json                    le pont, déclaré au client
-beta.py · BETA.cmd           les points d'entrée
+beta.py · BETA.cmd · VPS.cmd les points d'entrée
+intentions/                  les intentions de l'auto-recherche (lues par le code)
+deploy/                      unités systemd du VPS
+docs/                        CHANTIERS.md (l'état, fait foi) · DECISIONS.md (arbitrages ouverts)
+                             · chantier_frais*.md
+docs/prompts/                prompts et critiques des rounds de stratégies (voies A, B, C)
 ```
 
 `protocole/` est **sous** le moteur, pas à côté : un run sans préenregistrement ne pourra
@@ -432,13 +439,13 @@ décale la série et fabrique du look-ahead en silence).
 - ⚠️ **Le compteur compte les hypothèses, pas les mesures.** Tant qu'il y a une candidate
   par hypothèse c'est la même chose ; l'atelier peut casser l'égalité. `RUNS.jsonl` mesure
   l'écart et `beta.py doctor` l'affiche, mais **aucun seuil n'a bougé** : c'est un arbitrage
-  ouvert (`DECISIONS.md` § A1), pas un correctif à glisser dans un commit.
+  ouvert (`docs/DECISIONS.md` § A1), pas un correctif à glisser dans un commit.
 - Il ne génère pas de stratégie depuis une vidéo (P4, reporté) : une vidéo est une source
   d'hypothèses, jamais d'edge — exactement comme un modèle local.
 - ⚠️ **Il ne peut aujourd'hui CONFIRMER aucune candidate.** S1 n'est jamais exécutée par le
   pipeline (`famille=` n'est pas passé à la batterie), or une issue CONFIRMEE exige les neuf
   portes exécutées. Le plafond réel est INDECIDABLE — sûr par défaut, mais le chemin de la
-  confirmation est inatteignable. Dette **T9**, `CHANTIERS.md`.
+  confirmation est inatteignable. Dette **T9**, `docs/CHANTIERS.md`.
 - ⚠️ **Le criblage ne clôt pas l'expérience au registre** : le verdict va dans `data/runs/` et
   `RUNS.jsonl`, jamais dans `EXPERIMENTS.jsonl`. Dette **T10**.
 - **Il n'a encore jamais comparé deux stratégies** : une seule candidate existe. La moitié
