@@ -211,6 +211,49 @@ def nasdaq100() -> pd.Series:
     return s.dropna().sort_index()
 
 
+def vision(jeu: str, paire: str, debut: str | None = None, fin: str | None = None,
+           colonnes: tuple[str, ...] | None = None) -> pd.DataFrame:
+    """Une serie de l'historique public Binance (`lake.vision`) : metrics, bookDepth, aggTrades.
+
+    Memes garanties que `load` : UTC, bornes inclusives poussees dans DuckDB, avertissement
+    si la serie est SUSPECTE. Les mois sont lus ensemble (`union_by_name` : si Binance ajoute
+    un niveau de profondeur, les mois anciens ont la colonne a NULL, pas une erreur).
+    """
+    from beta.lake import vision as v
+    if jeu not in v.JEUX:
+        raise DataError(f"jeu inconnu : {jeu} (connus : {', '.join(v.JEUX)})")
+    p = univers.resoudre(paire)
+    motif = config.chemin_vision(jeu, p.base, "*")
+    if not motif.parent.exists() or not any(motif.parent.glob("*.parquet")):
+        raise DataError(f"{jeu} {p.base} absent ({motif.parent}) : lancer scripts/vision.py")
+    champs = "*" if colonnes is None else ", ".join(("date", *colonnes))
+    clauses, params = [], []
+    if debut:
+        clauses.append("date >= ?")
+        params.append(pd.Timestamp(debut, tz="UTC"))
+    if fin:
+        clauses.append("date <= ?")
+        params.append(pd.Timestamp(fin, tz="UTC"))
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    try:
+        with duckdb.connect() as conn:
+            conn.execute("SET TimeZone='UTC'")
+            df = conn.execute(f"SELECT {champs} FROM read_parquet(?, union_by_name = true)"
+                              f"{where} ORDER BY date", [str(motif), *params]).df()
+    except duckdb.Error as exc:
+        raise DataError(f"lecture impossible ({jeu} {p.base}) : {exc}") from exc
+    df["date"] = pd.to_datetime(df["date"], utc=True)
+    try:
+        suspecte = v.etat().query("jeu == @jeu and base == @p.base and suspect")
+    except Exception:                                # noqa: BLE001 - l'etat n'est pas une
+        suspecte = pd.DataFrame()                    # dependance dure de la lecture
+    for r in suspecte.itertuples():
+        log.warning("%s %s est SUSPECTE : couverture %.2f %%, %d jours absents, plus long "
+                    "trou %d j", jeu, p.base, r.couverture_pct, r.jours_absents,
+                    r.plus_grand_trou_j)
+    return df
+
+
 def _avertir_si_suspect(paire: univers.Paire, timeframe: str) -> None:
     if not config.CATALOGUE.exists():
         return

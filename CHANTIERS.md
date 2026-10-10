@@ -687,3 +687,25 @@ vide, et aucune des quatre idées ci-dessus ne change ça tant qu'elle n'est pas
 goulot reste ce qu'il était le 20/08 : **le nombre d'hypothèses falsifiables qu'on est prêt à
 écrire avant de regarder les chiffres** — pas l'outillage, et maintenant plus tout à fait les
 données.
+
+## D8 — l'historique public Binance (ouvert et fermé le 2026-10-10, feu vert de Jonas)
+
+Proposé le 08/10 : préparer la stratégie de microstructure (prochaine voie, cf. ARIT
+`DECISIONS.md`) sur ce que Binance publie déjà, au lieu d'attendre des mois de carnet DS1.
+
+| # | Chantier | État |
+|---|---|---|
+| ~~D8~~ | ~~`lake/vision.py` : metrics 5 min, bookDepth 30 s, aggTrades agrégés à la minute, 6 paires~~ | ✅ **FERMÉ 10/10** — `data/vision/<jeu>/<BASE>/<AAAA-MM>.parquet`, lecture `lecture.vision(jeu, paire)`, timer `beta-vision` 03:30 UTC, 1er passage = rattrapage complet |
+
+Ce qu'il faut savoir avant de s'en servir :
+- **Profondeurs** : bookDepth depuis 01/2023 seulement ; le niveau ±0,2 % n'existe pas au
+  début (colonnes NULL sur les mois anciens). metrics : BTC depuis 09/2020, les cinq autres
+  depuis 12/2021.
+- **aggTrades à la minute** : le détail à la ms est perdu (sinon ~100 Go). Une idée qui en a
+  besoin = retélécharger ce qu'il faut, pas élargir le stockage par défaut.
+- **Trous déclarés** : jours non publiés (ex. bookDepth 08/10/2026) et jours partiels
+  (07/10/2026 : 3 h). `python scripts/vision.py --etat` ; colonne `suspect`. Couverture
+  aggTrades = continuité des `agg_trade_id`, au trade près.
+- Rien de tout ça n'est DS1 : le carnet L20 500 ms et les liquidations restent DS1-only.
+- **Aucune mesure n'a été faite** : ce sont des données. Toute idée qui s'en sert passe par
+  le préenregistrement comme les autres (invariant n° 4).

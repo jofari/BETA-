@@ -1,0 +1,11 @@
+[Unit]
+Description=BETA - historique public Binance, chaque jour a 03:30 UTC
+
+[Timer]
+# Binance publie J-1 dans la journee ; un jour publie en retard est rattrape le lendemain.
+OnCalendar=*-*-* 03:30:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

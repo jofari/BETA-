@@ -121,6 +121,11 @@ jamais re-téléchargée en entier, cf. `beta/lake/maj.py`) + `LINK` `XRP` (ajou
 perpétuels les plus anciens après les majors — c'est l'historique qui commande, puisque le
 N est le goulot). Source unique : `beta/univers.py`.
 
+**Historique public Binance** (10/10, `beta/lake/vision.py`) : `metrics` (OI, ratios
+long/short, 5 min), `bookDepth` (profondeur cumulée ±0,2-5 %, 30 s, depuis 2023) et
+`aggTrades` agrégés à la minute (flux acheteur/vendeur taker), mêmes 6 paires, hors du
+catalogue OHLCV : `lecture.vision("bookDepth", "BTC")`, couverture par `scripts/vision.py --etat`.
+
 Timeframes stockés : `5m` `1h` `4h` `1d`. Tout autre timeframe multiple de 5 min est
 **dérivé à la volée** par resampling — on ne télécharge pas ce qu'on peut calculer.
 

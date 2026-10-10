@@ -21,6 +21,10 @@ CATALOGUE = LAKE / "catalogue.duckdb"    # metadonnees : couverture, trous, prov
 MACRO = DATA / "macro"                   # copie PROPRE a BETA du F&G et des series FRED,
 MACRO_GLOBAL = MACRO / "global"          # tenue a jour par `lake.maj` (meme format qu'ARIT)
 JOURNAL = DATA / "build_lake.log"
+# Historique public de Binance (data.binance.vision) : metrics 5 min, bookDepth 30 s,
+# aggTrades agreges a la minute. Un parquet par (jeu, paire, mois) + un etat des jours.
+VISION = DATA / "vision"
+VISION_ETAT = VISION / "etat.duckdb"
 
 # ARIT est LU, jamais ecrit (invariant n° 1). Surchargeable pour les tests et si le depot
 # demenage — mais jamais en dur ailleurs que dans ce fichier.
@@ -83,6 +87,11 @@ def chemin_macro(nom: str, globale: bool = False) -> pathlib.Path:
     if propre.exists():
         return propre
     return (ARIT_MACRO_GLOBAL if globale else ARIT_MACRO) / nom
+
+
+def chemin_vision(jeu: str, base: str, mois: str) -> pathlib.Path:
+    """Un mois d'un jeu data.binance.vision : `data/vision/<jeu>/<BASE>/<AAAA-MM>.parquet`."""
+    return VISION / jeu / base / f"{mois}.parquet"
 
 
 def chemin_feather_brut(slug: str, timeframe: str) -> pathlib.Path:

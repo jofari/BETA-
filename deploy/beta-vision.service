@@ -1,0 +1,22 @@
+# BETA - historique public Binance (metrics, bookDepth, aggTrades a la minute).
+# Installe par : cp deploy/beta-vision.{service,timer} /etc/systemd/system/
+#                mkdir -p /etc/systemd/system/beta-vision.service.d
+#                cp deploy/notif.conf /etc/systemd/system/beta-vision.service.d/
+#                systemctl daemon-reload && systemctl enable --now beta-vision.timer
+# Le 1er passage rattrape tout l'historique (~2 h) ; ensuite ~1 min par jour.
+# Echec (jour illisible, serie en retard) = unite en "failed" + alerte Discord (salon BETA).
+[Unit]
+Description=BETA - historique public Binance (data.binance.vision)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+ExecStart=/root/venvs/arit/bin/python scripts/vision.py
+TimeoutStartSec=6h
+# Ne jamais gener ARIT ni DS1 qui tournent sur la meme machine.
+Nice=10
+CPUQuota=50%
+MemoryMax=2G
+MemorySwapMax=512M
