@@ -20,6 +20,13 @@ Garde-fous :
 - Une journee deja journalisee dont le recalcul differe (donnee revisee) n'est PAS reecrite :
   avertissement seulement.
 - Lake en retard (derniere bougie close < hier) = sortie en erreur, donc unite « failed ».
+
+Criteres du dry-run (Jonas, 10/10 : les memes que VC3, ecrits avant toute donnee qui les
+franchisse ; voir DECISIONS.md). Le journal est ecrit quand meme ; c'est une alarme, la suite
+est une decision de Jonas :
+    4  maxDD depuis le debut du live < -25 %
+    5  a la fin du dry-run (6 mois de live) : vol realisee du live hors de 10-30 %
+       (racine de 252, la convention de la cible)
 """
 
 from __future__ import annotations
@@ -54,6 +61,12 @@ DEBUT_SUIVI = pd.Timestamp("2026-09-06", tz="UTC")
 DEPART_SIMULATION = pd.Timestamp("2021-06-12", tz="UTC")
 
 JOURNAL = config.RACINE / "SUIVI_VOIE_C.jsonl"
+
+# Premiere journee « live » du journal (ecrite le 03/10) ; dry-run de 6 mois a partir d'elle.
+DEBUT_LIVE = pd.Timestamp("2026-10-02", tz="UTC")
+FIN_DRY_RUN = DEBUT_LIVE + pd.DateOffset(months=6)
+MAXDD_MIN = -0.25
+VOL_MIN, VOL_MAX = 0.10, 0.30
 
 
 def empreinte(cfg: dict) -> str:
@@ -168,6 +181,25 @@ def main() -> int:
                  (equite_btc[-1] - 1) * 100, (eq / eq.cummax() - 1).min() * 100,
                  fwd.std(ddof=1) * np.sqrt(365) * 100 if len(fwd) > 1 else float("nan"),
                  r["levier"][-1])
+    code = 0
+    live = fwd[fwd.index >= DEBUT_LIVE]
+    if len(live):
+        eq = (1 + live).cumprod()
+        mdd = float((eq / eq.cummax() - 1).min())
+        vol = float(live.std(ddof=1) * np.sqrt(vc.PPA)) if len(live) > 1 else float("nan")
+        log.info("dry-run, jour %d (du %s au %s) : net %+.2f%%, maxDD %.2f%% (critere >= "
+                 "%.0f%%), vol %.1f%% (critere %.0f-%.0f%%, lu a 6 mois)", len(live),
+                 f"{DEBUT_LIVE:%Y-%m-%d}", f"{FIN_DRY_RUN:%Y-%m-%d}", (eq.iloc[-1] - 1) * 100,
+                 mdd * 100, MAXDD_MIN * 100, vol * 100, VOL_MIN * 100, VOL_MAX * 100)
+        if mdd < MAXDD_MIN:
+            log.error("CRITERE DU DRY-RUN FRANCHI : maxDD live %.2f%% < %.0f%%. La suite est "
+                      "une decision de Jonas.", mdd * 100, MAXDD_MIN * 100)
+            code = 4
+        if live.index[-1] >= FIN_DRY_RUN and not VOL_MIN <= vol <= VOL_MAX:
+            log.error("CRITERE DU DRY-RUN FRANCHI : vol realisee du live %.1f%% hors de "
+                      "%.0f-%.0f%%. La suite est une decision de Jonas.", vol * 100,
+                      VOL_MIN * 100, VOL_MAX * 100)
+            code = code or 5
     d = r["demain"]
     log.info("consigne pour %s : %s (ecart %.1f%% / bande %.0f%%), levier %.2f",
              f"{jours[-1] + pd.Timedelta(days=1):%Y-%m-%d}",
@@ -179,7 +211,7 @@ def main() -> int:
         log.error("lake en retard : derniere journee close %s, attendue %s. "
                   "Voir `journalctl -u beta-maj`.", f"{jours[-1]:%Y-%m-%d}", f"{hier:%Y-%m-%d}")
         return 1
-    return 0
+    return code
 
 
 if __name__ == "__main__":

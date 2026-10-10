@@ -42,8 +42,9 @@ Sortie non nulle = unite « failed » (`systemctl --failed`) :
     4  experience admise au dry-run seulement : maxDD depuis le debut du live < -25 %. Le
        journal est ecrit quand meme ; ce n'est pas une panne, c'est une alarme, et la suite
        est une decision de Jonas.
-La vol realisee (critere 10-30 %, racine de 252) est affichee, pas jugee : sur quelques
-semaines elle ne veut rien dire, elle se lit a 6 mois.
+    5  idem, a la fin du dry-run seulement (6 mois de live) : vol realisee du live hors de
+       10-30 % (racine de 252). Avant, elle est affichee, pas jugee : sur quelques semaines
+       elle ne veut rien dire.
 """
 
 from __future__ import annotations
@@ -298,6 +299,11 @@ def main() -> int:
                 log.error("CRITERE DU DRY-RUN FRANCHI : maxDD live %.2f%% < %.0f%%. La suite "
                           "est une decision de Jonas.", bl["mdd"] * 100, MAXDD_MIN * 100)
                 code = 4
+            if jours[idx][-1] >= fin and not VOL_MIN <= bl["vol"] <= VOL_MAX:
+                log.error("CRITERE DU DRY-RUN FRANCHI : vol realisee du live %.1f%% hors de "
+                          "%.0f-%.0f%%. La suite est une decision de Jonas.", bl["vol"] * 100,
+                          VOL_MIN * 100, VOL_MAX * 100)
+                code = code or 5
         else:
             log.info("dry-run : premiere journee live le %s (fin le %s)",
                      f"{debut_live:%Y-%m-%d}", f"{fin:%Y-%m-%d}")

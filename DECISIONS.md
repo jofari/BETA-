@@ -405,6 +405,35 @@ contre le vrai carnet** — plutôt que le seul suivi au cours de clôture, ou l
 - **Ce que le paper ne dit pas** : la marge et la liquidation (non simulées, brut ≤ 2), la
   file d'attente et les pannes d'un vrai châssis. Le châssis d'exécution reste ouvert (ARIT).
 
+### Critères d'arrêt du forward, jugés par le code (Jonas, 10/10)
+
+**Pourquoi** : un audit externe (Claude du PC, 10/10) relevait l'absence de règle d'arrêt
+écrite. C'était faux pour VC3 (critères du 07/10 ci-dessus), mais trois de ses critères
+n'étaient jugés par rien : la vol (affichée seulement), le slippage (mesuré par le paper,
+jamais comparé), et l'écart paper / suivi (aucun seuil). La voie C figée n'en avait aucun.
+Fixé **avant** toute donnée qui les franchisse (paper : 2 jours, suivis : 9 et 3 jours live).
+
+- **Voie C figée : mêmes critères que VC3** (choix de Jonas). Dry-run de 6 mois à partir de
+  sa première journée live, le **02/10** (fin 2027-04-02).
+- **maxDD du live < −25 %** → sortie 4 de `voie_c_suivi.py` (déjà le cas pour VC3).
+- **Vol réalisée du live hors de 10-30 %** (√252), jugée **à la fin du dry-run seulement** →
+  sortie 5 des deux suivis.
+- **Écart de rendement cumulé paper − suivi au-delà de ±1 pt** (choix de Jonas) → sortie 4
+  de `scripts/paper.py`. Il couvre tout ce que coûte l'exécution réelle : délai d'une heure,
+  arrondis aux pas de lot, frais, funding réglé.
+- **Slippage ≤ 2× le modèle** : jugé sur le **coût au carnet** (vs milieu), moyenne pondérée
+  par le notionnel → sortie 4 du paper. L'écart à l'ouverture mélange l'heure de délai
+  (bruit de ±25-60 pb par ordre) ; il compte dans l'écart au suivi, pas ici. La voie C figée
+  ne suppose aucun slippage (2 × 0 ne jugerait rien) : sa référence est sa propre variante
+  sévère, `BPS_SLIPPAGE` = 2 pb, soit un seuil de 4 pb.
+- **VC2** reste informative : jamais jugée.
+- Un critère franchi = **alarme, pas panne** : le journal est écrit, l'unité passe en
+  « failed », la suite est une décision de Jonas. Au 10/10, rien de franchi (carnet 0,2 pb ;
+  écart paper − suivi : C −0,03 pt, VC3 −0,04 pt).
+
+**Reste ouvert** : aucune unité n'a d'`OnFailure`, donc une alarme ne se voit que dans
+`systemctl --failed`. À brancher sur le salon Discord BETA.
+
 ---
 
 ## En attente de Jonas
