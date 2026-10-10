@@ -205,6 +205,26 @@ def fraicheur(maintenant: pd.Timestamp | None = None) -> list[dict]:
 
 # --- orchestration ---------------------------------------------------------------------------
 
+def rafraichir_5m(paires: tuple[univers.Paire, ...] = univers.PAIRES) -> list[str]:
+    """Les bougies 5 min seulement, completees puis integrees au lake. Retourne les problemes.
+
+    Pour VC4 (10/10), qui decide aux ouvertures de Londres et de New York : la mise a jour
+    quotidienne (00:21 UTC) ne suffit pas. Meme porte que `mettre_a_jour` (freqtrade complete
+    a partir de la derniere bougie et exclut celle encore ouverte ; une paire a la fois pour la
+    memoire), limitee au 5 min : ~1 min pour les 6 paires.
+    """
+    problemes: list[str] = []
+    for paire in paires:
+        for base, etat in telechargement.telecharger((paire,), timeframes=("5m",)).items():
+            if etat != "ok":
+                problemes.append(f"{base} 5m (telechargement) : {etat}")
+        try:
+            construction.integrer_telechargement(paire, "5m")
+        except construction.LakeError as exc:
+            problemes.append(f"{paire.base} 5m (conversion) : {exc}")
+    return problemes
+
+
 def mettre_a_jour(reseau: bool = True) -> list[str]:
     """Amorce, complete, integre au lake, rafraichit la macro. Retourne la liste des problemes.
 

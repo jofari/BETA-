@@ -1,0 +1,13 @@
+[Unit]
+Description=BETA - suivi forward de VC4 (VC3 a chaque ouverture de session) : decision de 00:00 UTC
+After=beta-maj.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/arit/bin/python scripts/c4_suivi.py
+TimeoutStartSec=900
+Nice=10
+CPUQuota=50%
+MemoryMax=1G

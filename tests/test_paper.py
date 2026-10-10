@@ -36,6 +36,10 @@ class MarcheFactice:
     def ouverture(self, instrument, symbole, jour):
         return self.milieux[symbole.removesuffix("USDT")]
 
+    def prix_a(self, instrument, symbole, instant):
+        self.instants_lus = getattr(self, "instants_lus", []) + [instant]
+        return self.milieux[symbole.removesuffix("USDT")] * 1.001
+
     def funding(self, symbole, depuis, jusqu_a):
         return [{"instant": 0, "taux": self.taux, "marque": None}] * 3
 
@@ -180,6 +184,56 @@ def test_les_trois_voies_et_leurs_frais():
     v = paper.voies()
     assert {n: (x.instrument, x.taker_pb) for n, x in v.items()} == {
         "VOIE_C": (paper.PERPETUEL, 5.0), "VC2": (paper.PERPETUEL, 5.0),
-        "VC3": (paper.SPOT, 10.0), "VC5": (paper.SPOT, 10.0)}
+        "VC3": (paper.SPOT, 10.0), "VC5": (paper.SPOT, 10.0), "VC4": (paper.SPOT, 10.0)}
+    assert v["VC4"].cadence == "instant" and v["VC4"].suivi == "CONSIGNES_VC4.jsonl"
+    assert all(x.cadence == "jour" for n, x in v.items() if n != "VC4")
     assert v["VC3"].slippage_modele_pb == {"BTC": 5.0, "ETH": 5.0, "SOL": 10.0, "BNB": 10.0,
                                            "LINK": 10.0, "XRP": 10.0}
+
+
+# ------------------------------------------------------------- cadence « instant » (VC4)
+
+def _consigne_instant(chemin, instant, poids, ordres):
+    with chemin.open("a") as f:
+        f.write(json.dumps({"instant": instant.isoformat(), "etat": "haussier", "trade": bool(ordres),
+                            "position": {p: poids for p in PAIRES}, "ordres": ordres}) + "\n")
+
+
+def test_cadence_instant_une_execution_par_instant(tmp_path):
+    voie = paper.Voie("I", "CONSIGNES_I.jsonl", paper.SPOT, 10.0, {p: 5.0 for p in PAIRES},
+                      cadence="instant")
+    marche = MarcheFactice()
+    tokyo = dt.datetime(2026, 10, 12, 0, 0, tzinfo=dt.UTC)
+    londres = dt.datetime(2026, 10, 12, 7, 0, tzinfo=dt.UTC)
+    _consigne_instant(tmp_path / voie.suivi, tokyo, 0.1, {})
+    premiere = paper.executer_voie(voie, marche, tokyo + dt.timedelta(minutes=61), tmp_path,
+                                   tmp_path)
+    assert premiere["instant"] == tokyo.isoformat() and premiere["premiere"]
+    # le modele traite au prix de l'INSTANT, pas a l'ouverture du jour
+    assert set(marche.instants_lus) == {tokyo}
+    assert premiere["ordres"][0]["ouverture"] == pytest.approx(
+        MILIEUX[premiere["ordres"][0]["paire"]] * 1.001)
+    # meme instant : rien de plus
+    assert paper.executer_voie(voie, marche, tokyo + dt.timedelta(hours=2), tmp_path,
+                               tmp_path) is None
+    # nouvel instant le meme jour : une deuxieme execution, qui ne touche que ce qui change
+    _consigne_instant(tmp_path / voie.suivi, londres, 0.15,
+                      {**{p: 0.0 for p in PAIRES}, "BTC": 0.05})
+    seconde = paper.executer_voie(voie, marche, londres + dt.timedelta(minutes=3), tmp_path,
+                                  tmp_path)
+    assert seconde["instant"] == londres.isoformat() and [o["paire"] for o in seconde["ordres"]] == ["BTC"]
+    lignes = paper.lire_journal(tmp_path / "PAPER_I.jsonl")
+    assert [l["date"] for l in lignes] == ["2026-10-12", "2026-10-12"]
+
+
+def test_cadence_instant_consigne_perimee_refusee(tmp_path):
+    voie = paper.Voie("I", "CONSIGNES_I.jsonl", paper.SPOT, 10.0, {p: 5.0 for p in PAIRES},
+                      cadence="instant")
+    londres = dt.datetime(2026, 10, 12, 7, 0, tzinfo=dt.UTC)
+    _consigne_instant(tmp_path / voie.suivi, londres, 0.1, {})
+    with pytest.raises(paper.PaperError, match="perimee"):        # suivi en panne depuis 4 h
+        paper.executer_voie(voie, MarcheFactice(), londres + dt.timedelta(hours=4), tmp_path,
+                            tmp_path)
+    with pytest.raises(paper.PaperError, match="perimee"):        # une consigne du futur
+        paper.executer_voie(voie, MarcheFactice(), londres - dt.timedelta(minutes=1), tmp_path,
+                            tmp_path)

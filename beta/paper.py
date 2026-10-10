@@ -56,6 +56,8 @@ CAPITAL_USDT = 10_000.0
 PROFONDEUR = 100                    # niveaux lus par cote : ~100x la taille d'un ordre a 10 k
 TIMEOUT_HTTP_S = 10.0
 ESSAIS_HTTP = 3
+# Cadence « instant » : une consigne plus vieille que ca n'est plus executee (suivi en panne).
+FRAICHEUR_INSTANT = dt.timedelta(hours=3)
 
 
 class PaperError(RuntimeError):
@@ -73,11 +75,14 @@ class Voie:
     instrument: str
     taker_pb: float                     # frais par cote, ceux du modele
     slippage_modele_pb: dict            # ce que le modele suppose, par paire (comparaison)
+    # « jour » : une consigne par jour UTC, prix du modele = ouverture 00:00 ; « instant »
+    # (VC4, 10/10) : une consigne par instant de session, prix du modele = celui de l'instant.
+    cadence: str = "jour"
 
 
 def voies() -> dict[str, Voie]:
     """Les voies. Frais et slippage RELUS dans leurs configs : rien n'est recopie ici."""
-    vc2, vc3, vc5 = c2.config("VC2"), c2.config("VC3"), c2.config("VC5")
+    vc2, vc3, vc4, vc5 = (c2.config(i) for i in ("VC2", "VC3", "VC4", "VC5"))
     return {
         # Voie C figee : perpetuels, taker 5 pb, aucun slippage dans son journal.
         "VOIE_C": Voie("VOIE_C", "SUIVI_VOIE_C.jsonl", PERPETUEL, vc.BPS_TAKER,
@@ -89,6 +94,10 @@ def voies() -> dict[str, Voie]:
         # VC5 (10/10) : VC3 avec une cible de vol de 35 %, spot.
         "VC5": Voie("VC5", "SUIVI_VC5.jsonl", vc5.get("instrument", PERPETUEL),
                     vc5["frais"]["taker_pb"], dict(vc5["frais"]["slippage_pb"])),
+        # VC4 (10/10) : VC3 a chaque ouverture de session ; consignes par instant.
+        "VC4": Voie("VC4", "CONSIGNES_VC4.jsonl", vc4.get("instrument", PERPETUEL),
+                    vc4["frais"]["taker_pb"], dict(vc4["frais"]["slippage_pb"]),
+                    cadence="instant"),
     }
 
 
@@ -98,6 +107,7 @@ class Consigne:
     poids: dict[str, float]             # position voulue, en fraction de l'equite
     a_traiter: frozenset[str]           # paires dont le modele change la position ce jour-la
     source: str
+    instant: dt.datetime | None = None  # cadence « instant » : l'instant de la decision
 
 
 def lire_journal(chemin: Path) -> list[dict]:
@@ -115,6 +125,13 @@ def lire_consigne(chemin: Path) -> Consigne | None:
     est vide quand le modele ne traite pas.
     """
     lignes = lire_journal(chemin)
+    if lignes and "instant" in lignes[-1]:
+        # CONSIGNES_<voie>.jsonl (cadence « instant ») : une ligne = une decision
+        c = lignes[-1]
+        instant = dt.datetime.fromisoformat(c["instant"])
+        a_traiter = frozenset(p for p, o in c.get("ordres", {}).items() if o != 0.0)
+        return Consigne(instant.date(), {p: float(c["position"][p]) for p in PAIRES},
+                        a_traiter, f"{chemin.name}, instant {c['instant']}", instant)
     if not lignes or "consigne_lendemain" not in lignes[-1]:
         return None
     derniere = lignes[-1]
@@ -210,6 +227,16 @@ class MarcheBinance:
         debut = dt.datetime.fromtimestamp(bougie[0] / 1000, dt.UTC).date()
         if debut != jour:
             raise PaperError(f"{symbole} : bougie 1d du {debut}, attendue {jour}")
+        return float(bougie[1])
+
+    def prix_a(self, instrument: str, symbole: str, instant: dt.datetime) -> float:
+        """Le prix d'ouverture de la bougie 1 min qui commence a `instant` : celui ou le
+        modele de la cadence « instant » traite (a 00:00, c'est l'ouverture du jour)."""
+        debut_ms = int(instant.timestamp() * 1000)
+        bougie = self._get(instrument, "klines", symbol=symbole, interval="1m",
+                           startTime=debut_ms, limit=1)[0]
+        if int(bougie[0]) != debut_ms:
+            raise PaperError(f"{symbole} : bougie 1 min de {bougie[0]}, attendue {debut_ms}")
         return float(bougie[1])
 
     def funding(self, symbole: str, depuis: dt.datetime, jusqu_a: dt.datetime) -> list[dict]:
@@ -345,7 +372,10 @@ def journee(voie: Voie, consigne: Consigne | None, compte: dict, depuis: dt.date
 
     # 4. Les ordres, ventes d'abord.
     ordres, frais = [], 0.0
-    ouvertures = {p: marche.ouverture(voie.instrument, symboles[p], jour) for p in voulus}
+    instant = None if consigne is None else consigne.instant
+    ouvertures = {p: (marche.ouverture(voie.instrument, symboles[p], jour) if instant is None
+                      else marche.prix_a(voie.instrument, symboles[p], instant))
+                  for p in voulus}
     for p, ordre in sorted(voulus.items(), key=lambda po: po[1]):
         prix, niveaux, complet = executer(ordre, carnets[p])
         f = abs(ordre) * prix * voie.taker_pb / 1e4
@@ -369,6 +399,7 @@ def journee(voie: Voie, consigne: Consigne | None, compte: dict, depuis: dt.date
     equite_apres = cash + sum(q[p] * milieu[p] for p in PAIRES)
     return {
         "date": jour.isoformat(), "voie": voie.nom, "instrument": voie.instrument,
+        **({} if instant is None else {"instant": instant.isoformat()}),
         "execute_le": maintenant.isoformat(timespec="seconds"),
         "capital_initial": CAPITAL_USDT, "premiere": premiere,
         "consigne": None if consigne is None else {
@@ -402,13 +433,27 @@ def executer_voie(voie: Voie, marche, maintenant: dt.datetime, repertoire: Path 
     """
     chemin = journal_paper(voie, repertoire)
     lignes = lire_journal(chemin)
-    if lignes and lignes[-1]["date"] == maintenant.date().isoformat():
-        return None
-    consigne = lire_consigne((suivis or config.RACINE) / voie.suivi)
-    if consigne is None or consigne.jour != maintenant.date():
-        recue = "aucune" if consigne is None else f"celle du {consigne.jour}"
-        raise PaperError(f"{voie.nom} : pas de consigne pour le {maintenant.date()} dans "
-                         f"{voie.suivi} ({recue}). Voir le timer du suivi.")
+    if voie.cadence == "instant":
+        # Une execution par INSTANT de decision : la derniere consigne, si elle est fraiche et
+        # pas encore executee.
+        consigne = lire_consigne((suivis or config.RACINE) / voie.suivi)
+        if consigne is None or consigne.instant is None:
+            raise PaperError(f"{voie.nom} : aucune consigne d'instant dans {voie.suivi}")
+        if lignes and lignes[-1].get("instant") == consigne.instant.isoformat():
+            return None
+        age = maintenant - consigne.instant
+        if not dt.timedelta(0) <= age <= FRAICHEUR_INSTANT:
+            raise PaperError(f"{voie.nom} : derniere consigne a {consigne.instant:%Y-%m-%d %H:%M}"
+                             f" UTC, perimee a {maintenant:%H:%M} (> {FRAICHEUR_INSTANT}). Voir "
+                             "le timer du suivi.")
+    else:
+        if lignes and lignes[-1]["date"] == maintenant.date().isoformat():
+            return None
+        consigne = lire_consigne((suivis or config.RACINE) / voie.suivi)
+        if consigne is None or consigne.jour != maintenant.date():
+            recue = "aucune" if consigne is None else f"celle du {consigne.jour}"
+            raise PaperError(f"{voie.nom} : pas de consigne pour le {maintenant.date()} dans "
+                             f"{voie.suivi} ({recue}). Voir le timer du suivi.")
     if lignes:
         compte = {"cash": lignes[-1]["cash"], "quantites": lignes[-1]["quantites"]}
         depuis = dt.datetime.fromisoformat(lignes[-1]["execute_le"])

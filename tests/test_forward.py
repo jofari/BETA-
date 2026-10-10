@@ -62,7 +62,7 @@ def test_slippage_moyen_pondere_par_le_notional():
 
 def test_vue_sans_journaux_et_statuts_du_registre(tmp_path):
     v = forward.vue(tmp_path)
-    assert [x["nom"] for x in v["voies"]] == ["VOIE_C", "VC3", "VC5", "VC2"]
+    assert [x["nom"] for x in v["voies"]] == ["VOIE_C", "VC3", "VC5", "VC4", "VC2"]
     assert all(x["suivi"] is None and x["paper"] is None for x in v["voies"])
     statuts = {x["nom"]: x["statut"] for x in v["voies"]}
     assert statuts["VC3"].startswith("dry-run") and statuts["VC2"].startswith("informative")
@@ -162,3 +162,30 @@ def test_allocation_un_short_compte_dans_le_brut_pas_dans_le_net():
 def test_allocation_a_100_pourcent_pile_n_est_pas_du_levier():
     a = forward.allocation(_execution(0.0, {"BTC": 0.1}, {"BTC": 100_000.0}))
     assert a["exposition_brute"] == pytest.approx(1.0) and a["effet_levier"] is False
+
+
+def test_cadence_instant_consigne_et_paper_compares_au_modele_quotidien(tmp_path):
+    # VC4 : la consigne en vigueur est la derniere decision de session ; le paper s'execute
+    # plusieurs fois par jour, mais se compare au modele quotidien par sa PREMIERE execution
+    _jsonl(tmp_path / "SUIVI_VC4.jsonl", [
+        {"date": "2026-10-12", "type": "live", "equite": 1.10, "equite_btc": 1.0, "r_net": 0.10,
+         "etat": "haussier", "positions": {"BTC": 0.5}, "brut": 0.5}])
+    _jsonl(tmp_path / "CONSIGNES_VC4.jsonl", [
+        {"instant": "2026-10-13T00:00:00+00:00", "etat": "haussier", "trade": False,
+         "position": {"BTC": 0.5}, "brut": 0.5, "ordres": {}, "votes": {}, "somme": 2},
+        {"instant": "2026-10-13T07:00:00+00:00", "etat": "veille", "trade": True,
+         "position": {"BTC": 0.3}, "brut": 0.3, "ordres": {"BTC": -0.2}, "votes": {}, "somme": 1}])
+    def ligne(date, instant, equite_avant):
+        return {**_paper(date, equite_avant), "instant": instant}
+    _jsonl(tmp_path / "PAPER_VC4.jsonl", [
+        ligne("2026-10-12", "2026-10-12T00:00:00+00:00", 10_000.0),
+        ligne("2026-10-12", "2026-10-12T07:00:00+00:00", 10_500.0),
+        ligne("2026-10-13", "2026-10-13T00:00:00+00:00", 11_000.0),
+        ligne("2026-10-13", "2026-10-13T07:00:00+00:00", 11_200.0)])
+    v = next(x for x in forward.vue(tmp_path)["voies"] if x["nom"] == "VC4")
+    c = v["suivi"]["consigne"]
+    assert c["date"] == "2026-10-13 07:00 UTC" and c["etat"] == "veille" and c["trade"]
+    p = v["paper"]
+    assert [pt["date"] for pt in p["points"]] == ["2026-10-12", "2026-10-13"]
+    assert p["rendement"] == pytest.approx(0.10)              # 11 000 a 00:00, pas 11 200
+    assert p["modele"] == pytest.approx(0.10) and p["n_jours"] == 2

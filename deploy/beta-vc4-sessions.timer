@@ -1,0 +1,12 @@
+[Unit]
+Description=BETA - VC4 aux ouvertures de Londres (08:00) et New York (09:30), heure locale, en semaine
+
+[Timer]
+# Heures LOCALES : systemd suit les changements d'heure de chaque place (base IANA). +2 min
+# pour que la bougie 5 min de l'ouverture soit close et publiee.
+OnCalendar=Mon..Fri 08:02 Europe/London
+OnCalendar=Mon..Fri 09:32 America/New_York
+Persistent=false
+
+[Install]
+WantedBy=timers.target

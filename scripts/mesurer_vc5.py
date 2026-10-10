@@ -139,9 +139,10 @@ def main() -> int:
     m_train = np.asarray(jours <= c2.FIN_TRAIN)
     m_oos = np.asarray(jours > c2.FIN_TRAIN)
 
-    print(f"VOIE C2 — VC5 (VC3, cible de vol 35 %), mesure preenregistree, {jours[0]:%Y-%m-%d} -> "
-          f"{jours[-1]:%Y-%m-%d} ({len(jours)} j). Sharpe en racine de 252.")
-    print("Frais VC5 (ceux de VC3) : spot 10 pb + slippage 5 (BTC/ETH) / 10 pb par cote ; aucun funding.")
+    print(f"VOIE C2 — VC5 (VC3, cible de vol 35 %), mesure preenregistree, "
+          f"{jours[0]:%Y-%m-%d} -> {jours[-1]:%Y-%m-%d} ({len(jours)} j). Sharpe en racine de 252.")
+    print("Frais VC5 (ceux de VC3) : spot 10 pb + slippage 5 (BTC/ETH) / 10 pb par cote ; "
+          "aucun funding.")
     for titre, m in (("PLEINE FENETRE (porte)", np.ones(len(jours), bool)),
                      ("TRAIN <= 2024-06-30 (informatif)", m_train),
                      ("OOS >= 2024-07-01 (informatif, deja vu)", m_oos)):

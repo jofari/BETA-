@@ -223,7 +223,8 @@ def main() -> int:
         alerte_r3 |= ell == L_ALERTE and p_budget > 0.5
         print(f"  l = {ell:>2d} j : maxDD median {np.median(dd):6.1%}, 5e centile "
               f"{np.percentile(dd, 5):6.1%}, P(maxDD < -25 %) = {p_budget:5.1%} | Sharpe VC4 - "
-              f"hold IC 95 % [{np.percentile(ecart, 2.5):+.2f} ; {np.percentile(ecart, 97.5):+.2f}]")
+              f"hold IC 95 % [{np.percentile(ecart, 2.5):+.2f} ; "
+              f"{np.percentile(ecart, 97.5):+.2f}]")
 
     print("\nCOMPARAISON A VC3 (informatif) — ce que la cadence apporte ou coute")
     paire = np.column_stack([r4.to_numpy(), r3.to_numpy()])

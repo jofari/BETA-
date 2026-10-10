@@ -1,0 +1,9 @@
+[Unit]
+Description=BETA - suivi forward de VC4, chaque jour a 00:50 UTC (decision de 00:00)
+
+[Timer]
+OnCalendar=*-*-* 00:50:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

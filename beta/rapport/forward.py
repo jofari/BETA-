@@ -22,6 +22,7 @@ VOIES = (
     ("VOIE_C", "Voie C figée", "perpétuels"),
     ("VC3", "VC3 — poche maximum", "spot"),
     ("VC5", "VC5 — cible de vol 35 %", "spot"),
+    ("VC4", "VC4 — à chaque session", "spot"),
     ("VC2", "VC2 — poche achetée", "perpétuels"),
 )
 N_ORDRES = 40                       # derniers ordres paper affiches
@@ -118,7 +119,10 @@ def paper(lignes: list[dict], modele: list[dict]) -> dict | None:
     capital = lignes[0]["capital_initial"]
     r_modele = {l["date"]: l["r_net"] for l in modele}
     points, cumul_modele, precedente = [], 1.0, None
-    for l in lignes:
+    # Cadence « instant » (VC4) : plusieurs executions par jour ; la courbe et la comparaison
+    # au modele quotidien partent de la PREMIERE de chaque jour (la decision de 00:00).
+    premieres = list({l["date"]: l for l in reversed(lignes)}.values())[::-1]
+    for l in premieres:
         if precedente is not None:
             for jour, r in sorted(r_modele.items()):
                 if precedente <= jour < l["date"]:
@@ -135,8 +139,9 @@ def paper(lignes: list[dict], modele: list[dict]) -> dict | None:
     derniere = lignes[-1]
     return {
         "capital": capital, "debut": lignes[0]["date"], "fin": derniere["date"],
-        "n_jours": len(lignes), "points": points,
-        "equite": derniere["equite"], "rendement": derniere["equite_avant"] / capital - 1.0,
+        "n_jours": len(premieres), "points": points,
+        "equite": derniere["equite"],
+        "rendement": premieres[-1]["equite_avant"] / capital - 1.0,
         "modele": points[-1]["modele"] - 1.0,
         "frais": sum(l["frais"] for l in lignes),
         "funding": sum(sum(l["funding"].values()) for l in lignes),
@@ -156,10 +161,19 @@ def vue(racine: Path | None = None) -> dict:
     voies = []
     for nom, titre, instrument in VOIES:
         lignes_suivi = _lire(racine / f"SUIVI_{nom}.jsonl")
+        s = suivi(lignes_suivi)
+        consignes = _lire(racine / f"CONSIGNES_{nom}.jsonl")
+        if s is not None and consignes:
+            # Cadence « instant » : la consigne en vigueur est la derniere decision de session.
+            c = consignes[-1]
+            s["consigne"] = {"date": c["instant"][:16].replace("T", " ") + " UTC",
+                             "etat": c["etat"], "trade": c["trade"],
+                             "position": c["position"], "brut": c["brut"],
+                             "ordres": c["ordres"], "votes": c["votes"], "somme": c["somme"]}
         voies.append({
             "nom": nom, "titre": titre, "instrument": instrument,
             "statut": statut(nom, registre),
-            "suivi": suivi(lignes_suivi),
+            "suivi": s,
             "paper": paper(_lire(racine / f"PAPER_{nom}.jsonl"), lignes_suivi),
         })
     return {"voies": voies, "paires": list(vc.PAIRES),

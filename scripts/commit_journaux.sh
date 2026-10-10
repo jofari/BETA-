@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 git pull --ff-only -q
-git add -- SUIVI_*.jsonl PAPER_*.jsonl
+git add -- SUIVI_*.jsonl PAPER_*.jsonl CONSIGNES_*.jsonl
 if git diff --cached --quiet; then
     echo "journaux : rien de nouveau"
     exit 0

@@ -451,7 +451,16 @@ Il a alors tranché, par questionnaire et **avant toute mesure** (~23:15 UTC) :
   - **VC4** = décisions à **chaque ouverture de session** en semaine (Tokyo 00:00 UTC,
     Londres 08:00 heure de Londres, New York 09:30 heure de New York) et une fois à 00:00 UTC
     le week-end, **tout recalculé au dernier prix** (momentum, poids, écart à la bande ;
-    macro = dernière publication). À préenregistrer puis mesurer sur les bougies intraday.
+    macro = dernière publication). Préenregistrée (c826290), mesurée (d5c51b3) :
+    **CONFIRMÉE par sa porte mais SANS APPORT** — Sharpe 0,76 (VC3 0,80 ; écart −0,04, IC 95 %
+    [−0,19 ; +0,11]), CAGR 18,7 % (22,1 %), maxDD −21,6 % (−23,2 %), turnover 12,6x/an
+    (2,2x) et frais 2,27 %/an (0,40 %) ; 19 changements d'état en cours de journée en 5 ans.
+    Décider 3 fois par jour fait surtout franchir la bande plus souvent. Forward + paper (à la
+    demande de Jonas, « déploie en paper dès que tout fonctionne ») : consignes par instant
+    (`CONSIGNES_VC4.jsonl`), journées closes (`SUIVI_VC4.jsonl`), timers `beta-suivi-vc4`
+    (00:50 UTC) et `beta-vc4-sessions` (08:02 Europe/London, 09:32 America/New_York, en
+    semaine, après `rafraichir_5m.py`) ; paper « par instant » comparé au prix de l'instant.
+    Dry-run dès le 12/10, critères de VC3.
 - Put/call ratio : collecté par DS1 (options Deribit, migration 003), affiché en
   **contexte** (onglet Options du dashboard VPS) ; aucune stratégie ne le lit.
 

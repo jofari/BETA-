@@ -39,7 +39,7 @@ log = logging.getLogger("beta.paper")
 
 # Criteres du dry-run juges ici (registre, regle « forward » du 07/10 ; ecart fixe par Jonas le
 # 10/10, avant toute donnee qui le franchisse). VC2 est infirmee : informative, jamais jugee.
-JUGEES = ("VOIE_C", "VC3", "VC5")       # VC5 : memes criteres que VC3 (10/10)
+JUGEES = ("VOIE_C", "VC3", "VC4", "VC5")   # VC4, VC5 : memes criteres que VC3 (10/10)
 ECART_MAX = 0.01                    # |paper - suivi au cours de cloture|, rendement cumule
 FACTEUR_SLIPPAGE = 2.0              # cout reel au carnet <= 2x le slippage du modele
 # La voie C figee ne suppose aucun slippage (2 x 0 ne jugerait rien) : sa reference est celle
@@ -53,6 +53,10 @@ def mesures(voie: paper.Voie, repertoire: Path, suivis: Path) -> dict | None:
     if not lignes:
         return None
     debut, fin = lignes[0]["date"], lignes[-1]["date"]
+    # Cadence « instant » (VC4) : plusieurs executions par jour. Le modele est quotidien
+    # (00:00 -> 00:00) : on le compare a la PREMIERE execution du dernier jour, celle de la
+    # decision de 00:00, comme pour les voies quotidiennes.
+    premiere_du_jour = next(l for l in lignes if l["date"] == fin)
     # La journee d du suivi = la detention entre les executions de d et de d+1.
     modele = [l["r_net"] for l in paper.lire_journal(suivis / voie.suivi)
               if debut <= l["date"] < fin]
@@ -62,8 +66,9 @@ def mesures(voie: paper.Voie, repertoire: Path, suivis: Path) -> dict | None:
     def moyenne(cle: str) -> float:
         return sum(o[cle] * o["notional"] for o in ordres) / notional if notional else math.nan
 
-    return {"debut": debut, "fin": fin, "jours": len(lignes), "equite": lignes[-1]["equite"],
-            "rendement": lignes[-1]["equite_avant"] / paper.CAPITAL_USDT - 1.0,
+    return {"debut": debut, "fin": fin, "jours": len({l["date"] for l in lignes}),
+            "equite": lignes[-1]["equite"],
+            "rendement": premiere_du_jour["equite_avant"] / paper.CAPITAL_USDT - 1.0,
             "r_modele": math.prod(1.0 + r for r in modele) - 1.0, "jours_modele": len(modele),
             "frais": sum(l["frais"] for l in lignes),
             "funding": sum(sum(l["funding"].values()) for l in lignes),
