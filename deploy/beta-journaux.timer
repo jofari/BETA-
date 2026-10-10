@@ -1,0 +1,10 @@
+[Unit]
+Description=BETA - commit + push des journaux forward, chaque jour a 01:15 UTC
+
+[Timer]
+# Apres le paper (01:00 UTC) : les journaux du jour sont tous ecrits.
+OnCalendar=*-*-* 01:15:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

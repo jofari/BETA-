@@ -1,0 +1,13 @@
+# BETA — commit + push quotidien des journaux forward (SUIVI_*, PAPER_*) vers origin.
+# Installe par : cp deploy/beta-journaux.{service,timer} /etc/systemd/system/
+#                systemctl daemon-reload && systemctl enable --now beta-journaux.timer
+[Unit]
+Description=BETA - commit + push des journaux forward
+After=network-online.target beta-paper.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+ExecStart=/root/BETA-/scripts/commit_journaux.sh
+TimeoutStartSec=300
