@@ -178,14 +178,15 @@ def main() -> int:
         log.info("suivi depuis %s : %d j, net %+.2f%% (BTC %+.2f%%), maxDD %.2f%%, "
                  "vol %.1f%%, levier en vigueur %.2f",
                  f"{DEBUT_SUIVI:%Y-%m-%d}", len(fwd), (eq.iloc[-1] - 1) * 100,
-                 (equite_btc[-1] - 1) * 100, (eq / eq.cummax() - 1).min() * 100,
+                 (equite_btc[-1] - 1) * 100, (eq / eq.cummax().clip(lower=1.0) - 1).min() * 100,
                  fwd.std(ddof=1) * np.sqrt(365) * 100 if len(fwd) > 1 else float("nan"),
                  r["levier"][-1])
     code = 0
     live = fwd[fwd.index >= DEBUT_LIVE]
     if len(live):
         eq = (1 + live).cumprod()
-        mdd = float((eq / eq.cummax() - 1).min())
+        # Le plus haut part du capital initial : une perte des le premier jour est un DD.
+        mdd = float(min((eq / eq.cummax().clip(lower=1.0) - 1).min(), 0.0))
         vol = float(live.std(ddof=1) * np.sqrt(vc.PPA)) if len(live) > 1 else float("nan")
         log.info("dry-run, jour %d (du %s au %s) : net %+.2f%%, maxDD %.2f%% (critere >= "
                  "%.0f%%), vol %.1f%% (critere %.0f-%.0f%%, lu a 6 mois)", len(live),

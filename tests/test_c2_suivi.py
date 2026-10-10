@@ -147,3 +147,10 @@ def test_la_garde_attrape_une_fuite_du_futur(cfg, monkeypatch):
     monkeypatch.setattr(c2, "votes", lambda d, cfg: vrais_votes(d, cfg).shift(-1).fillna(0.0))
     with pytest.raises(suivi.CausaliteError):
         suivi.suivre(d, cfg)
+
+
+def test_maxdd_compte_depuis_le_capital_initial():
+    # Bug du 10/10 : « net -2,73 %, maxDD 0 % » quand tout le suivi est en perte.
+    b = suivi.bilan(np.array([-0.02, -0.0073]))
+    assert b["mdd"] == pytest.approx(b["net"]) and b["mdd"] < -0.027
+    assert suivi.bilan(np.array([0.01, 0.02]))["mdd"] == 0.0

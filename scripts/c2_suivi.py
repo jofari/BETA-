@@ -160,10 +160,12 @@ def trous(jours: pd.DatetimeIndex) -> list[str]:
 
 
 def bilan(r: np.ndarray) -> dict:
-    """Rendement cumule, maxDD et vol annualisee (racine de 252, convention de la cible)."""
+    """Rendement cumule, maxDD et vol annualisee (racine de 252, convention de la cible).
+    Le plus haut part du capital initial (1,0) : une perte des le premier jour est un DD."""
     equite = np.cumprod(1.0 + r)
+    plus_haut = np.maximum(np.maximum.accumulate(equite), 1.0)
     return {"net": float(equite[-1] - 1.0),
-            "mdd": float((equite / np.maximum.accumulate(equite) - 1.0).min()),
+            "mdd": float(min((equite / plus_haut - 1.0).min(), 0.0)),
             "vol": float(np.std(r, ddof=1) * np.sqrt(vc.PPA)) if len(r) > 1 else float("nan")}
 
 
