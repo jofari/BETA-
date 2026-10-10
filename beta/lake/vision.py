@@ -34,7 +34,7 @@ est mesure :
 Le resume par serie va dans `data/vision/etat.duckdb`, table `series`, colonne `suspect`.
 
 Un jour publie apres coup est rattrape au passage suivant : la liste est relue a chaque fois.
-`data/` reste jetable (invariant n° 8) : le supprimer puis relancer refait tout (~2 h).
+`data/` reste jetable (invariant n° 8) : le supprimer puis relancer refait tout (2-4 h).
 """
 
 from __future__ import annotations

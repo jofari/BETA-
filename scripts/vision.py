@@ -1,7 +1,7 @@
 """Historique public Binance (metrics, bookDepth, aggTrades) : telecharger ce qui manque.
 
 Idempotent : ne telecharge que les jours publies absents de `data/vision/etat.duckdb`.
-Le premier passage rattrape tout l'historique (~2 h, plusieurs dizaines de Go telecharges,
+Le premier passage rattrape tout l'historique (2-4 h, ~100 Go telecharges,
 ~2 Go stockes) ; ensuite, un jour par jeu et par paire.
 
 Usage :

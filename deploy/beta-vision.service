@@ -3,7 +3,7 @@
 #                mkdir -p /etc/systemd/system/beta-vision.service.d
 #                cp deploy/notif.conf /etc/systemd/system/beta-vision.service.d/
 #                systemctl daemon-reload && systemctl enable --now beta-vision.timer
-# Le 1er passage rattrape tout l'historique (~2 h) ; ensuite ~1 min par jour.
+# Le 1er passage rattrape tout l'historique (2-4 h, ~100 Go telecharges) ; ensuite ~1 min.
 # Echec (jour illisible, serie en retard) = unite en "failed" + alerte Discord (salon BETA).
 [Unit]
 Description=BETA - historique public Binance (data.binance.vision)
@@ -14,7 +14,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/root/BETA-
 ExecStart=/root/venvs/arit/bin/python scripts/vision.py
-TimeoutStartSec=6h
+TimeoutStartSec=12h
 # Ne jamais gener ARIT ni DS1 qui tournent sur la meme machine.
 Nice=10
 CPUQuota=50%
