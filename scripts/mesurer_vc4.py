@@ -10,6 +10,22 @@ R2, R3, R4 et la comparaison a VC3 (meme chaine, une decision par jour) informen
 changent pas le verdict. Serie quotidienne 00:00 -> 00:00 UTC (produit des periodes entre
 instants), meme fenetre et memes conventions que VC3 ; prix : bougies 5 min du lake jusqu'au
 2026-09-06 00:00 UTC (la meme borne d'information que la derniere bougie 1d de VC3).
+
+RESULTAT DU 10/10 ~23:50 UTC (run bb92355d4e3c ; compteur 82 -> 92 avec les 10 voisins) —
+CONFIRMEE par sa porte, mais SANS APPORT sur VC3 :
+- VC4  Sharpe 0,76 | CAGR 18,7 % | vol 17,5 % | maxDD -21,6 % (13/03/2024 -> 04/11/2024) |
+  turnover 12,6x/an | frais 2,27 %/an (4 642 decisions). VC3 : 0,80 / 22,1 % / -23,2 %,
+  turnover 2,2x/an, frais 0,40 %/an. OOS : 0,64 / -20,2 % (VC3 0,72 / -19,6 %).
+- Sharpe VC4 - VC3 = -0,04, IC 95 % [-0,19 ; +0,11] (bootstrap apparie, l = 20 j) ;
+  correlation quotidienne 0,969. 224 changements d'etat, dont 19 seulement en cours de
+  journee : la reactivite attendue existe a peine, et la bande de 20 points franchie 3 fois
+  par jour multiplie le turnover par 5,7 — c'est la que part le rendement (-1,9 pt/an).
+- R1 : 6/10 voisins passent, mediane -23,8 % / 0,72 => plateau, mais 4 voisins crevent le
+  budget (vote 180 j, moteur 90/180 j, sigma 20 j), comme pour VC3.
+- R2 DSR 0,34 (N = 92) / 0,05 (N = 5 902). R3 ALERTE : P(maxDD < -25 %) = 58-64 %.
+  R4 ALERTE : 2024 = 50 % du gain (en log).
+Lecture : la cadence par session ne gagne rien sur ce backtest ; elle coute des frais. Le
+forward dira si la reactivite paie dans une vraie cassure intraday, ce que 5 ans n'ont pas.
 """
 
 from __future__ import annotations

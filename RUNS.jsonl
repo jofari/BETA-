@@ -56,3 +56,14 @@
 {"run_id": "f60128d7db65", "experience": "VC5", "candidate": "voie_c2:voisin:haussier.fenetre=45", "empreinte": "9ce932460093eef2", "issue": "passe", "date": "2026-10-10T23:14:12.931033+00:00"}
 {"run_id": "86f308860b01", "experience": "VC5", "candidate": "voie_c2:voisin:haussier.bande=0.1", "empreinte": "4febc9edd4f32cc4", "issue": "passe", "date": "2026-10-10T23:14:12.931141+00:00"}
 {"run_id": "59c448d9da82", "experience": "VC5", "candidate": "voie_c2:voisin:haussier.bande=0.3", "empreinte": "ae24bccfedcd1252", "issue": "passe", "date": "2026-10-10T23:14:12.931230+00:00"}
+{"run_id": "bb92355d4e3c", "experience": "VC4", "candidate": "voie_c4", "empreinte": "c63eb0b2a8cd25df", "issue": "confirmee", "date": "2026-10-10T23:25:31.763021+00:00"}
+{"run_id": "2fad20804f59", "experience": "VC4", "candidate": "voie_c4:voisin:vote_momentum.fenetre=90", "empreinte": "7892850352717b78", "issue": "passe", "date": "2026-10-10T23:25:31.766737+00:00"}
+{"run_id": "3061a237b5a5", "experience": "VC4", "candidate": "voie_c4:voisin:vote_momentum.fenetre=180", "empreinte": "8cb48e3c40d9012f", "issue": "echoue", "date": "2026-10-10T23:25:31.767049+00:00"}
+{"run_id": "d1b2ca18bc58", "experience": "VC4", "candidate": "voie_c4:voisin:haussier.fenetre_mom=90", "empreinte": "588e8fb5b4f9c512", "issue": "echoue", "date": "2026-10-10T23:25:31.767336+00:00"}
+{"run_id": "16b58b4322d8", "experience": "VC4", "candidate": "voie_c4:voisin:haussier.fenetre_mom=180", "empreinte": "e5bc2629e86de59f", "issue": "echoue", "date": "2026-10-10T23:25:31.767494+00:00"}
+{"run_id": "b25c0fa51596", "experience": "VC4", "candidate": "voie_c4:voisin:baissier.fenetre_mom_alts=90", "empreinte": "97731927b6a365c1", "issue": "passe", "date": "2026-10-10T23:25:31.767656+00:00"}
+{"run_id": "08e8792f3627", "experience": "VC4", "candidate": "voie_c4:voisin:baissier.fenetre_mom_alts=180", "empreinte": "3d8bb30c44f17953", "issue": "passe", "date": "2026-10-10T23:25:31.767792+00:00"}
+{"run_id": "c52bc60665f9", "experience": "VC4", "candidate": "voie_c4:voisin:haussier.fenetre=20", "empreinte": "7d5c005c1468278a", "issue": "echoue", "date": "2026-10-10T23:25:31.767919+00:00"}
+{"run_id": "0e661c18704b", "experience": "VC4", "candidate": "voie_c4:voisin:haussier.fenetre=45", "empreinte": "6cb27c2c9e23cc12", "issue": "passe", "date": "2026-10-10T23:25:31.768036+00:00"}
+{"run_id": "ddaa70aec4ed", "experience": "VC4", "candidate": "voie_c4:voisin:haussier.bande=0.1", "empreinte": "04c7334278719dee", "issue": "passe", "date": "2026-10-10T23:25:31.768167+00:00"}
+{"run_id": "cf62164b6890", "experience": "VC4", "candidate": "voie_c4:voisin:haussier.bande=0.3", "empreinte": "8f546f914f456f64", "issue": "passe", "date": "2026-10-10T23:25:31.768285+00:00"}
