@@ -39,7 +39,7 @@ log = logging.getLogger("beta.paper")
 
 # Criteres du dry-run juges ici (registre, regle « forward » du 07/10 ; ecart fixe par Jonas le
 # 10/10, avant toute donnee qui le franchisse). VC2 est infirmee : informative, jamais jugee.
-JUGEES = ("VOIE_C", "VC3")
+JUGEES = ("VOIE_C", "VC3", "VC5")       # VC5 : memes criteres que VC3 (10/10)
 ECART_MAX = 0.01                    # |paper - suivi au cours de cloture|, rendement cumule
 FACTEUR_SLIPPAGE = 2.0              # cout reel au carnet <= 2x le slippage du modele
 # La voie C figee ne suppose aucun slippage (2 x 0 ne jugerait rien) : sa reference est celle

@@ -12,9 +12,11 @@ chaque vote et par le moteur, et l'ecart a la cible compare a la bande — de qu
 l'analyse a l'oeil dans l'onglet Forward. Le journal ne fait que CROITRE : une ligne ecrite
 n'est jamais reecrite.
 
-Deux experiences, et deux statuts differents dans le registre :
+Trois experiences, et deux statuts differents dans le registre :
     VC3  CONFIRMEE le 07/10 (`scripts/mesurer_vc3.py`) : dry-run de 6 mois, live des le
          2026-10-08, criteres du registre (maxDD >= -25 %, vol 10-30 %).
+    VC5  CONFIRMEE le 10/10 (`scripts/mesurer_vc5.py`, VC3 avec une cible de vol de 35 %) :
+         dry-run de 6 mois, live des le 2026-10-11 (maxDD >= -40 %, vol 17,5-52,5 %).
     VC2  INFIRMEE le 07/10 (`scripts/mesurer_vc2.py`) : suivie a la demande de Jonas (08/10),
          a titre INFORMATIF seulement. Aucun critere de dry-run, aucune alarme ; un bon
          resultat forward ne la rehabilite pas — il faudrait un nouveau preenregistrement.
@@ -72,9 +74,12 @@ log = logging.getLogger("beta.c2_suivi")
 
 # ⚠️ Les empreintes preenregistrees le 2026-10-07. Ne pas les changer : une autre config est
 # une autre experience, avec son propre journal.
-EMPREINTES = {"VC2": "744700fa7d8980fc", "VC3": "7adef08a837a8c50"}
-MAXDD_MIN = -0.25                   # critere du dry-run (registre, regle « forward »)
-VOL_MIN, VOL_MAX = 0.10, 0.30       # idem, lu a 6 mois seulement
+EMPREINTES = {"VC2": "744700fa7d8980fc", "VC3": "7adef08a837a8c50",
+              "VC5": "5d7dd9c9a211de3f"}     # VC5 preenregistree le 2026-10-10
+# Criteres du dry-run de chaque experience admise (registre, regle « forward ») : maxDD live
+# minimal, et vol realisee du live (racine de 252) lue a 6 mois seulement.
+CRITERES = {"VC3": {"maxdd_min": -0.25, "vol_min": 0.10, "vol_max": 0.30},
+            "VC5": {"maxdd_min": -0.40, "vol_min": 0.175, "vol_max": 0.525}}
 DUREE_DRY_RUN = pd.DateOffset(months=6)
 UN_JOUR = pd.Timedelta(days=1)
 
@@ -324,20 +329,22 @@ def main() -> int:
             log.info("%s infirmee par sa regle preenregistree : suivi INFORMATIF, aucun critere "
                      "de dry-run", id_exp)
         elif live.any():
+            crit = CRITERES[id_exp]
+            maxdd_min, vol_min, vol_max = crit["maxdd_min"], crit["vol_min"], crit["vol_max"]
             bl = bilan(r_net[live])
             log.info("dry-run, jour %d (du %s au %s) : net %+.2f%%, maxDD %.2f%% (critere >= "
                      "%.0f%%), vol %.1f%% (critere %.0f-%.0f%%, lu a 6 mois)", int(live.sum()),
                      f"{debut_live:%Y-%m-%d}", f"{fin:%Y-%m-%d}", bl["net"] * 100,
-                     bl["mdd"] * 100, MAXDD_MIN * 100, bl["vol"] * 100, VOL_MIN * 100,
-                     VOL_MAX * 100)
-            if bl["mdd"] < MAXDD_MIN:
+                     bl["mdd"] * 100, maxdd_min * 100, bl["vol"] * 100, vol_min * 100,
+                     vol_max * 100)
+            if bl["mdd"] < maxdd_min:
                 log.error("CRITERE DU DRY-RUN FRANCHI : maxDD live %.2f%% < %.0f%%. La suite "
-                          "est une decision de Jonas.", bl["mdd"] * 100, MAXDD_MIN * 100)
+                          "est une decision de Jonas.", bl["mdd"] * 100, maxdd_min * 100)
                 code = 4
-            if jours[idx][-1] >= fin and not VOL_MIN <= bl["vol"] <= VOL_MAX:
+            if jours[idx][-1] >= fin and not vol_min <= bl["vol"] <= vol_max:
                 log.error("CRITERE DU DRY-RUN FRANCHI : vol realisee du live %.1f%% hors de "
                           "%.0f-%.0f%%. La suite est une decision de Jonas.", bl["vol"] * 100,
-                          VOL_MIN * 100, VOL_MAX * 100)
+                          vol_min * 100, vol_max * 100)
                 code = code or 5
         else:
             log.info("dry-run : premiere journee live le %s (fin le %s)",

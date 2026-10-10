@@ -33,6 +33,7 @@
   --actif-bnb: #e8c13c;
   --actif-link: #3987e5;
   --actif-xrp: #b8b6ad;
+  --serie-vc5: #c084fc;        /* VC5 (10/10) : violet, distinct des actifs et des etats */
 
   --radius: 10px;
   --gap: 14px;
@@ -345,8 +346,7 @@ td.muet { color: var(--text-muted); }
 .idee-champ { flex: 1 1 320px; min-width: 220px; }
 
 /* ---------- onglet Forward ---------- */
-.trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
-@media (max-width: 1100px) { .trio { grid-template-columns: 1fr; } }
+.trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--gap); }
 .voie-tete { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
 .voie-tete h2 { margin: 0; font-size: 14px; font-weight: 600; }
 .voie-tete .puce { margin-left: auto; }

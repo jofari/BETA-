@@ -38,12 +38,21 @@ def cfg():
 @pytest.mark.parametrize("id_exp,empreinte,live,admise", [
     ("VC3", "7adef08a837a8c50", "2026-10-08", True),       # confirmee : dry-run a juger
     ("VC2", "744700fa7d8980fc", "2026-10-07", False),      # infirmee : suivi informatif
+    ("VC5", "5d7dd9c9a211de3f", "2026-10-11", True),       # confirmee le 10/10
 ])
 def test_empreintes_dates_et_statut_du_registre(id_exp, empreinte, live, admise):
     # Si ce test casse, l'experience a ete repreenregistree : ce n'est plus le meme suivi.
     assert c2.empreinte(c2.config(id_exp)) == suivi.EMPREINTES[id_exp] == empreinte
     assert suivi.dates_du_registre(id_exp) == (_jour("2026-09-06"), _jour(live))
     assert suivi.admise_au_dry_run(id_exp) is admise
+
+
+def test_toute_experience_admise_a_ses_criteres_de_dry_run():
+    # Sans eux, le suivi tomberait (KeyError) le premier jour live d'une experience confirmee.
+    for id_exp in suivi.EMPREINTES:
+        if suivi.admise_au_dry_run(id_exp):
+            crit = suivi.CRITERES[id_exp]
+            assert crit["maxdd_min"] < 0 and 0 < crit["vol_min"] < crit["vol_max"], id_exp
 
 
 def test_nature_live_ou_rattrapage():

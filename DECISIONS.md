@@ -434,6 +434,27 @@ Fixé **avant** toute donnée qui les franchisse (paper : 2 jours, suivis : 9 et
 **Reste ouvert** : aucune unité n'a d'`OnFailure`, donc une alarme ne se voit que dans
 `systemctl --failed`. À brancher sur le salon Discord BETA.
 
+### VC4 et VC5 — plus investie en haussier, décidée plus souvent (Jonas, 10/10)
+
+Déclencheur : en lisant l'onglet Forward, Jonas a cru VC3 « à l'envers » (haussier mais « ne
+rien faire », « 70 % brut »). C'était un piège de **libellés** (corrigé, BETA 59931d1) : VC3
+était investie à 68,6 %, plafonnée par sa cible de vol de 20 % face à une vol crypto de 35 %.
+Il a alors tranché, par questionnaire et **avant toute mesure** (~23:15 UTC) :
+
+- **Deux variantes séparées**, chacune ne change qu'une chose par rapport à VC3 :
+  - **VC5** = cible de vol **35 %** (≈ 100 % investi en haussier à la vol du jour), budget de
+    perte **−40 %** (au lieu de −25 %). Préenregistrée (d7f82f3), mesurée (9d62c94) :
+    **CONFIRMÉE** — Sharpe 0,75 (VC3 0,80), CAGR 28,5 % (22,1 %), maxDD −31,1 %, R1 10/10.
+    Alertes R3 (P(maxDD < −40 %) = 56 % en bootstrap) et R4 (2023-2024 = l'essentiel du gain).
+    Plus de rendement pour plus de risque, **pas un meilleur rapport**. Forward + paper dès le
+    11/10 (critères : maxDD ≥ −40 %, vol 17,5-52,5 %, mêmes critères paper que VC3).
+  - **VC4** = décisions à **chaque ouverture de session** en semaine (Tokyo 00:00 UTC,
+    Londres 08:00 heure de Londres, New York 09:30 heure de New York) et une fois à 00:00 UTC
+    le week-end, **tout recalculé au dernier prix** (momentum, poids, écart à la bande ;
+    macro = dernière publication). À préenregistrer puis mesurer sur les bougies intraday.
+- Put/call ratio : collecté par DS1 (options Deribit, migration 003), affiché en
+  **contexte** (onglet Options du dashboard VPS) ; aucune stratégie ne le lit.
+
 ---
 
 ## En attente de Jonas

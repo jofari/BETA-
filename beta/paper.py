@@ -76,8 +76,8 @@ class Voie:
 
 
 def voies() -> dict[str, Voie]:
-    """Les trois voies. Frais et slippage RELUS dans leurs configs : rien n'est recopie ici."""
-    vc2, vc3 = c2.config("VC2"), c2.config("VC3")
+    """Les voies. Frais et slippage RELUS dans leurs configs : rien n'est recopie ici."""
+    vc2, vc3, vc5 = c2.config("VC2"), c2.config("VC3"), c2.config("VC5")
     return {
         # Voie C figee : perpetuels, taker 5 pb, aucun slippage dans son journal.
         "VOIE_C": Voie("VOIE_C", "SUIVI_VOIE_C.jsonl", PERPETUEL, vc.BPS_TAKER,
@@ -86,6 +86,9 @@ def voies() -> dict[str, Voie]:
                     vc2["frais"]["taker_pb"], dict(vc2["frais"]["slippage_pb"])),
         "VC3": Voie("VC3", "SUIVI_VC3.jsonl", vc3.get("instrument", PERPETUEL),
                     vc3["frais"]["taker_pb"], dict(vc3["frais"]["slippage_pb"])),
+        # VC5 (10/10) : VC3 avec une cible de vol de 35 %, spot.
+        "VC5": Voie("VC5", "SUIVI_VC5.jsonl", vc5.get("instrument", PERPETUEL),
+                    vc5["frais"]["taker_pb"], dict(vc5["frais"]["slippage_pb"])),
     }
 
 

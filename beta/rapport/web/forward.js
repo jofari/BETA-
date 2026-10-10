@@ -21,8 +21,8 @@ const FORWARD = (() => {
   const ton = (v) => manque(v) ? "muet" : (v >= 0 ? "pos" : "neg");
 
   // Une couleur par voie, la meme dans toutes les vues. BTC reste neutre : c'est le decor.
-  const TEINTES = { VOIE_C: "--series-long", VC3: "--accent", VC2: "--status-serious",
-                    BTC: "--series-neutre" };
+  const TEINTES = { VOIE_C: "--series-long", VC3: "--accent", VC5: "--serie-vc5",
+                    VC2: "--status-serious", BTC: "--series-neutre" };
   const teinte = (nom) => couleur(TEINTES[nom] || "--text-muted");
   const VOTES = { momentum_btc: "momentum", taux_reel_10a: "taux réel",
                   inflation_anticipee_10a: "inflation", nasdaq: "Nasdaq", fear_greed: "F&G" };

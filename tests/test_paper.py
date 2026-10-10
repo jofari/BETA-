@@ -180,6 +180,6 @@ def test_les_trois_voies_et_leurs_frais():
     v = paper.voies()
     assert {n: (x.instrument, x.taker_pb) for n, x in v.items()} == {
         "VOIE_C": (paper.PERPETUEL, 5.0), "VC2": (paper.PERPETUEL, 5.0),
-        "VC3": (paper.SPOT, 10.0)}
+        "VC3": (paper.SPOT, 10.0), "VC5": (paper.SPOT, 10.0)}
     assert v["VC3"].slippage_modele_pb == {"BTC": 5.0, "ETH": 5.0, "SOL": 10.0, "BNB": 10.0,
                                            "LINK": 10.0, "XRP": 10.0}

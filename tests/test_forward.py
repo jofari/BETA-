@@ -62,10 +62,11 @@ def test_slippage_moyen_pondere_par_le_notional():
 
 def test_vue_sans_journaux_et_statuts_du_registre(tmp_path):
     v = forward.vue(tmp_path)
-    assert [x["nom"] for x in v["voies"]] == ["VOIE_C", "VC3", "VC2"]
+    assert [x["nom"] for x in v["voies"]] == ["VOIE_C", "VC3", "VC5", "VC2"]
     assert all(x["suivi"] is None and x["paper"] is None for x in v["voies"])
     statuts = {x["nom"]: x["statut"] for x in v["voies"]}
     assert statuts["VC3"].startswith("dry-run") and statuts["VC2"].startswith("informative")
+    assert statuts["VC3"].endswith("le 07/10)") and statuts["VC5"] == "dry-run de 6 mois (confirmée le 10/10)"
 
 
 def test_vue_relit_le_suivi(tmp_path):

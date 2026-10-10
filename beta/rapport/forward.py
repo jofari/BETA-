@@ -21,6 +21,7 @@ from beta.strategies import voie_c_voltarget as vc
 VOIES = (
     ("VOIE_C", "Voie C figée", "perpétuels"),
     ("VC3", "VC3 — poche maximum", "spot"),
+    ("VC5", "VC5 — cible de vol 35 %", "spot"),
     ("VC2", "VC2 — poche achetée", "perpétuels"),
 )
 N_ORDRES = 40                       # derniers ordres paper affiches
@@ -51,9 +52,11 @@ def bilan(rendements: list[float]) -> dict:
 def statut(nom: str, registre: dict) -> str:
     if nom == "VOIE_C":
         return "référence — config figée le 03/10"
-    issue = registre.get(nom, {}).get("derniere_issue")
-    return {"confirmee": "dry-run de 6 mois (confirmée le 07/10)",
-            "infirmee": "informative (infirmée le 07/10)"}.get(issue, issue or "—")
+    entree = registre.get(nom, {})
+    issue, date = entree.get("derniere_issue"), entree.get("date") or ""
+    le = f" le {date[8:10]}/{date[5:7]}" if len(date) == 10 else ""
+    return {"confirmee": f"dry-run de 6 mois (confirmée{le})",
+            "infirmee": f"informative (infirmée{le})"}.get(issue, issue or "—")
 
 
 def suivi(lignes: list[dict]) -> dict | None:
