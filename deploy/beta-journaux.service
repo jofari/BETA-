@@ -7,6 +7,9 @@ After=network-online.target beta-paper.service
 Wants=network-online.target
 
 [Service]
+# Sans HOME (unite systeme sans User=), git ne lit pas /root/.gitconfig ni ses identifiants :
+# push refuse le 11/10 01:15 (« could not read Username »).
+Environment=HOME=/root
 Type=oneshot
 WorkingDirectory=/root/BETA-
 ExecStart=/root/BETA-/scripts/commit_journaux.sh

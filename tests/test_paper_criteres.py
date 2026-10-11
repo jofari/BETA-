@@ -58,3 +58,19 @@ def test_voie_c_jugee_sur_sa_variante_severe(tmp_path):
 
 def test_vc2_jamais_jugee():
     assert "VC2" not in script.JUGEES
+
+
+def test_vc4_comparee_a_son_modele_quotidien_pas_a_ses_consignes(tmp_path):
+    # Panne du 11/10 01:00 : le bilan lisait CONSIGNES_VC4 (cle « instant ») -> KeyError 'date'.
+    voie = paper.voies()["VC4"]
+    _ecrire(tmp_path / voie.suivi, [{"instant": "2026-10-09T00:00:00+00:00", "position": {}}])
+    _ecrire(paper.journal_paper(voie, tmp_path), [
+        {"date": "2026-10-09", "equite_avant": 10_000.0, "equite": 10_000.0, "frais": 0.0,
+         "funding": {}, "ordres": [_ordre(0.4)]},
+        {"date": "2026-10-10", "equite_avant": 10_040.0, "equite": 10_040.0, "frais": 0.0,
+         "funding": {}, "ordres": []}])
+    _ecrire(tmp_path / voie.journal_modele, [{"date": "2026-10-09", "r_net": 0.004},
+                                             {"date": "2026-10-10", "r_net": 0.5}])
+    m = script.mesures(voie, tmp_path, tmp_path)
+    assert voie.journal_modele == "SUIVI_VC4.jsonl" and m["jours_modele"] == 1
+    assert script.franchis(m) == []

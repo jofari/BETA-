@@ -78,6 +78,13 @@ class Voie:
     # « jour » : une consigne par jour UTC, prix du modele = ouverture 00:00 ; « instant »
     # (VC4, 10/10) : une consigne par instant de session, prix du modele = celui de l'instant.
     cadence: str = "jour"
+    # Journal du modele QUOTIDIEN (r_net par date) auquel le bilan compare le paper ; vide =
+    # celui des consignes. VC4 : ses consignes sont par instant, son modele dans SUIVI_VC4.
+    modele: str = ""
+
+    @property
+    def journal_modele(self) -> str:
+        return self.modele or self.suivi
 
 
 def voies() -> dict[str, Voie]:
@@ -97,7 +104,7 @@ def voies() -> dict[str, Voie]:
         # VC4 (10/10) : VC3 a chaque ouverture de session ; consignes par instant.
         "VC4": Voie("VC4", "CONSIGNES_VC4.jsonl", vc4.get("instrument", PERPETUEL),
                     vc4["frais"]["taker_pb"], dict(vc4["frais"]["slippage_pb"]),
-                    cadence="instant"),
+                    cadence="instant", modele="SUIVI_VC4.jsonl"),
     }
 
 

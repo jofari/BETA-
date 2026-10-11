@@ -58,7 +58,7 @@ def mesures(voie: paper.Voie, repertoire: Path, suivis: Path) -> dict | None:
     # decision de 00:00, comme pour les voies quotidiennes.
     premiere_du_jour = next(l for l in lignes if l["date"] == fin)
     # La journee d du suivi = la detention entre les executions de d et de d+1.
-    modele = [l["r_net"] for l in paper.lire_journal(suivis / voie.suivi)
+    modele = [l["r_net"] for l in paper.lire_journal(suivis / voie.journal_modele)
               if debut <= l["date"] < fin]
     ordres = [o for l in lignes for o in l["ordres"]]
     notional = sum(o["notional"] for o in ordres)
