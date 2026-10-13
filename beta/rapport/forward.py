@@ -277,58 +277,32 @@ def vue(racine: Path | None = None) -> dict:
             "genere_le": datetime.now(UTC).isoformat(timespec="seconds")}
 
 
-# --- Valorisation au prix du moment ---------------------------------------------------------
-# Le paper ne s'execute qu'aux passages (01:00 UTC, sessions VC4) : son equite est celle de ce
-# moment-la (le 13/10, en plein creux de la nuit). Ici on revalorise, sans rien ecrire, les
-# quantites et le cash du DERNIER passage aux milieux bid/ask actuels — meme formule que le
-# paper : equite = cash + somme(q * milieu). Le funding couru depuis le passage n'y est pas
-# (il est regle au passage suivant). Route separee : /api/forward reste hors ligne.
-CACHE_VALORISATION_S = 60
-_cache_prix: dict = {"t": 0.0, "prix": None, "le": None}
+# --- Paper en direct ------------------------------------------------------------------------
+# Un seul chiffre paper par voie, releve chaque minute par le timer beta-paper-direct
+# (`beta.paper_direct`, DIRECT_PAPER.jsonl) : le compte du dernier passage aux prix de la
+# minute, net du funding regle. La courbe part des passages quotidiens (PAPER_<voie>.jsonl)
+# tant que le releve minute n'existait pas, puis suit les minutes. Le serveur ne lit pas
+# Binance : il relit le fichier.
+POINTS_MAX = 1500                   # par voie : au-dela, un point sur k (le dernier toujours)
 
 
-def prix_binance() -> dict[str, dict[str, float]]:
-    """Milieux bid/ask actuels par instrument et paire (routes publiques bookTicker)."""
-    import time
-
-    from beta import paper as pp
-    if _cache_prix["prix"] is not None and time.monotonic() - _cache_prix["t"] < CACHE_VALORISATION_S:
-        return _cache_prix["prix"]
-    marche = pp.MarcheBinance()
-    voulus = {f"{p}USDT": p for p in pp.PAIRES}
-    symboles = json.dumps(sorted(voulus), separators=(",", ":"))
-    prix = {}
-    for instrument, params in ((pp.SPOT, {"symbols": symboles}), (pp.PERPETUEL, {})):
-        lignes = marche._get(instrument, "ticker/bookTicker", **params)
-        prix[instrument] = {voulus[l["symbol"]]: (float(l["bidPrice"]) + float(l["askPrice"])) / 2
-                            for l in lignes if l["symbol"] in voulus}
-    _cache_prix.update(t=time.monotonic(), prix=prix,
-                       le=datetime.now(UTC).isoformat(timespec="seconds"))
-    return prix
-
-
-def valorisation(racine: Path | None = None, prix: dict | None = None,
-                 le: str | None = None) -> dict:
+def direct(racine: Path | None = None) -> dict:
+    from beta import paper_direct
     racine = racine or config.RACINE
-    try:
-        prix = prix if prix is not None else prix_binance()
-        le = le or _cache_prix["le"]
-    except Exception as exc:  # noqa: BLE001 — affichage seulement : Binance injoignable
-        return {"erreur": f"prix Binance illisibles : {exc}", "voies": {}}
+    minutes = paper_direct.lire(racine)
     voies = {}
     for nom, _, _ in VOIES:
-        lignes = _lire(racine / f"PAPER_{nom}.jsonl")
-        if not lignes:
+        passages = _lire(racine / f"PAPER_{nom}.jsonl")
+        if not passages:
             continue
-        derniere = lignes[-1]
-        cours = prix.get(derniere["instrument"], {})
-        if any(p not in cours for p, q in derniere["quantites"].items() if q):
-            continue
-        equite = derniere["cash"] + sum(q * cours[p] for p, q in derniere["quantites"].items() if q)
-        voies[nom] = {
-            "equite": equite,
-            "rendement": equite / lignes[0]["capital_initial"] - 1.0,
-            "depuis_passage": equite / derniere["equite"] - 1.0,
-            "dernier_passage": derniere.get("execute_le"),
-        }
-    return {"prix_le": le, "voies": voies}
+        capital = passages[0]["capital_initial"]
+        releves = [(m["t"], m["e"][nom]) for m in minutes if nom in m["e"]]
+        debut_minutes = releves[0][0] if releves else "9999"
+        points = [(l["execute_le"], l["equite"]) for l in passages
+                  if l.get("execute_le") and l["execute_le"] < debut_minutes] + releves
+        pas = max(1, math.ceil(len(points) / POINTS_MAX))
+        garde = points[::pas] + ([points[-1]] if (len(points) - 1) % pas else [])
+        t, e = points[-1]
+        voies[nom] = {"capital": capital, "t": t, "equite": e, "rendement": e / capital - 1.0,
+                      "points": [{"t": x, "r": y / capital - 1.0} for x, y in garde]}
+    return {"voies": voies, "genere_le": datetime.now(UTC).isoformat(timespec="seconds")}

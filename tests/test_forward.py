@@ -5,9 +5,11 @@ import http.client
 import json
 import math
 import threading
+from datetime import UTC, datetime
 
 import pytest
 
+from beta import paper_direct
 from beta.rapport import forward, serveur
 
 
@@ -191,25 +193,57 @@ def test_cadence_instant_consigne_et_paper_compares_au_modele_quotidien(tmp_path
     assert p["modele"] == pytest.approx(0.10) and p["n_jours"] == 2
 
 
-# ------------------------------------------------------------ valorisation au prix du moment
+# ------------------------------------------------------------ paper en direct
 
-def test_valorisation_revalorise_le_dernier_passage_aux_prix_actuels(tmp_path):
-    passage = {**_execution(3_000.0, {"BTC": 0.05, "ETH": 1.0}, {"BTC": 100_000.0, "ETH": 2_000.0}),
-               "instrument": "spot", "capital_initial": 10_000.0}
-    _jsonl(tmp_path / "PAPER_VC3.jsonl", [passage])
-    prix = {"spot": {"BTC": 110_000.0, "ETH": 2_000.0}, "perpetuel": {}}
-    v = forward.valorisation(tmp_path, prix=prix, le="2026-10-13T06:00:00+00:00")
-    x = v["voies"]["VC3"]
-    assert x["equite"] == pytest.approx(3_000.0 + 5_500.0 + 2_000.0)
-    assert x["rendement"] == pytest.approx(0.05) and x["depuis_passage"] == pytest.approx(0.05)
-    assert "VOIE_C" not in v["voies"] and v["prix_le"] == "2026-10-13T06:00:00+00:00"
+def test_equite_directe_spot_aux_prix_de_la_minute():
+    passage = {**_execution(3_000.0, {"BTC": 0.05, "ETH": 1.0},
+                            {"BTC": 100_000.0, "ETH": 2_000.0}), "instrument": "spot"}
+    e = paper_direct.equite(passage, {"BTC": 110_000.0, "ETH": 2_000.0}, {})
+    assert e == pytest.approx(3_000.0 + 5_500.0 + 2_000.0)
 
 
-def test_valorisation_sans_prix_de_l_instrument_ne_devine_rien(tmp_path):
-    passage = {**_execution(3_000.0, {"BTC": 0.05}, {"BTC": 100_000.0}),
-               "instrument": "perpetuel", "capital_initial": 10_000.0}
-    _jsonl(tmp_path / "PAPER_VC2.jsonl", [passage])
-    assert forward.valorisation(tmp_path, prix={"spot": {"BTC": 1.0}})["voies"] == {}
+def test_equite_directe_perpetuels_retire_le_funding_regle_apres_le_passage_seulement():
+    passage = {**_execution(5_000.0, {"BTC": 0.05}, {"BTC": 100_000.0}), "instrument": "perpetuel"}
+    ms = lambda h: int(datetime(2026, 10, 10, h, tzinfo=UTC).timestamp() * 1000)  # noqa: E731
+    echeances = {"BTC": [{"instant": ms(0), "taux": 0.01, "marque": 100_000.0},   # avant
+                         {"instant": ms(8), "taux": 0.0001, "marque": 100_000.0}]}
+    e = paper_direct.equite(passage, {"BTC": 100_000.0}, echeances)
+    assert e == pytest.approx(5_000.0 - 0.05 * 100_000.0 * 0.0001 + 5_000.0)
+
+
+def test_equite_directe_sans_prix_ne_devine_rien():
+    passage = {**_execution(3_000.0, {"BTC": 0.05}, {"BTC": 100_000.0}), "instrument": "spot"}
+    assert paper_direct.equite(passage, {"ETH": 1.0}, {}) is None
+
+
+def test_direct_passages_puis_minutes_un_seul_chiffre(tmp_path):
+    passages = [{**_execution(10_000.0, {}, {}, equite=e), "execute_le": t,
+                 "capital_initial": 10_000.0}
+                for t, e in (("2026-10-11T01:00:00+00:00", 10_000.0),
+                             ("2026-10-12T01:00:00+00:00", 9_900.0),
+                             ("2026-10-13T01:00:00+00:00", 9_800.0))]
+    _jsonl(tmp_path / "PAPER_VC3.jsonl", passages)
+    _jsonl(tmp_path / "DIRECT_PAPER.jsonl", [
+        {"t": "2026-10-13T00:59:00+00:00", "e": {"VC3": 9_850.0}},
+        {"t": "2026-10-13T01:01:00+00:00", "e": {"VC3": 10_100.0}}])
+    (tmp_path / "DIRECT_PAPER.jsonl").open("a").write('{"t": "2026-10-13T01:0')  # en ecriture
+    x = forward.direct(tmp_path)["voies"]["VC3"]
+    assert x["equite"] == 10_100.0 and x["rendement"] == pytest.approx(0.01)
+    assert x["t"] == "2026-10-13T01:01:00+00:00"
+    # Passages tant que le releve minute n'existait pas, puis les minutes seules.
+    assert [p["t"] for p in x["points"]] == [
+        "2026-10-11T01:00:00+00:00", "2026-10-12T01:00:00+00:00",
+        "2026-10-13T00:59:00+00:00", "2026-10-13T01:01:00+00:00"]
+
+
+def test_direct_sous_echantillonne_et_garde_le_dernier_point(tmp_path, monkeypatch):
+    monkeypatch.setattr(forward, "POINTS_MAX", 3)
+    _jsonl(tmp_path / "PAPER_VC3.jsonl", [{**_execution(1.0, {}, {}, equite=10_000.0),
+                                           "capital_initial": 10_000.0}])
+    _jsonl(tmp_path / "DIRECT_PAPER.jsonl", [
+        {"t": f"2026-10-13T02:0{i}:00+00:00", "e": {"VC3": 10_000.0 + i}} for i in range(8)])
+    pts = forward.direct(tmp_path)["voies"]["VC3"]["points"]
+    assert len(pts) <= 4 and pts[-1]["t"] == "2026-10-13T02:07:00+00:00"
 
 
 # ------------------------------------------------------------ allocation pas a pas, verifiee

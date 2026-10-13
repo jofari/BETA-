@@ -1,0 +1,20 @@
+# BETA — paper en direct : l'equite de chaque compte paper relevee chaque minute aux prix
+# Binance (funding regle compris), une ligne dans DIRECT_PAPER.jsonl. Aucun ordre, aucune cle.
+# Installe par : cp deploy/beta-paper-direct.{service,timer} /etc/systemd/system/
+#                systemctl daemon-reload && systemctl enable --now beta-paper-direct.timer
+# Pas d'alerte Discord (OnFailure) : un echec = une minute manquante sur la courbe, la suivante
+# repart. Un trou durable se voit sur le graphique (heure du dernier releve sur chaque carte).
+[Unit]
+Description=BETA - paper en direct (releve minute)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/arit/bin/python scripts/paper_direct.py
+TimeoutStartSec=50
+Nice=10
+CPUQuota=25%
+MemoryMax=512M

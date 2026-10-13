@@ -421,8 +421,12 @@ async function identifierServeur() {
 identifierServeur();
 charger();
 
-/* Le paper et les suivis ecrivent leurs journaux en tache de fond (01:00 UTC, sessions VC4) :
-   l'onglet Forward se relit seul, sans toucher aux autres onglets (calculs plus lourds). */
+/* Le paper en direct est releve chaque minute (timer beta-paper-direct) : la page le relit
+   chaque minute ; le reste de l'onglet Forward toutes les 5 min. Les autres onglets, jamais. */
+let minutes = 0;
 setInterval(() => {
-  if (document.visibilityState === "visible") FORWARD.charger();
-}, 5 * 60 * 1000);
+  if (document.visibilityState !== "visible") return;
+  minutes += 1;
+  if (minutes % 5 === 0) FORWARD.charger();
+  else FORWARD.direct();
+}, 60 * 1000);

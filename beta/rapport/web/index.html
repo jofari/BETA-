@@ -387,11 +387,10 @@
     </div>
 
     <div class="carte">
-      <h2>Paper trading — exécution simulée sur le vrai carnet</h2>
-      <p class="sous">10 000 $ fictifs par voie ; chaque consigne est exécutée au marché contre
-        le carnet Binance vers 01:00 UTC, avec les pas de lot, les minimums, les frais et le
-        funding réels. Trait plein : le paper ; pointillé : le suivi au cours de clôture sur les
-        mêmes journées. L'écart entre les deux, c'est ce que coûte l'exécution réelle.</p>
+      <h2>Paper en direct</h2>
+      <p class="sous">Rendement en % depuis le départ. 10 000 $ fictifs par voie, valorisés chaque minute aux prix Binance (funding
+        réglé compris). Les ordres sont exécutés contre le vrai carnet à 01:00 UTC (VC4 aussi aux
+        sessions). La page se met à jour toute seule chaque minute.</p>
       <canvas class="graphique" id="forward-paper" height="260"></canvas>
       <div id="forward-paper-legende"></div>
     </div>

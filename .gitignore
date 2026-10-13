@@ -16,3 +16,6 @@ venv/
 
 # Secrets
 .env
+
+# Paper en direct : releve minute, regenere par le timer beta-paper-direct (les PAPER_*.jsonl font foi)
+DIRECT_PAPER.jsonl

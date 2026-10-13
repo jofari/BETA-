@@ -8,7 +8,7 @@
 
 const FORWARD = (() => {
   const $$ = (sel) => document.querySelector(sel);
-  const etat = { vue: null, valo: null };
+  const etat = { vue: null, direct: null };
 
   const echapper = (t) => String(t ?? "").replace(/[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -104,17 +104,45 @@ const FORWARD = (() => {
     return series;
   }
 
-  function seriesPaper(vue) {
-    const series = [];
-    for (const v of vue.voies) {
-      if (!v.paper) continue;
-      const pts = v.paper.points;
-      series.push({ nom: v.titre + " — paper", couleur: teinte(v.nom),
-                    points: pts.map((p) => ({ date: p.date, v: 100 * p.paper, plein: true })) });
-      series.push({ nom: v.titre + " — modèle", couleur: teinte(v.nom), pointille: true,
-                    points: pts.map((p) => ({ date: p.date, v: 100 * p.modele, plein: true })) });
+  /* Le paper en direct : une courbe par voie, en temps reel (les passages quotidiens, puis
+     un point par minute), rendement depuis le premier jour. Rien d'autre sur ce graphique. */
+  function courbesDirect(canvas, direct) {
+    const { ctx, large, haut } = preparer(canvas);
+    const series = Object.entries((direct && direct.voies) || {}).map(([nom, x]) => ({
+      nom, points: x.points.map((p) => ({ t: Date.parse(p.t), v: 100 * p.r })) }));
+    const tous = series.flatMap((s) => s.points);
+    if (tous.length < 2) return vide(ctx, large, haut,
+      "Le paper en direct démarre avec le premier relevé (chaque minute).");
+    const marge = { gauche: 46, droite: 12, haut: 14, bas: 22 };
+    const tMin = Math.min(...tous.map((p) => p.t)), tMax = Math.max(...tous.map((p) => p.t));
+    const vs = tous.map((p) => p.v).concat([0]);
+    const ecart = (Math.max(...vs) - Math.min(...vs)) * 0.08 || 1;
+    const yMin = Math.min(...vs) - ecart, yMax = Math.max(...vs) + ecart;
+    const x = (t) => marge.gauche + (large - marge.gauche - marge.droite) * (t - tMin)
+      / ((tMax - tMin) || 1);
+    const y = (v) => marge.haut + (haut - marge.haut - marge.bas) * (yMax - v) / (yMax - yMin);
+    // Axe en % : 0 = le capital de depart (10 000 $).
+    axes(ctx, large, haut, marge, yMin, yMax, y(0));
+    ctx.lineWidth = 2;
+    for (const s of series) {
+      ctx.strokeStyle = teinte(s.nom);
+      ctx.beginPath();
+      s.points.forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, x(p.t), y(p.v)));
+      ctx.stroke();
     }
-    return series;
+    ctx.fillStyle = couleur("--text-muted");
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(heureUtc(new Date(tMin).toISOString()), marge.gauche, haut - 6);
+    ctx.textAlign = "right";
+    ctx.fillText(heureUtc(new Date(tMax).toISOString()), large - marge.droite, haut - 6);
+  }
+
+  function legendeDirect(vue) {
+    $$("#forward-paper-legende").innerHTML = '<ul class="legende">' + vue.voies
+      .filter((v) => etat.direct && etat.direct.voies && etat.direct.voies[v.nom])
+      .map((v) => `<li><span class="pastille" style="background:${teinte(v.nom)}"></span>`
+        + echapper(v.titre) + "</li>").join("") + "</ul>";
   }
 
   /* ---------- cartes par voie ------------------------------------------------------------ */
@@ -171,26 +199,18 @@ const FORWARD = (() => {
       ["Exposition", exposition],
       ["Effet de levier", levier],
       ["Consigne", consigne],
-      ["Paper", p ? `<span class="${ton(p.rendement)}">${pc(p.rendement)}</span> sur ${p.n_jours} j`
-        + ` <span class="muet">· modèle ${pc(p.modele)}</span>` : "démarre au prochain passage"],
-      ["Paper maintenant", maintenant(v.nom)],
-      ["Dernier passage", p ? heureUtc(p.dernier_passage) : "—"],
+      ["Paper", paperDirect(v.nom, p)],
     ];
     return `<div class="carte voie">${tete}<dl class="voie-dl">${lignes.map(([k, x]) =>
       `<dt>${k}</dt><dd>${x}</dd>`).join("")}</dl></div>`;
   }
 
-  /* Le paper n'est execute qu'aux passages : son chiffre est celui de 01:00. Ici, la meme
-     position revalorisee aux prix actuels (sans le funding couru), relue avec la page. */
-  function maintenant(nom) {
-    const valo = etat.valo;
-    if (!valo) return '<span class="muet">prix en cours de lecture…</span>';
-    if (valo.erreur) return `<span class="muet">${echapper(valo.erreur)}</span>`;
-    const x = valo.voies[nom];
-    if (!x) return "—";
-    return `<span class="${ton(x.rendement)}">${pc(x.rendement)}</span>`
-      + ` <span class="muet">· ${pc(x.depuis_passage)} depuis le`
-      + ` passage · prix de ${heureUtc(valo.prix_le).slice(11)}</span>`;
+  /* LE chiffre paper : le compte valorise a la derniere minute relevee, funding regle inclus. */
+  function paperDirect(nom, p) {
+    const x = etat.direct && etat.direct.voies && etat.direct.voies[nom];
+    if (!x) return p ? "relevé en cours…" : "démarre au prochain passage";
+    return `<strong class="${ton(x.rendement)}">${pc(x.rendement)}</strong>`
+      + ` <span class="muet">· ${usdt(x.equite)} · ${heureUtc(x.t).slice(11)}</span>`;
   }
 
   function heureUtc(iso) {
@@ -471,12 +491,11 @@ const FORWARD = (() => {
   function dessiner() {
     const vue = etat.vue;
     if (!vue || vue.erreur) return;
-    const sSuivi = seriesSuivi(vue), sPaper = seriesPaper(vue);
+    const sSuivi = seriesSuivi(vue);
     courbes($$("#forward-suivi"), sSuivi, "Aucun suivi sur cette machine.");
     legende("#forward-suivi-legende", sSuivi);
-    courbes($$("#forward-paper"), sPaper,
-            "Le paper démarre au prochain passage du timer (01:00 UTC).");
-    legende("#forward-paper-legende", sPaper);
+    courbesDirect($$("#forward-paper"), etat.direct);
+    legendeDirect(vue);
   }
 
   function rendre() {
@@ -492,11 +511,17 @@ const FORWARD = (() => {
     $$("#forward-positions").innerHTML = tablePositions(vue);
     $$("#forward-execution").innerHTML = tableExecution(vue);
     $$("#forward-ordres").innerHTML = tableOrdres(vue);
-    // « relu » = lecture des journaux par la page, PAS l'heure du paper (voir « Dernier passage »).
     $$("#forward-genere").textContent = "Journaux relus le " + heureUtc(vue.genere_le)
-      + " · la page se relit seule toutes les 5 min · paper : chaque jour 01:00 UTC,"
-      + " VC4 aux ouvertures de Londres et New York (semaine)";
+      + " · ordres : chaque jour 01:00 UTC, VC4 aux ouvertures de Londres et New York (semaine)";
     dessiner();
+  }
+
+  async function chargerDirect() {
+    try {
+      etat.direct = await fetch("/api/forward/direct").then((r) => r.json());
+    } catch (exc) {
+      etat.direct = null;
+    }
   }
 
   async function charger() {
@@ -505,15 +530,15 @@ const FORWARD = (() => {
     } catch (exc) {
       etat.vue = { erreur: "serveur injoignable : " + exc.message };
     }
+    await chargerDirect();
     rendre();
-    // Les prix viennent de Binance (quelques centaines de ms) : la page s'affiche sans attendre.
-    try {
-      etat.valo = await fetch("/api/forward/valorisation").then((r) => r.json());
-    } catch (exc) {
-      etat.valo = { erreur: "valorisation injoignable : " + exc.message };
-    }
+  }
+
+  // Chaque minute : le paper seul (cartes + graphique), sans relire le reste.
+  async function direct() {
+    await chargerDirect();
     if (etat.vue && !etat.vue.erreur) rendre();
   }
 
-  return { charger, redessiner: dessiner, aDesDonnees: () => !!(etat.vue && !etat.vue.erreur) };
+  return { charger, direct, redessiner: dessiner, aDesDonnees: () => !!(etat.vue && !etat.vue.erreur) };
 })();
