@@ -326,36 +326,68 @@ const FORWARD = (() => {
       ? "ordres de réduction" : "garder les positions"}</strong>`;
   }
 
-  function tableMoteur(m) {
-    const lignes = Object.entries(m.paires).map(([paire, x]) => [
-      paire, part(x.vol_180j, 0),
-      { html: pcfr(x.momentum), classe: x.momentum >= 0 ? "pos" : "neg" },
-      x.tendance_active ? "oui" : "non", part(x.poids_base), part(x.poids_tendance),
-      part(x.composite), { html: part(x.voulu), classe: "fort" }]);
-    lignes.push(["total", "", "", "", "", "", part(m.somme_composite),
-                 { html: part(m.brut_voulu), classe: "fort" }]);
-    return table(["paire", "vol 180 j", "momentum 126 j", "tendance", "poids base",
-                  "poids tendance", "composite", "voulu (× levier)"], lignes);
+  /* L'allocation en quatre etapes. Les chiffres et les controles viennent du serveur
+     (forward.pas_a_pas), qui refait chaque etape et la compare au journal : ici, on affiche. */
+  function pasAPas(pp) {
+    const h = pp.params, e1 = pp.etape1, e2 = pp.etape2, e3 = pp.etape3, e4 = pp.etape4;
+    const ko = (n) => pp.controles.filter((c) => c.etape === n && !c.ok);
+    const verdict = (n) => ko(n).length
+      ? `<p class="erreur">Ne se recoupe pas avec le journal : ${ko(n).map((c) =>
+          echapper(c.libelle)).join(", ")}. L'explication ne décrit pas ce que la chaîne a fait.</p>`
+      : `<p class="muet">✓ recalculé et identique au journal (${pp.controles.filter((c) =>
+          c.etape === n).length} contrôle(s))</p>`;
+    const tete = pp.verifie
+      ? `<p class="sous">Chaque étape est refaite par le serveur à partir de l'étape précédente et
+          comparée à ce que la chaîne a journalisé : <strong>${pp.controles.length} contrôles, tous
+          identiques</strong>. Valeurs lues le ${pp.lu} (veille de la consigne).</p>`
+      : `<p class="erreur">${pp.controles.filter((c) => !c.ok).length} contrôle(s) en échec :
+          ne pas se fier à cette explication, voir journalctl -u beta-suivi-*.</p>`;
+    const t1 = table(["paire", `vol ${h.fenetre_vol_jambes} j`, "1 / vol", "poids de base",
+                      `momentum ${h.fenetre_mom} j`, "jambe tendance", "poids final"],
+      e1.paires.map((x) => [x.paire, part(x.vol, 0), nombre(x.inverse, 2), part(x.base),
+        { html: pcfr(x.momentum), classe: x.momentum >= 0 ? "pos" : "neg" },
+        x.tendance_active ? part(x.tendance) : '<span class="neg">0 (en baisse)</span>',
+        { html: part(x.composite), classe: "fort" }])
+        .concat([["total", "", "", "100,0 %", "", "", { html: part(e1.somme_composite), classe: "fort" }]]));
+    const t3 = table(["paire", "poids final", `voulu = poids × ${nombre(e2.en_vigueur, 2)}`
+                      + (e3.echelle < 1 ? ` × ${nombre(e3.echelle, 3)} (plafond)` : "")],
+      e1.paires.map((x) => [x.paire, part(x.composite), { html: part(x.voulu), classe: "fort" }])
+        .concat([["total", part(e1.somme_composite), { html: part(e3.brut_voulu), classe: "fort" }]]));
+    const garde = e2.change ? "le calcul s'est écarté de plus du seuil : le levier <strong>change</strong>"
+      : `écart ${nombre(e2.ecart, 2)} ≤ seuil ${nombre(h.seuil_levier, 2)} : on <strong>garde</strong> l'ancien`;
+    return `<h3>Comment l'allocation est calculée</h3>${tete}
+      <h4>1. Poids de chaque paire</h4>
+      <p class="sous">Moitié <strong>base</strong> : chaque paire pèse l'inverse de sa volatilité
+        ${h.fenetre_vol_jambes} j, ramené à 100 % (une paire calme pèse plus). Moitié
+        <strong>tendance</strong> : le même poids, seulement si la paire a monté sur ${h.fenetre_mom} j ;
+        sinon 0, et cette part reste en cash (pas redistribuée). Poids final = ½ base + ½ tendance.</p>
+      ${t1}${verdict(1)}
+      <h4>2. Taille totale (« levier » du moteur)</h4>
+      <p class="sous">Cible de vol ${part(e2.cible_vol, 0)} ÷ vol du portefeuille ${h.fenetre} j
+        ${part(e2.sigma)} = ${nombre(e2.brut, 2)}, borné ${nombre(h.lmin, 2)}–${nombre(h.lmax, 1)}
+        → <strong>${nombre(e2.calcule, 2)}</strong>. En vigueur : <strong>${nombre(e2.en_vigueur, 2)}</strong>
+        (${garde}). Ce n'est pas un emprunt : c'est la part du capital investie.</p>${verdict(2)}
+      <h4>3. Position voulue</h4>
+      <p class="sous">Poids final × ${nombre(e2.en_vigueur, 2)}`
+        + (e3.plafond !== null && e3.plafond !== undefined ? `, ramené à ${part(e3.plafond, 0)} investi au plus (spot, sans emprunt)` : "")
+        + `. Le reste est du cash.</p>${t3}${verdict(3)}
+      <h4>4. Rééquilibrer ou non</h4>
+      <p class="sous">Règle (${echapper(pp.etat)}) : ${echapper(e4.regle)}. Tenu ${part(e4.brut_tenu)}
+        investi, voulu ${part(e3.brut_voulu)} ; somme des écarts par paire ${part(e4.ecart)},
+        bande ${part(e4.bande, 0)} → <strong>${e4.trade ? "rééquilibrer vers le voulu"
+        : "garder les positions (aucun ordre)"}</strong>. Investi après décision :
+        <strong>${part(e4.brut_final)}</strong>, cash ${part(1 - e4.brut_final)}.</p>${verdict(4)}`;
   }
 
   function blocIndicateurs(v, ouvert) {
     const c = v.suivi && v.suivi.consigne, ind = c && c.indicateurs;
     if (!ind) return "";
-    const s = ind.seuils, m = ind.moteur, h = m ? m.params : {};
+    const s = ind.seuils;
     const alerte = ind.coherent ? "" : '<p class="erreur">Indicateurs incohérents avec la chaîne '
       + "de calcul : ne pas s'y fier (voir journalctl -u beta-suivi-*).</p>";
     const votes = table(["indicateur", "lu le", "valeur", "comparaison", "règle", "vote"],
       Object.entries(ind.votes).map(([nom, x]) => ligneVote(nom, x).concat([puceVote(x.vote)])));
-    const moteur = !m ? "" : `<h3>Moteur de sizing (régime haussier)</h3>
-      <p class="sous">Volatilité du portefeuille sur ${h.fenetre} j : <strong>${part(m.sigma)}</strong>
-        pour une cible de <strong>${part(m.cible_vol, 0)}</strong> → levier calculé ${nombre(m.levier_calcule, 2)} (borné ${nombre(h.lmin, 2)}–${nombre(h.lmax, 1)}) ;
-        levier en vigueur <strong>${nombre(m.levier, 2)}</strong> (ne bouge que si le calcul s'en écarte
-        de plus de ${nombre(h.seuil_levier, 2)}). Poids = ${nombre(100 * h.poids_jambes, 0)} % jambe de base
-        (inverse de la vol ${h.fenetre_vol_jambes} j) + ${nombre(100 * h.poids_jambes, 0)} % jambe de tendance
-        (la même, seulement si le momentum ${h.fenetre_mom} j est positif), × levier`
-        + (m.plafond_brut ? `, plafonné à ${part(m.plafond_brut, 0)} investi (spot, sans emprunt)` : "")
-        + `. Vols annualisées en racine de 252, comme la cible. Lu le ${m.lu}.</p>
-      ${tableMoteur(m)}`;
+    const moteur = v.pas_a_pas ? pasAPas(v.pas_a_pas) : "";
     return `<details class="indicateurs" ${ouvert ? "open" : ""}>
       <summary><span class="pastille" style="background:${teinte(v.nom)}"></span>
         ${echapper(v.titre)} — consigne du ${ind.date} :

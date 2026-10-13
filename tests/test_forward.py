@@ -210,3 +210,78 @@ def test_valorisation_sans_prix_de_l_instrument_ne_devine_rien(tmp_path):
                "instrument": "perpetuel", "capital_initial": 10_000.0}
     _jsonl(tmp_path / "PAPER_VC2.jsonl", [passage])
     assert forward.valorisation(tmp_path, prix={"spot": {"BTC": 1.0}})["voies"] == {}
+
+
+# ------------------------------------------------------------ allocation pas a pas, verifiee
+
+def _consigne_moteur(*, etat="haussier", momentum_eth=0.2, levier=0.8, levier_calcule=0.7,
+                     sigma=0.2 / 0.7, plafond=1.0, tenu=0.70, ecart=0.05, trade=False):
+    vols = {"BTC": 0.30, "ETH": 0.60}
+    inv = {p: 1 / v for p, v in vols.items()}
+    s = sum(inv.values())
+    paires, somme = {}, 0.0
+    for p, v in vols.items():
+        actif = p == "BTC" or momentum_eth > 0
+        base = inv[p] / s
+        comp = 0.5 * (base + (base if actif else 0.0))
+        somme += comp
+        paires[p] = {"vol_180j": v, "momentum": 0.3 if p == "BTC" else momentum_eth,
+                     "tendance_active": actif, "poids_base": base,
+                     "poids_tendance": base if actif else 0.0, "composite": comp, "voulu": None}
+    brut = somme * levier
+    echelle = plafond / brut if plafond is not None and brut > plafond else 1.0
+    for x in paires.values():
+        x["voulu"] = x["composite"] * levier * echelle
+    moteur = {"lu": "2026-10-12", "cible_vol": 0.2, "sigma": sigma,
+              "levier_calcule": levier_calcule, "levier": levier,
+              "params": {"fenetre_vol_jambes": 180, "fenetre_mom": 126, "poids_jambes": 0.5,
+                         "fenetre": 30, "lmin": 0.25, "lmax": 2.0, "seuil_levier": 0.25,
+                         "bande": 0.2},
+              "somme_composite": somme, "brut_moteur": brut, "plafond_brut": plafond,
+              "brut_voulu": brut * echelle, "paires": paires}
+    return {"date": "2026-10-13", "etat": etat, "trade": trade, "brut": tenu,
+            "indicateurs": {"etat": etat, "moteur": moteur,
+                            "execution": {"brut_tenu": tenu, "brut_voulu": brut * echelle,
+                                          "ecart": ecart, "bande": 0.2}}}
+
+
+def test_pas_a_pas_refait_chaque_etape_et_la_verifie():
+    pp = forward.pas_a_pas(_consigne_moteur())
+    assert pp["verifie"] and all(c["ok"] for c in pp["controles"])
+    btc = pp["etape1"]["paires"][0]
+    assert btc["base"] == pytest.approx(2 / 3) and btc["composite"] == pytest.approx(2 / 3)
+    assert pp["etape2"]["change"] is False and pp["etape2"]["ecart"] == pytest.approx(0.1)
+    assert pp["etape3"]["brut_voulu"] == pytest.approx(0.8)
+
+
+def test_pas_a_pas_paire_en_baisse_perd_sa_jambe_tendance_sans_renormaliser():
+    pp = forward.pas_a_pas(_consigne_moteur(momentum_eth=-0.1))
+    eth = pp["etape1"]["paires"][1]
+    assert eth["tendance"] == 0.0 and eth["composite"] == pytest.approx(0.5 / 3)
+    assert pp["etape1"]["somme_composite"] == pytest.approx(5 / 6) and pp["verifie"]
+
+
+def test_pas_a_pas_plafond_spot_et_decision_d_ordre():
+    pp = forward.pas_a_pas(_consigne_moteur(levier=1.5, levier_calcule=1.5, sigma=0.2 / 1.5,
+                                            ecart=0.4, trade=True))
+    assert pp["etape3"]["echelle"] == pytest.approx(1 / 1.5) and pp["etape3"]["brut_voulu"] == pytest.approx(1.0)
+    assert pp["etape2"]["change"] is True and pp["verifie"]
+
+
+def test_pas_a_pas_veille_ne_fait_que_reduire():
+    assert forward.pas_a_pas(_consigne_moteur(etat="veille", tenu=0.70, ecart=0.3))["verifie"]
+    pp = forward.pas_a_pas(_consigne_moteur(etat="veille", tenu=1.10, ecart=0.3, trade=False))
+    assert not pp["verifie"]                       # tenu - voulu = 0,3 > bande : il fallait reduire
+
+
+def test_pas_a_pas_signale_une_valeur_journalisee_qui_ne_se_recoupe_pas():
+    c = _consigne_moteur()
+    c["indicateurs"]["moteur"]["paires"]["ETH"]["voulu"] += 0.01
+    pp = forward.pas_a_pas(c)
+    assert not pp["verifie"]
+    assert [x["libelle"] for x in pp["controles"] if not x["ok"]] == ["ETH : voulu"]
+
+
+def test_pas_a_pas_ordre_contraire_a_la_regle_est_signale():
+    assert not forward.pas_a_pas(_consigne_moteur(ecart=0.05, trade=True))["verifie"]
+    assert forward.pas_a_pas(None) is None and forward.pas_a_pas({"indicateurs": {}}) is None

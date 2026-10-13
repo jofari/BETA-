@@ -80,6 +80,99 @@ def suivi(lignes: list[dict]) -> dict | None:
     }
 
 
+TOLERANCE_PAS = 5e-4                # le journal arrondit a 6 decimales
+
+
+def pas_a_pas(consigne: dict | None) -> dict | None:
+    """L'allocation de la consigne du jour, etape par etape, CONTRE-VERIFIEE.
+
+    Rien n'est decide ici : la chaine (`c2_suivi`) a deja calcule et journalise chaque brique
+    (`indicateurs.moteur`, `indicateurs.execution`). On refait chaque etape a partir des briques
+    de l'etape precedente, par la formule ecrite en clair, et on compare au resultat journalise.
+    Un controle faux = l'explication affichee ne decrit pas ce que la chaine a fait : a creuser,
+    jamais a corriger ici. Voies a cadence quotidienne seulement (VC4 ne journalise pas le moteur).
+    """
+    ind = (consigne or {}).get("indicateurs") or {}
+    m, ex = ind.get("moteur"), ind.get("execution")
+    if not m or not ex:
+        return None
+    h = m["params"]
+    controles: list[dict] = []
+
+    def controle(etape: int, libelle: str, attendu: float, journal: float | None) -> bool:
+        ok = journal is not None and abs(attendu - journal) <= TOLERANCE_PAS
+        controles.append({"etape": etape, "libelle": libelle, "attendu": attendu,
+                          "journal": journal, "ok": ok})
+        return ok
+
+    # 1. Poids : 50 % base (inverse de la vol) + 50 % tendance (idem si momentum > 0).
+    inverses = {p: 1.0 / x["vol_180j"] for p, x in m["paires"].items() if x["vol_180j"]}
+    somme_inv = sum(inverses.values())
+    poids = []
+    for paire, x in m["paires"].items():
+        base = inverses.get(paire, 0.0) / somme_inv if somme_inv else 0.0
+        tendance = base if x["tendance_active"] else 0.0
+        composite = h["poids_jambes"] * (base + tendance)
+        controle(1, f"{paire} : poids de base", base, x["poids_base"])
+        controle(1, f"{paire} : composite", composite, x["composite"])
+        poids.append({"paire": paire, "vol": x["vol_180j"], "inverse": inverses.get(paire),
+                      "base": base, "momentum": x["momentum"],
+                      "tendance_active": x["tendance_active"], "tendance": tendance,
+                      "composite": composite})
+    somme_composite = sum(x["composite"] for x in poids)
+    controle(1, "somme des composites", somme_composite, m["somme_composite"])
+
+    # 2. Taille : cible de vol / vol du portefeuille, bornee, avec hysteresis.
+    brut_calcule = m["cible_vol"] / m["sigma"] if m["sigma"] else None
+    calcule = min(max(brut_calcule, h["lmin"]), h["lmax"]) if brut_calcule else None
+    controle(2, "levier calcule", calcule, m["levier_calcule"])
+    ecart_levier = abs(m["levier_calcule"] - m["levier"])
+    change = ecart_levier <= TOLERANCE_PAS
+    # En vigueur = calcule (il vient de bouger) ou ecart <= seuil (on garde l'ancien).
+    controles.append({"etape": 2, "libelle": "hysteresis du levier", "attendu": h["seuil_levier"],
+                      "journal": ecart_levier, "ok": change or ecart_levier <= h["seuil_levier"]})
+
+    # 3. Position voulue : composite x levier en vigueur, plafonnee (spot : pas d'emprunt).
+    brut_moteur = somme_composite * m["levier"]
+    plafond = m.get("plafond_brut")
+    echelle = plafond / brut_moteur if plafond is not None and brut_moteur > plafond else 1.0
+    for x in poids:
+        x["voulu"] = x["composite"] * m["levier"] * echelle
+        controle(3, f"{x['paire']} : voulu", x["voulu"], m["paires"][x["paire"]]["voulu"])
+    brut_voulu = brut_moteur * echelle
+    controle(3, "investi voulu", brut_voulu, m["brut_voulu"])
+    controle(3, "investi voulu (execution)", brut_voulu, ex["brut_voulu"])
+
+    # 4. Ordre ou non : regle de l'etat du jour sur l'ecart tenu / voulu.
+    etat = ind.get("etat")
+    if etat == "haussier":
+        regle = "somme des écarts |voulu − tenu| par paire > bande"
+        attendu = ex["ecart"] > ex["bande"]
+    elif etat == "veille":
+        regle = "investi tenu − investi voulu > bande (réduction seulement)"
+        attendu = ex["brut_tenu"] - ex["brut_voulu"] > ex["bande"]
+    else:
+        regle, attendu = "baissier : règles de poche et de coupe des alts", None
+    if attendu is not None:
+        controles.append({"etape": 4, "libelle": "décision d'ordre", "attendu": attendu,
+                          "journal": bool(consigne.get("trade")),
+                          "ok": attendu == bool(consigne.get("trade"))})
+    return {
+        "etat": etat, "lu": m["lu"], "params": h,
+        "etape1": {"paires": poids, "somme_composite": somme_composite},
+        "etape2": {"cible_vol": m["cible_vol"], "sigma": m["sigma"], "brut": brut_calcule,
+                   "calcule": m["levier_calcule"], "en_vigueur": m["levier"],
+                   "ecart": ecart_levier, "change": change},
+        "etape3": {"brut_moteur": brut_moteur, "plafond": plafond, "echelle": echelle,
+                   "brut_voulu": brut_voulu},
+        "etape4": {"regle": regle, "brut_tenu": ex["brut_tenu"], "ecart": ex["ecart"],
+                   "bande": ex["bande"], "trade": bool(consigne.get("trade")),
+                   "brut_final": consigne.get("brut")},
+        "controles": controles,
+        "verifie": all(c["ok"] for c in controles),
+    }
+
+
 def allocation(ligne: dict) -> dict | None:
     """Le compte paper apres sa derniere execution : ce que vaut chaque ligne, le cash, et s'il
     y a un effet de levier.
@@ -178,6 +271,7 @@ def vue(racine: Path | None = None) -> dict:
             "statut": statut(nom, registre),
             "suivi": s,
             "paper": paper(_lire(racine / f"PAPER_{nom}.jsonl"), lignes_suivi),
+            "pas_a_pas": pas_a_pas(s["consigne"]) if s else None,
         })
     return {"voies": voies, "paires": list(vc.PAIRES),
             "genere_le": datetime.now(UTC).isoformat(timespec="seconds")}
