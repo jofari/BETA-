@@ -3,7 +3,8 @@
 Demande de Jonas (2026-10-08) : « deployer les 3 voies C en paper pour voir les resultats sur
 du long terme » — la voie C figee du 03/10, VC2 (infirmee, suivie pour information) et VC3
 (en dry-run). Il a choisi l'execution simulee plutot que le testnet ou le seul suivi au cours
-de cloture.
+de cloture. Depuis les 10-11/10, cinq voies : VC4 (decidee a chaque session) et VC5 (cible de
+vol 35 %) s'y sont ajoutees, en spot comme VC3.
 
 Ce que le paper ajoute aux suivis (SUIVI_*.jsonl) : l'EXECUTION. Les suivis traitent au cours
 de cloture de 00:00 UTC et modelisent le slippage (0 pour la voie C, 5/10 pb par cote pour
@@ -29,7 +30,8 @@ en USDT et une quantite par paire. Acheter q au prix f : cash -= q*f + frais ; v
 cash += q*f - frais ; equite = cash + somme(q * milieu). En perpetuels, q < 0 est un short, et
 chaque echeance de funding retire q * prix de marque * taux du cash (le long paie quand le
 taux est positif). Le spot interdit q < 0 et le cash negatif. Marge et liquidation ne sont
-pas simulees : le brut reste <= 2 (voie C, VC2) et <= 1 (VC3), loin de toute liquidation.
+pas simulees : le brut reste <= 2 (voie C, VC2) et <= 1 (VC3, VC4, VC5 : spot), loin de toute
+liquidation.
 """
 
 from __future__ import annotations

@@ -366,14 +366,14 @@ gagnante glissée dedans, il la **voit** (p ≤ 0,05, et c'est bien elle qu'il n
 |---|---|---|---|
 | ~~T1~~ | ~~Repo distant privé non créé~~ | ✅ fermée 19/08 — `github.com/jofari/BETA-`, rebasé sur le commit initial et poussé | — |
 | **T2** | **venv partagé avec ARIT** (`C:\Users\jofar\venvs\arit`) | 🔴 ouverte | une mise à jour pour ARIT casse BETA, ou l'inverse |
-| **T3** | **Bornes de fin hétérogènes** — ~~LINK/XRP au 18/08, les 4 paires d'ARIT au 04/08~~ ⇒ **mise à jour 11/09 : LINK/XRP au 11/09, les 4 paires d'ARIT au 24/08** (écart de 18 jours, contre 14 avant) | 🔴 ouverte | un run multi-paires s'arrête à la borne commune sans le dire ; visible dans le dashboard, à ne pas oublier au moment de conclure |
+| ~~T3~~ | ~~**Bornes de fin hétérogènes**~~ — les paires s'arrêtaient à des dates différentes | ✅ **résolue** (constaté par l'audit du 13/10) : depuis le 03/10, `beta-maj` complète les six paires chaque nuit ; toutes finissent la même veille | — |
 | **T4** | **`ts_utc` du journal d'ARIT ment** sur les événements `gestion` (heure d'exécution du backtest, pas de la bougie). Contourné côté BETA par `signal_id`. ⚠️ **La correction appartient à ARIT** : inscrite là-bas le 19/08 sous **T4-ARIT** (`ARIT2.0/research/pistes_2026-07-31/CHANTIERS.md` § MISE À JOUR DU 2026-08-19) — cause exacte : `ev_gestion()` ne pose pas de `ts_utc`, `write()` retombe sur `_now_iso()` | 🔴 ouverte (contournée ici, **non corrigée** à la source) — **revérifiée le 11/09 dans `journal.py` d'ARIT : `ev_gestion` ne pose toujours pas de `ts_utc`** | à corriger **à la source**, côté ARIT, sinon chaque nouveau consommateur retombera dedans |
-| **T5** | **Le pont freqtrade n'a pas ses données** — `--datadir` pointe sur `data/raw`, où seuls LINK et XRP sont en feather ; BTC/ETH/SOL/BNB ne vivent qu'en parquet dans le lake | 🔴 ouverte | la confirmation portefeuille (M3) ne peut tourner que sur 2 paires sur 6. Faire lire `ARIT2.0/user_data/data/` à freqtrade lui ferait écrire dans le dossier d'ARIT — **interdit par l'invariant n° 1** — donc à résoudre par un export feather depuis le lake |
+| ~~T5~~ | ~~**Le pont freqtrade n'a pas ses données**~~ (seuls LINK et XRP en feather dans `data/raw`) | ✅ **résolue** (constaté le 13/10) : `lake.maj` tient les feathers des six paires dans `data/raw/futures` depuis le 03/10. Le pont, lui, n'a encore jamais été lancé | — |
 | **T6** | **Chemins synthétiques rejoués sur une seule paire** (la première du run) | 🟠 ouverte, assumée | le coût est linéaire en nombre de paires ; la réserve est écrite dans chaque verdict, elle n'est donc pas silencieuse |
 | ~~T9~~ | ~~**S1 n'est JAMAIS exécutée par le pipeline.**~~ `pipeline.executer` ne passe pas `famille=` à `batterie.evaluer`, donc `portes["S1_benjamini_hochberg"]` reste `None`. Or `issue()` n'accorde CONFIRMEE que si **les neuf** portes ont tourné. ⇒ **aucune candidate ne peut être confirmée aujourd'hui : le plafond du banc est INDECIDABLE.** Vérifié sur le run `e9238689db9b`. Corriger demande de décider ce qu'est la famille pour un criblage — le lot du run, ou les hypothèses déclarées (`famille_taille`) comme le fait `scripts/mesurer.py`. Deux seuils différents, donc un arbitrage, cousin de A1 | ✅ **fermée 20/08** — `cribler()` construit la famille du lot et la passe à `batterie.evaluer` | — |
 | ~~T10~~ | ~~**Le criblage ne clôt pas l'expérience.**~~ R2 est mesurée (INFIRMEE) mais `EXPERIMENTS.jsonl` la dit toujours `preenregistre` : `pipeline` écrit le verdict dans `data/runs/` et `RUNS.jsonl`, jamais `experiences.clore()`. R1 et R6 ne sont closes que parce que `scripts/mesurer.py` le fait à la main | ✅ **fermée 20/08** — `pipeline` appelle `marquer_mesuree()` : statut `mesure`, la clôture reste un geste explicite | — |
 | ~~T8~~ | ~~**Le compteur d'essais compte les HYPOTHÈSES, pas les MESURES.**~~ `compteur()` = 30 + nombre d'ids distincts dans `EXPERIMENTS.jsonl`. Tant qu'il y avait une candidate par hypothèse les deux nombres coïncidaient ; l'atelier casse l'égalité — dix candidates sous R7, c'est dix tests et **un seul point de compteur**. `RUNS.jsonl` (racine, append-only, ajouté le 19/08) **mesure** l'écart, `beta.py doctor` l'affiche, et **rien ne change encore** : faire porter N par les runs durcirait rétroactivement tous les verdicts déjà rendus. ⇒ arbitrage de Jonas, `DECISIONS.md` § A1 | ✅ **fermée 20/08** — arbitrage A1 tranché (b), `compteur()` porte les mesures. N vaut toujours 36 : rien n'est réécrit | — |
-| **T11** | **Les runs de `data/runs/` ne couvrent pas tous la même fenêtre** — ceux d'avant le 11/09 ont été mesurés sur un lake qui s'arrêtait au 04/08 (4 paires) et au 18/08 (LINK/XRP) | 🟠 ouverte, assumée | aucune mesure ne ment — la comparaison de courbes aligne sur la période commune (`stats/comparaison.py:_ecart_contre`) et S7 tronque à la plus courte (`stats/multitest.py:_matrice`, **par index, pas par date**) — mais un run rejoué aujourd'hui n'est plus le jumeau exact de celui d'août, alors que `run_id` est déterministe sur l'hypothèse et le code |
+| **T15** (ex-T11) | **Les runs de `data/runs/` ne couvrent pas tous la même fenêtre** — ceux d'avant le 11/09 ont été mesurés sur un lake qui s'arrêtait au 04/08 (4 paires) et au 18/08 (LINK/XRP) | 🟠 ouverte, assumée | aucune mesure ne ment — la comparaison de courbes aligne sur la période commune (`stats/comparaison.py:_ecart_contre`) et S7 tronque à la plus courte (`stats/multitest.py:_matrice`, **par index, pas par date**) — mais un run rejoué aujourd'hui n'est plus le jumeau exact de celui d'août, alors que `run_id` est déterministe sur l'hypothèse et le code |
 | **T7** | **L'équity à risque fixe non composé peut passer sous zéro** — R2 finit à −83 750 sur 100 000 | 🟠 ouverte, assumée | mathématiquement cohérent, physiquement impossible. Le choix rend deux candidates comparables entre elles ; le compounding se mesure côté freqtrade (M3), une seule fois |
 
 
@@ -603,7 +603,7 @@ que c'est la série `1d` d'ARIT qui s'arrête là.
 
 ⚠️ Tout ce qui vient d'entrer est postérieur au **01/01/2025**, donc tombe en **hold-out**.
 Le hold-out n'est pas brûlé pour autant — personne ne l'a regardé — mais les runs de
-`data/runs/` mesurés avant aujourd'hui l'ont été sur une fenêtre plus courte (⇒ **T11**).
+`data/runs/` mesurés avant aujourd'hui l'ont été sur une fenêtre plus courte (⇒ **T15**, ex-T11).
 
 ### 2. Ce que les mesures d'ARIT font aux hypothèses préenregistrées ici
 
@@ -673,7 +673,7 @@ l'a **infirmé** (Sharpe 1,22 → 0,55). **Un IC élevé n'est pas un P&L.**
   `ARIT2.0/user_data/strategies/arit_lib/journal.py` le 11/09 : `ev_gestion` ne pose toujours
   pas de `ts_utc` (« `ts_utc` via `write()` », l. 395), là où `ev_signal`, `ev_gate` et
   `ev_sortie` le posent. Le contournement BETA par `signal_id` reste nécessaire.
-- **T11 — nouvelle** : les runs de `data/runs/` antérieurs au 11/09 couvrent une fenêtre plus
+- **T15 (ex-T11, renumérotée le 13/10 : T11 désignait déjà une dette fermée le 20/08) — nouvelle** : les runs de `data/runs/` antérieurs au 11/09 couvrent une fenêtre plus
   courte que ceux d'après. Vérifié en lisant le code plutôt qu'en le supposant : la comparaison
   de courbes aligne déjà sur la **période commune** (`stats/comparaison.py:_ecart_contre`) et S7
   tronque à la plus courte (`stats/multitest.py:_matrice`) — **par index, pas par date**. Donc
@@ -709,3 +709,25 @@ Ce qu'il faut savoir avant de s'en servir :
 - Rien de tout ça n'est DS1 : le carnet L20 500 ms et les liquidations restent DS1-only.
 - **Aucune mesure n'a été faite** : ce sont des données. Toute idée qui s'en sert passe par
   le préenregistrement comme les autres (invariant n° 4).
+
+## AU — l'audit du code du 13/10 (rapport `/root/rapports/2026-10-13_audit-code-beta.md`)
+
+Jonas a dit « oui à tout, sauf mesurer R12 » ; le détail des décisions est dans `DECISIONS.md`
+(« Audit du code du 13/10 »). Fait le jour même : spread du moteur = 1 tick / prix et frais des
+deux côtés (R12 amendée avant mesure), alarme du paper jugée aux prix du modèle, fuite d'une
+bougie du hold-out fermée (moteur, atelier, MCP), code mort retiré, voies A/B et consignes
+d'agents archivées (`archives/`), fonctions communes des mesures C2 factorisées, docs à jour.
+
+Ce qui reste ouvert :
+
+| # | Dette | Statut | Ce que ça coûte |
+|---|---|---|---|
+| **AU1** | **Compteur sans les essais hors protocole** : ~7 150 configurations (voie A 216, voie B 1 176, optimisation de la voie C 5 760, + `/root/arit_funding` hors git) | 🔴 décision de Jonas (**A3**) | N = 93 au lieu de plusieurs milliers : les seuils S1/S2 de la prochaine candidate sont plus généreux que la doctrine ne le veut |
+| **AU2** | **S8 juge un rendement qui dépend d'un choix arbitraire** : le moteur risque 1 % du capital par trade (non composé) ; à 2 %, le rendement double sans que la règle change. Le Sharpe, lui, n'en dépend pas | 🟠 ouverte (sans effet à ce jour : toutes les candidates perdaient) | une candidate peut échouer ou passer S8 pour une raison de dimensionnement |
+| **AU3** | **Annualisation √252 sur des données 7 j/7** dans les voies C : la « cible 20 % » ≈ 24 % réels, VC5 « 35 % » ≈ 42 %, le critère « vol 10-30 % » ≈ 12-36 % réels. Le moteur (S8) annualise, lui, avec √365 | 🟠 ouverte (convention écrite dans le code, à confirmer par Jonas) | deux échelles dans le même dépôt ; des seuils lus comme des vols réelles qui n'en sont pas |
+| **AU4** | **`config.chemin_macro` / `chemin_feather_funding` retombent sur ARIT sans le dire** quand la copie de BETA manque (point du contre-audit du 10/10) | 🟡 ouverte (sans effet sur le VPS, où les copies existent) | sur une machine sans copie, des séries figées à la date d'ARIT, en silence |
+| **AU5** | **`DIRECT_PAPER.jsonl` relu en entier chaque minute** (~170 Ko/jour) | 🟡 ouverte | lent dans quelques mois : prévoir une rotation ou un historique sous-échantillonné |
+| **AU6** | **Propre au PC** : `rapport/actions.py` (boutons Windows) et `.mcp.json` (chemins `C:\`) | 🟡 assumée | inutilisables sur le VPS (le serveur y est en lecture seule de toute façon) |
+| **AU7** | **R7 jamais testée telle qu'écrite** : `auto_r7_01` à découvert sur 99,99 % des bougies (min/max sur toute la série, T13), `auto_r7_03` mesure une clôture et pas une mèche (T12) | 🟠 ouverte | la même intuition que R12 ; son « infirmée » ne dit rien de l'hypothèse écrite |
+| **AU8** | **Les mesures VC3-VC5 gardent leur maxDD « depuis le premier jour »** (les suivis partent du capital initial depuis le 10/10) | 🟡 assumée | écart borné par la perte du premier jour ; garder la convention rend les verdicts reproductibles |
+

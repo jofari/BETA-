@@ -50,8 +50,12 @@ Sept onglets, port **7474** (ALPHA occupe 7373) :
   des R, ventilation par sens / paire / stratégie, raisons de **sortie** et raisons de
   **rejet**. Le hold-out est exclu par défaut ; l'inclure affiche un avertissement permanent.
 - **Forward** — ce que font les stratégies figées APRÈS leur gel : les suivis au cours de
-  clôture (`SUIVI_*.jsonl`) et le paper trading (`PAPER_*.jsonl`) des trois voies C, côte à
-  côte avec BTC ; positions, consignes du jour, coût d'exécution mesuré contre le modèle.
+  clôture (`SUIVI_*.jsonl`) et le paper trading (`PAPER_*.jsonl`) des cinq voies (voie C
+  figée, VC2 à VC5), côte à côte avec BTC ; positions, consignes du jour, coût d'exécution
+  mesuré contre le modèle. **Paper en direct** (13/10) : une seule ligne « Paper » par voie et
+  un seul graphique, relus chaque minute — le compte du dernier passage valorisé aux prix
+  Binance de la minute, funding réglé compris (timer `beta-paper-direct`,
+  `DIRECT_PAPER.jsonl`, hors git).
   Panneau **Indicateurs** (10/10) : pour VC2/VC3, les valeurs brutes lues par chaque vote du
   régime (momentum BTC, DFII10, T10YIE, Nasdaq-100, F&G) et par le moteur de sizing (vol,
   levier, poids par paire, écart à la cible contre la bande), journalisées avec la consigne ;
@@ -81,7 +85,8 @@ qu'ALPHA, accent vert au lieu de bleu pour distinguer les deux onglets d'un coup
 seulement) et sans rien exposer à Internet. Depuis le PC, `VPS.cmd` ouvre un tunnel SSH et
 le navigateur : `http://127.0.0.1:7574/#forward` pour BETA, `http://127.0.0.1:7580` pour le
 tableau de bord du VPS (état, marché DS1, liquidations, news — `/usr/local/lib/vps-dash`).
-Les journaux SUIVI_ et PAPER_ n'existent que là-bas : sur le PC, l'onglet Forward est vide.
+Les journaux SUIVI_ et PAPER_ sont écrits là-bas et poussés chaque nuit sur GitHub
+(`beta-journaux`, 01:15 UTC) ; `DIRECT_PAPER.jsonl` reste sur le VPS.
 
 ## Reconstruire les données
 
@@ -151,6 +156,13 @@ print(verdict.texte())
 par lequel un chiffre sort du moteur sans que l'hypothèse ait été écrite avant. Et un
 `Verdict` ne peut être `CONFIRMEE` ni avec une porte échouée, ni avec une porte **non
 exécutée** — une porte qu'on n'a pas passée ne se présume pas franchie.
+
+**Ce que paie un trade** (depuis le 13/10) : 0,10 % de frais aller-retour (taker Binance 0,05 %
+par côté) + 0,02 % de slippage, un **spread d'un tick rapporté au prix** — le tick est lu dans
+les prix du lake, mois par mois, et redonne les spreads du carnet (BTC 0,01 pb … SOL 0,9 pb) —
+et le funding réellement réglé pendant la détention. Avant le 13/10, le spread venait de
+l'estimateur de Corwin & Schultz, qui suivait la volatilité (≈ 0,1 R par trade en 4 h) ;
+`Run(spread_modele="corwin_schultz")` rejoue un run de cette époque à l'identique.
 
 Sortie de R2, la première candidate du banc :
 
@@ -382,26 +394,36 @@ avertissement. C'est l'invariant n° 3 du projet.
 ```
 beta/config.py    le SEUL endroit où un chemin de données est écrit
 beta/lake/        univers · telechargement · construction · catalogue · lecture · strategie
+                  maj (mise à jour quotidienne) · vision (historique public Binance)
 beta/protocole/   experiences (le verrou) · idees (l'étage gratuit) · holdout  <- dont tout dépend
 beta/stats/       descriptif · bootstrap · multitest · montecarlo · synthetique
                   walkforward · reference · diversification · batterie   (S1-S9)
                   comparaison (le banc COMPARATIF : classement, S7, matrice, vs AritV1)
 beta/moteur/      contrats (les 3 contrats gelés) · espace_r · registre · pipeline
-                  pont_freqtrade (le seul verdict portefeuille)
+                  pont_freqtrade (le seul verdict portefeuille — jamais lancé à ce jour)
 beta/candidates/  une hypothèse par fichier, isolée, jetable
+beta/strategies/  les voies C, hors moteur : voltarget (voie C) · optim · verif · c2 (VC2,
+                  VC3, VC5) · c4 (VC4, par session) · mesure_c2 (outils des scripts de mesure)
+beta/paper.py     le paper trading (carnet Binance réel, aucun ordre) · paper_direct (minute)
 beta/atelier/     sas (statique) · epreuve (sous-processus) · depot · local · gabarit · cli
 beta/recherche/   les mesures R1-R6, chacune sur son préenregistrement
-beta/mcp/         serveur MCP stdio (7 outils, zéro dépendance)
-beta/rapport/     serveur + runs + actions + atelier + comparaison + web/ (le dashboard)
+beta/mcp/         serveur MCP stdio (7 outils, zéro dépendance ; OHLCV du train seulement)
+beta/rapport/     serveur + runs + actions + atelier + comparaison + forward + web/
 scripts/build_lake.py        construit le lake OHLCV
 scripts/import_strategie.py  importe les données de stratégie
-scripts/preenregistrer.py    écrit R1-R6 au registre, avant toute mesure
-scripts/mesurer.py           mesure, corrige par BH, clôt au registre
+scripts/preenregistrer*.py   écrivent les hypothèses au registre, avant toute mesure
+scripts/mesurer*.py          mesurent (R1-R6 ; VC2-VC5 : déjà exécutés, ce sont des archives)
+scripts/amender_r12.py       l'amendement de R12 du 13/10 (avant mesure)
+scripts/voie_c_suivi.py · c2_suivi.py · c4_suivi.py    les suivis forward (timers)
+scripts/paper.py · paper_direct.py                     le paper (timers)
 scripts/epreuve_mcp.py       traverse le pont MCP pour de vrai
+deploy/                      les unités systemd du VPS
+archives/                    voies A/B et consignes d'agents : gardées, plus utilisées
 EXPERIMENTS.jsonl            les hypothèses, append-only          <- hors de data/, exprès
 RUNS.jsonl                   les mesures effectuées, append-only  <- hors de data/, exprès
 IDEES.jsonl                  les idées, gratuites, append-only    <- hors de data/, exprès
-.mcp.json                    le pont, déclaré au client
+SUIVI_* · CONSIGNES_VC4 · PAPER_*.jsonl   les journaux forward (VPS, poussés chaque nuit)
+.mcp.json                    le pont, déclaré au client (chemins du PC)
 beta.py · BETA.cmd           les points d'entrée
 ```
 
@@ -416,6 +438,8 @@ Flux : `ARIT (lecture seule) ─┐`
 ```powershell
 & C:\Users\jofar\venvs\arit\Scripts\python.exe -m pytest -q
 ```
+
+Sur le VPS : `cd /root/BETA- && /root/venvs/arit/bin/python -m pytest -q`.
 
 142 tests. Ils protègent en priorité la **détection des trous** et la convention
 d'horodatage du resampling (une bougie porte l'heure de son **ouverture** — s'y tromper

@@ -160,7 +160,8 @@ def fear_greed() -> pd.DataFrame:
 
 
 def macro_globales() -> pd.DataFrame:
-    """Series macro GLOBALES quotidiennes (FRED), lues dans ARIT (lecture seule).
+    """Series macro GLOBALES quotidiennes (FRED), lues dans la copie de BETA (`data/macro`),
+    tenue a jour par `lake.maj` ; ARIT ne sert qu'en secours (`config.chemin_macro`).
 
     Rend un DataFrame indexe par date (minuit UTC), une colonne par indicateur : vix,
     tips10y (taux reel), breakeven10y (inflation attendue), hy_oas/ig_oas (spreads credit),

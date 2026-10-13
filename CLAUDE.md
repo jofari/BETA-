@@ -49,9 +49,13 @@ d'edge.
    `contrats.Run` appelle `protocole.exiger()` dans son constructeur, donc aucun chiffre ne
    sort du moteur sans que l'hypothèse ait été écrite avant, dans `EXPERIMENTS.jsonl`.
    Compteur d'essais cumulatif **initialisé à 30** — la dette déjà consommée sur les mêmes
-   8,5 ans. Jamais remis à zéro.
+   8,5 ans. Jamais remis à zéro. ⚠️ Les ~7 150 configurations essayées HORS protocole par les
+   voies A, B et C (sept.-oct.) n'y figurent pas : arbitrage **A3** ouvert (`DECISIONS.md`).
 5. **Hold-out scellé.** Aucune donnée postérieure à la date de scellement ne sert à choisir
-   quoi que ce soit. Le regarder, c'est le brûler.
+   quoi que ce soit. Le regarder, c'est le brûler. ⚠️ Depuis le 13/10 : **consommé** pour
+   l'allocation quotidienne (voies A/B/C, VC2-VC5 l'ont regardé hors moteur), qui ne se juge
+   plus qu'en forward ; **scellé** pour tout le reste, et toute lecture de train passe par
+   `holdout.borner_train()` (une borne inclusive y lisait la bougie du 01/01/2025).
 6. **Buy-and-hold est la référence imposée** de toute candidate, sur la même période. Ce qui
    ne bat pas le hold mesure le marché, pas un edge.
 7. **Une candidate écrite vite est une source d'HYPOTHÈSES, jamais d'edge** — qu'elle
@@ -100,7 +104,7 @@ et embargo, corrélation des courbes d'équity entre candidates.
 > Ces outils ne peuvent que rendre un résultat **pire**, jamais meilleur. Leur seul usage
 > honnête est de **tuer** un candidat, pas de le sacrer.
 
-## Contexte machine
+## Contexte machine — le PC
 
 - Windows 11, 16 Go de RAM, RTX 5060. **Jamais de `read_parquet` global en pandas** : le
   lake se requête en SQL via DuckDB, qui lit le parquet sans tout charger.
@@ -113,13 +117,32 @@ et embargo, corrélation des courbes d'équity entre candidates.
 - BETA vit **hors OneDrive** (`C:\Users\jofar\BETA`), comme ALPHA — OneDrive a déjà vidé des
   fichiers sur ce poste.
 
+## Le VPS — ce qui tourne sans personne (depuis début octobre)
+
+Le même dépôt vit aussi sur un VPS Linux (`/root/BETA-`, venv `/root/venvs/arit`, unités
+systemd dans `deploy/`). Le PC et le VPS poussent sur le même `main` : **`git pull --ff-only`
+avant de coder**.
+
+- **Timers (UTC)** : `beta-maj` 00:20 (lake) · `beta-suivi` 00:45 (voie C) ·
+  `beta-suivi-vc2`…`vc5` 00:50 · `beta-paper` 01:00 (cinq voies) · `beta-journaux` 01:15
+  (commit + push des journaux) · `beta-vision` 03:30 (historique public Binance) ·
+  `beta-vc4-sessions` (08:02 Londres, 09:32 New York, en semaine) · `beta-paper-direct`
+  (chaque minute).
+- **Journaux forward**, à la racine, en ajout seul : `SUIVI_*.jsonl`, `CONSIGNES_VC4.jsonl`,
+  `PAPER_*.jsonl` (poussés chaque nuit) ; `DIRECT_PAPER.jsonl` (relevé minute, hors git).
+- **Dashboard** `beta-web` en lecture seule sur `127.0.0.1:7474`, ouvert depuis le PC par
+  le tunnel `VPS.cmd`. Après un changement de son code : `systemctl restart beta-web`.
+- **Alertes** : toute unité `beta-*` en échec — alarme du dry-run comprise (sorties 4 et 5) —
+  part sur le salon Discord BETA (drop-in `deploy/notif.conf`).
+- Tests sur le VPS : `cd /root/BETA- && /root/venvs/arit/bin/python -m pytest -q`.
+
 ## Univers
 
 **6 paires**, perpétuels Binance : `BTC` `ETH` `SOL` `BNB` (déjà téléchargées par ARIT :
 leurs feathers **amorcent** la copie de BETA, qui est ensuite **complétée** chaque jour —
 jamais re-téléchargée en entier, cf. `beta/lake/maj.py`) + `LINK` `XRP` (ajoutées le 18/08, les deux
 perpétuels les plus anciens après les majors — c'est l'historique qui commande, puisque le
-N est le goulot). Source unique : `beta/univers.py`.
+N est le goulot). Source unique : `beta/lake/univers.py`.
 
 **Historique public Binance** (10/10, `beta/lake/vision.py`) : `metrics` (OI, ratios
 long/short, 5 min), `bookDepth` (profondeur cumulée ±0,2-5 %, 30 s, depuis 2023) et
@@ -142,7 +165,8 @@ demander un `4h` sur un indice est une `DataError`, pas un resampling.
   cp1252), fichiers `.md` accentués normalement.
 - Paths en `pathlib`, jamais de séparateur codé en dur.
 - `logging`, jamais `print`, hors sortie de rapport destinée à être lue.
-- Tests : `& C:\Users\jofar\venvs\arit\Scripts\python.exe -m pytest -q`
+- Tests : `& C:\Users\jofar\venvs\arit\Scripts\python.exe -m pytest -q` (PC) ;
+  `/root/venvs/arit/bin/python -m pytest -q` (VPS).
 - Pont MCP : déclaré dans `.mcp.json` (Claude Code voit les 7 outils en ouvrant le dossier)
   et dans `~/.lmstudio/mcp.json`. L'éprouver **pour de vrai** :
   `python scripts/epreuve_mcp.py` — un vrai sous-processus, un vrai JSON-RPC. Les tests en
