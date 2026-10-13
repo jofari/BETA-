@@ -1,4 +1,4 @@
-"""Paper trading des trois voies C — execution simulee contre le vrai carnet. Aucun ordre.
+"""Paper trading des voies C — execution simulee contre le vrai carnet. Aucun ordre.
 
     ARIT_HOME=/root/ARIT2.0 /root/venvs/arit/bin/python scripts/paper.py [--voie VC3 ...]
 
@@ -9,15 +9,17 @@ cloture : meme strategie, mais execution supposee parfaite a 00:00 UTC. L'ecart 
 deux, c'est ce que coute l'execution reelle.
 
 Voies : VOIE_C (config figee du 03/10, perpetuels), VC2 (infirmee le 07/10, suivie pour
-information, perpetuels), VC3 (dry-run depuis le 08/10, spot). Capital fictif de 10 000 USDT
-chacune, la taille du canari.
+information, perpetuels), VC3 (dry-run depuis le 08/10, spot), VC4 et VC5 (dry-run depuis le
+11-12/10, spot). Capital fictif de 10 000 USDT chacune, la taille du canari.
 
 Sortie non nulle = unite « failed » :
     1  une voie n'a pas pu s'executer : marche illisible, ou consigne absente (suivi en
        panne). Les autres voies s'executent quand meme.
-    4  voie C figee ou VC3 : un critere du dry-run est franchi — ecart de rendement cumule
-       paper - suivi au-dela de +/-1 pt, ou cout moyen au carnet > 2x le slippage du modele.
-       Le journal est ecrit quand meme ; c'est une alarme, la suite est une decision de Jonas.
+    4  voie jugee (JUGEES) : un critere du dry-run est franchi — ecart de rendement cumule
+       paper - suivi au-dela de +/-1 pt, le paper etant valorise AUX PRIX DU MODELE (13/10 :
+       sans le mouvement du marche entre 00:00 et le passage), ou cout moyen au carnet > 2x
+       le slippage du modele. Le journal est ecrit quand meme ; c'est une alarme, la suite
+       est une decision de Jonas.
 """
 
 from __future__ import annotations
@@ -66,9 +68,14 @@ def mesures(voie: paper.Voie, repertoire: Path, suivis: Path) -> dict | None:
     def moyenne(cle: str) -> float:
         return sum(o[cle] * o["notional"] for o in ordres) / notional if notional else math.nan
 
+    # Aux prix du modele (13/10) : sans le mouvement du marche entre 00:00 et le passage.
+    # Absent des lignes ecrites avant le 13/10 : on retombe alors sur l'ancien calcul.
+    aux_prix_modele = premiere_du_jour.get("equite_modele_avant")
     return {"debut": debut, "fin": fin, "jours": len({l["date"] for l in lignes}),
             "equite": lignes[-1]["equite"],
             "rendement": premiere_du_jour["equite_avant"] / paper.CAPITAL_USDT - 1.0,
+            "rendement_prix_modele": (None if aux_prix_modele is None
+                                      else aux_prix_modele / paper.CAPITAL_USDT - 1.0),
             "r_modele": math.prod(1.0 + r for r in modele) - 1.0, "jours_modele": len(modele),
             "frais": sum(l["frais"] for l in lignes),
             "funding": sum(sum(l["funding"].values()) for l in lignes),
@@ -80,8 +87,11 @@ def mesures(voie: paper.Voie, repertoire: Path, suivis: Path) -> dict | None:
 def bilan(voie: paper.Voie, m: dict | None) -> str:
     if m is None:
         return f"{voie.nom} : aucun jour execute"
+    aux_prix = ("" if m["rendement_prix_modele"] is None
+                else f"{m['rendement_prix_modele']:+.2%} aux prix du modele, ")
     return (f"{voie.nom} ({voie.instrument}) depuis le {m['debut']}, {m['jours']} j : equite "
-            f"{m['equite']:,.2f} USDT ({m['rendement']:+.2%} a l'ouverture du {m['fin']}) | "
+            f"{m['equite']:,.2f} USDT ({aux_prix}{m['rendement']:+.2%} au passage du "
+            f"{m['fin']}) | "
             f"suivi au cours de cloture {m['r_modele']:+.2%} sur {m['jours_modele']} j | frais "
             f"{m['frais']:.2f}, funding {m['funding']:+.2f} | {m['ordres']} ordres, "
             f"{m['notional']:,.0f} USDT : carnet {m['carnet_pb']:.1f} pb, ouverture "
@@ -89,14 +99,21 @@ def bilan(voie: paper.Voie, m: dict | None) -> str:
 
 
 def franchis(m: dict | None) -> list[str]:
-    """Les criteres du dry-run franchis. Le slippage juge est le cout au carnet (vs milieu) :
-    l'ecart a l'ouverture melange l'heure de decalage, il compte dans l'ecart au suivi."""
+    """Les criteres du dry-run franchis.
+
+    L'ecart au suivi compare le paper valorise AUX PRIX DU MODELE (decision de Jonas du 13/10) :
+    il reste les frais, le cout au carnet, les arrondis aux pas de lot, le funding et le delai
+    sur ce qui est TRADE — pas le mouvement de tout le portefeuille pendant l'heure qui separe
+    00:00 du passage. Le slippage juge est le cout au carnet (vs milieu)."""
     if m is None:
         return []
     alertes = []
-    ecart = m["rendement"] - m["r_modele"]
+    if m["rendement_prix_modele"] is None:
+        ecart, nature = m["rendement"] - m["r_modele"], " (ancien calcul : avec l'heure de marche)"
+    else:
+        ecart, nature = m["rendement_prix_modele"] - m["r_modele"], " aux prix du modele"
     if abs(ecart) > ECART_MAX:
-        alertes.append(f"ecart paper - suivi {ecart:+.2%} (critere +/-{ECART_MAX:.0%})")
+        alertes.append(f"ecart paper - suivi{nature} {ecart:+.2%} (critere +/-{ECART_MAX:.0%})")
     if m["notional"] and m["carnet_pb"] > FACTEUR_SLIPPAGE * m["modele_pb"]:
         alertes.append(f"slippage au carnet {m['carnet_pb']:.1f} pb > "
                        f"{FACTEUR_SLIPPAGE:.0f} x {m['modele_pb']:.1f} pb du modele")

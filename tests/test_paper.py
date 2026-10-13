@@ -108,6 +108,41 @@ def test_journee_suivante_ne_touche_que_les_paires_que_le_modele_change():
     assert j2["quantites"]["BTC"] == j1["quantites"]["BTC"] and j2["quantites"]["SOL"] == 0.0
 
 
+class MarcheQuiBouge(MarcheFactice):
+    """Le marche a bouge entre 00:00 (prix du modele) et le passage : ouverture != milieu."""
+
+    def __init__(self, ouvertures, **options):
+        super().__init__(**options)
+        self.ouvertures = ouvertures
+
+    def ouverture(self, instrument, symbole, jour):
+        return self.ouvertures[symbole.removesuffix("USDT")]
+
+
+def test_le_compte_avant_ordres_est_aussi_valorise_aux_prix_du_modele():
+    """Nuit du 13/10 : le marche baisse entre 00:00 et le passage. `equite_avant` le subit,
+    `equite_modele_avant` non — c'est elle que l'ecart au suivi juge depuis le 13/10."""
+    j1 = paper.journee(_voie(), _consigne({"BTC": 0.3, "SOL": 0.2}), paper.compte_initial(),
+                       None, MarcheFactice(), JOUR1)
+    compte = {"cash": j1["cash"], "quantites": j1["quantites"]}
+    a_minuit = dict(MILIEUX)                                  # le prix du modele
+    marche = MarcheQuiBouge(a_minuit, milieux={**MILIEUX, "BTC": 79_200.0, "SOL": 107.8})
+    j2 = paper.journee(_voie(), _consigne({"BTC": 0.3, "SOL": 0.2}, jour=JOUR2.date()), compte,
+                       JOUR1, marche, JOUR2)
+    q = j1["quantites"]
+    assert j2["equite_modele_avant"] == pytest.approx(
+        j1["cash"] + q["BTC"] * 80_000.0 + q["SOL"] * 110.0)
+    assert j2["equite_avant"] - j2["equite_modele_avant"] == pytest.approx(
+        q["BTC"] * -800.0 + q["SOL"] * -2.2)
+    assert set(j2["prix_modele"]) == {"BTC", "SOL"}           # les paires TENUES, sans ordre
+
+
+def test_premiere_journee_aux_prix_du_modele_vaut_le_capital():
+    l = paper.journee(_voie(), _consigne({"BTC": 0.3}), paper.compte_initial(), None,
+                      MarcheFactice(), JOUR1)
+    assert l["equite_modele_avant"] == paper.CAPITAL_USDT
+
+
 def test_reliquat_spot_sous_le_minimum_ignore():
     marche = MarcheFactice(pas="0.01", notional=5.0)
     compte = {"cash": 9_000.0, "quantites": {**{p: 0.0 for p in PAIRES}, "XRP": 3.0}}

@@ -16,6 +16,12 @@ bareme et le funding reellement regle. Deux ecarts sont journalises par ordre :
                          le modele : liquidite + delai d'execution
 C'est de quoi juger le critere « slippage reel <= 2x le modele » du dry-run (registre).
 
+Chaque passage journalise aussi `equite_modele_avant` : le compte AVANT les ordres, valorise
+aux prix du modele (ouverture de 00:00, ou prix de l'instant pour VC4) au lieu du carnet du
+passage. C'est elle que l'ecart au suivi compare depuis le 13/10 : `equite_avant` contient le
+mouvement du marche entre 00:00 et le passage (-0,9 pt sur la seule nuit du 13/10), qui n'est
+pas un cout d'execution.
+
 Rien ne sort : aucune cle, aucun ordre ; seules les routes PUBLIQUES de Binance sont lues.
 
 Comptabilite, la meme pour le spot et les perpetuels lineaires USDT-M : un compte = du cash
@@ -311,6 +317,9 @@ def journee(voie: Voie, consigne: Consigne | None, compte: dict, depuis: dt.date
     `compte` (cash, quantites) est l'etat apres la derniere execution, faite a `depuis` (None
     le premier jour). La premiere journee construit toute la position de la consigne ; les
     suivantes ne touchent que les paires que le modele change (`a_traiter`).
+
+    Les prix du modele sont lus pour les paires TENUES avant les ordres comme pour celles
+    qu'on traite : `equite_modele_avant` en a besoin (voir l'en-tete du module).
     """
     jour = maintenant.date()
     symboles = {p: f"{p}USDT" for p in PAIRES}
@@ -377,12 +386,16 @@ def journee(voie: Voie, consigne: Consigne | None, compte: dict, depuis: dt.date
                     ignores.append({"paire": p, "qte": o, "raison": "cash insuffisant"})
                     del voulus[p]
 
-    # 4. Les ordres, ventes d'abord.
-    ordres, frais = [], 0.0
+    # 4. Le compte avant les ordres, aux prix du modele : l'ecart au suivi se juge la-dessus.
     instant = None if consigne is None else consigne.instant
+    tenues = [p for p in PAIRES if q[p] != 0.0]
     ouvertures = {p: (marche.ouverture(voie.instrument, symboles[p], jour) if instant is None
                       else marche.prix_a(voie.instrument, symboles[p], instant))
-                  for p in voulus}
+                  for p in PAIRES if p in voulus or p in tenues}
+    equite_modele_avant = cash + sum(q[p] * ouvertures[p] for p in tenues)
+
+    # 5. Les ordres, ventes d'abord.
+    ordres, frais = [], 0.0
     for p, ordre in sorted(voulus.items(), key=lambda po: po[1]):
         prix, niveaux, complet = executer(ordre, carnets[p])
         f = abs(ordre) * prix * voie.taker_pb / 1e4
@@ -413,6 +426,7 @@ def journee(voie: Voie, consigne: Consigne | None, compte: dict, depuis: dt.date
             "source": consigne.source, "a_traiter": sorted(a_traiter),
             "poids": {p: consigne.poids[p] for p in PAIRES}},
         "milieux": milieu, "funding": funding, "equite_avant": equite_avant,
+        "prix_modele": ouvertures, "equite_modele_avant": equite_modele_avant,
         "ordres": ordres, "ignores": ignores, "frais": round(frais, 6),
         "cash": cash, "quantites": q, "equite": equite_apres,
         "poids": {p: q[p] * milieu[p] / equite_apres for p in PAIRES},

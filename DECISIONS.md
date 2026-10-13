@@ -420,7 +420,8 @@ Fixé **avant** toute donnée qui les franchisse (paper : 2 jours, suivis : 9 et
   sortie 5 des deux suivis.
 - **Écart de rendement cumulé paper − suivi au-delà de ±1 pt** (choix de Jonas) → sortie 4
   de `scripts/paper.py`. Il couvre tout ce que coûte l'exécution réelle : délai d'une heure,
-  arrondis aux pas de lot, frais, funding réglé.
+  arrondis aux pas de lot, frais, funding réglé. **Modifié le 13/10** : jugé aux prix du
+  modèle, sans le mouvement du marché pendant l'heure de délai (voir « Audit du code du 13/10 »).
 - **Slippage ≤ 2× le modèle** : jugé sur le **coût au carnet** (vs milieu), moyenne pondérée
   par le notionnel → sortie 4 du paper. L'écart à l'ouverture mélange l'heure de délai
   (bruit de ±25-60 pb par ordre) ; il compte dans l'écart au suivi, pas ici. La voie C figée
@@ -431,8 +432,8 @@ Fixé **avant** toute donnée qui les franchisse (paper : 2 jours, suivis : 9 et
   « failed », la suite est une décision de Jonas. Au 10/10, rien de franchi (carnet 0,2 pb ;
   écart paper − suivi : C −0,03 pt, VC3 −0,04 pt).
 
-**Reste ouvert** : aucune unité n'a d'`OnFailure`, donc une alarme ne se voit que dans
-`systemctl --failed`. À brancher sur le salon Discord BETA.
+~~**Reste ouvert** : aucune unité n'a d'`OnFailure`.~~ **Fait le 10/10** (2a3db99) : toute
+unité `beta-*` en échec, alarme du dry-run comprise, alerte le salon Discord BETA.
 
 ### VC4 et VC5 — plus investie en haussier, décidée plus souvent (Jonas, 10/10)
 
@@ -496,6 +497,25 @@ coût, sauf `auto_r7_03`, positive même avec. Les frais, eux, étaient comptés
 - **R12 amendée avant toute mesure** (`scripts/amender_r12.py`, `experiences.amender`) : seule
   `regles.couts.detention` change (« 1 tick / prix » au lieu de Corwin-Schultz). La ligne
   d'origine reste au registre ; compteur inchangé (93) ; aucune donnée de R12 regardée.
+
+### Alarme du paper : l'écart au suivi se juge aux prix du modèle
+
+**Constat** : le critère « écart paper − suivi > ±1 pt » (10/10) comparait le paper valorisé au
+passage (01:00) au suivi valorisé à 00:00. L'écart contenait donc le mouvement de tout le
+portefeuille pendant cette heure : le 13/10 (BTC −0,51 %, SOL −2,59 % entre 00:00 et 01:00),
+−0,78 à −0,94 pt selon la voie, pour un coût au carnet de 0,2 pb et 3 à 10 $ de frais. Une
+seule heure agitée aurait déclenché l'alarme sans que l'exécution soit en cause.
+
+**Décision** : chaque passage journalise `equite_modele_avant` — le compte avant les ordres,
+valorisé aux prix du modèle (ouverture de 00:00, ou prix de l'instant pour VC4) — et l'écart
+au suivi se juge dessus. Il reste ce que coûte vraiment l'exécution : frais, carnet, pas de
+lot, funding, et le délai sur ce qui est **échangé**. Seuil inchangé (±1 pt). Recalculé sur le
+13/10 avec les ouvertures du lake : voie C −0,31 pt, VC2 −0,06, VC3 −0,12, VC4 +0,01, VC5
++0,21 (approximation : prix des perpétuels pour les voies spot). L'ancien chiffre reste
+imprimé (« au passage »), à titre d'information. ⚠️ Modifié alors que l'écart était à 0,94 pt
+du seuil : la modification ne relâche pas ce que le critère voulait juger (l'exécution), elle
+retire ce qu'il ne devait pas juger (le marché). Premières lignes concernées : passage du
+14/10 01:00 ; avant, le calcul ancien s'applique faute du champ.
 
 ---
 

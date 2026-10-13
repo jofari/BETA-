@@ -35,6 +35,28 @@ def _mesures(tmp_path, nom, equite_avant, r_suivi, carnet_pb):
     return script.mesures(voie, tmp_path, tmp_path)
 
 
+def test_l_ecart_se_juge_aux_prix_du_modele_pas_a_l_heure_du_passage(tmp_path):
+    """13/10 : -0,93 pt d'ecart au passage, presque tout dans le mouvement du marche de 00:00
+    a 01:00. Aux prix du modele, il ne reste que le cout d'execution : pas d'alarme."""
+    voie = paper.voies()["VC3"]
+    _ecrire(paper.journal_paper(voie, tmp_path), [
+        {"date": "2026-10-09", "equite_avant": 10_000.0, "equite": 10_000.0, "frais": 0.0,
+         "funding": {}, "ordres": [_ordre(0.2)]},
+        {"date": "2026-10-10", "equite_avant": 9_900.0, "equite_modele_avant": 9_995.0,
+         "equite": 9_900.0, "frais": 0.0, "funding": {}, "ordres": []}])
+    _ecrire(tmp_path / voie.suivi, [{"date": "2026-10-09", "r_net": 0.0},
+                                    {"date": "2026-10-10", "r_net": 0.5}])
+    m = script.mesures(voie, tmp_path, tmp_path)
+    assert m["rendement"] < -0.009 and abs(m["rendement_prix_modele"]) < 0.001
+    assert script.franchis(m) == []
+    # Un vrai cout d'execution de plus d'un point, lui, declenche l'alarme.
+    lignes = paper.lire_journal(paper.journal_paper(voie, tmp_path))
+    lignes[-1]["equite_modele_avant"] = 9_880.0
+    _ecrire(paper.journal_paper(voie, tmp_path), lignes)
+    alertes = script.franchis(script.mesures(voie, tmp_path, tmp_path))
+    assert len(alertes) == 1 and "aux prix du modele" in alertes[0]
+
+
 def test_rien_de_franchi(tmp_path):
     m = _mesures(tmp_path, "VC3", 10_050.0, 0.004, 0.4)
     assert script.franchis(m) == []
