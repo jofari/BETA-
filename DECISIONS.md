@@ -466,6 +466,39 @@ Il a alors tranché, par questionnaire et **avant toute mesure** (~23:15 UTC) :
 
 ---
 
+## Audit du code du 13/10 — ce que Jonas a tranché (« oui à tout, sauf mesurer R12 »)
+
+Rapport : `/root/rapports/2026-10-13_audit-code-beta.md` (VPS). Jonas a accepté toutes les
+actions proposées, **sauf la mesure de R12 : aucun nouveau test pour le moment**.
+
+### Coûts du moteur : le spread vaut un tick, les frais deux côtés
+
+**Constat** : l'estimateur de Corwin & Schultz, imposé par le chantier des frais
+(`chantier_frais.md`, mi-septembre), facturait 3 pb par trade sur BTC en 5 min, 12 pb en 1 h,
+60 pb en 1 j (XRP : 6, 24 et 118 pb). Le spread réel, lu le 13/10 sur le carnet Binance des
+perpétuels : BTC 0,01 pb, ETH 0,04, BNB 0,13, XRP 0,73, LINK 0,77, SOL 0,93. En 1 h, il coûtait
+~0,13 R par trade sur **toutes** les paires (2021-2024), alors que leurs vrais spreads diffèrent
+d'un facteur 90 : il suivait la volatilité, pas le spread. Sur les runs 4 h du 19/09, 0,11 R par
+trade, huit fois les frais. **Aucun verdict ne change** : ces règles perdaient déjà avant tout
+coût, sauf `auto_r7_03`, positive même avec. Les frais, eux, étaient comptés d'un seul côté
+(0,05 % « aller-retour » pour un taker à 0,05 % par côté).
+
+**Décision** :
+- **Spread = 1 tick / prix** (`espace_r`, modèle `tick`, défaut de tout `Run`). Le tick est lu
+  dans les prix du lake, mois par mois (plus grand commun diviseur des prix du mois) : il suit
+  les changements de Binance (BTC 0,01 → 0,1 en 2022, SOL 0,0001 en 2020) sans nouvelle source
+  (invariant n° 2). Vérifié : il redonne les spreads du carnet du 13/10 à 0,02 pb près. Sans
+  grille lisible (série fabriquée, indice), 1 pb forfaitaire ; les témoins synthétiques
+  recopient le tick de la série mère, comme le funding.
+- **Frais = 0,10 % aller-retour** (taker 0,05 % par côté) + 0,02 % de slippage.
+- Le modèle de spread entre dans l'identifiant du run. `corwin_schultz` reste disponible pour
+  rejouer à l'identique un run d'avant le 13/10 ; le dashboard affiche lequel un run a payé.
+- **R12 amendée avant toute mesure** (`scripts/amender_r12.py`, `experiences.amender`) : seule
+  `regles.couts.detention` change (« 1 tick / prix » au lieu de Corwin-Schultz). La ligne
+  d'origine reste au registre ; compteur inchangé (93) ; aucune donnée de R12 regardée.
+
+---
+
 ## En attente de Jonas
 
 | # | Objet | État | Depuis |

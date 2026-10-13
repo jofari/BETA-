@@ -76,6 +76,10 @@ def _reconstruire_ohlcv(modele: pd.DataFrame, closes: np.ndarray,
                            "close": closes, "volume": volume})
     if "funding_rate" in modele.columns:
         chemin["funding_rate"] = modele["funding_rate"].to_numpy()[:len(closes)]
+    # Le tick (spread) est recopie pour la meme raison : les prix fabriques ne tombent sur
+    # aucune grille de cotation, et le temoin doit payer le spread de la serie mere.
+    if "tick" in modele.columns:
+        chemin["tick"] = modele["tick"].to_numpy()[:len(closes)]
     return chemin
 
 

@@ -150,6 +150,61 @@ def test_le_spread_paye_vaut_un_spread_complet_par_aller_retour():
     assert trades.loc[0, "spread_r"] == pytest.approx(attendu)
 
 
+def serie_sur_grille(tick: float, n: int = 400, prix: float = 1.0, graine: int = 0,
+                     debut: str = "2026-01-01") -> pd.DataFrame:
+    """Des prix tous multiples de `tick`, comme ceux d'une bourse, en bougies 4h."""
+    rng = np.random.default_rng(graine)
+    pas = np.rint(prix / tick + np.cumsum(rng.integers(-3, 4, n)))
+    closes = np.maximum(pas, 10) * tick
+    df = serie(closes, hauts=closes + tick, bas=closes - tick)
+    df["date"] = pd.date_range(debut, periods=n, freq="4h", tz="UTC")
+    return df
+
+
+def test_le_tick_se_lit_dans_les_prix_du_mois():
+    """Le spread d'un perpetuel liquide vaut un tick (mesure du 13/10 sur les six paires)."""
+    df = serie_sur_grille(0.001, prix=12.0)
+    assert np.allclose(espace_r.pas_de_cotation(df), 0.001)
+    relatif = espace_r._serie_spread(df)
+    assert np.allclose(relatif, 0.001 / df["close"].to_numpy())
+
+
+def test_le_tick_suit_les_changements_de_l_exchange():
+    """BTC est passe de 0,01 a 0,1 en 2022 : chaque mois garde le sien."""
+    avant = serie_sur_grille(0.01, n=180, prix=30_000.0, debut="2022-03-01")
+    apres = serie_sur_grille(0.1, n=180, prix=30_000.0, graine=1, debut="2022-05-01")
+    ticks = espace_r.pas_de_cotation(pd.concat([avant, apres], ignore_index=True))
+    assert np.allclose(ticks[:180], 0.01) and np.allclose(ticks[180:], 0.1)
+
+
+def test_sans_grille_de_prix_le_spread_retombe_sur_le_forfait():
+    """Une serie fabriquee n'est sur aucune grille : 1 pb, pas zero, pas un faux tick."""
+    df = serie_avec_meches(graine=6)
+    assert np.isnan(espace_r.pas_de_cotation(df)).all()
+    assert np.allclose(espace_r._serie_spread(df), espace_r.SPREAD_INCONNU)
+
+
+def test_une_colonne_tick_recopiee_prime_sur_les_prix():
+    """Le chemin synthetique recopie le tick de la serie mere : ses prix n'en ont pas."""
+    df = serie_avec_meches(graine=6)
+    df["tick"] = 0.01
+    assert np.allclose(espace_r._serie_spread(df), 0.01 / df["close"].to_numpy())
+
+
+def test_l_ancien_estimateur_reste_rejouable():
+    """Les runs d'avant le 13/10 ont paye Corwin & Schultz : on doit pouvoir les rejouer."""
+    df = serie_avec_meches(graine=2)
+    sig = signaux_fixes({30: 1}, len(df), stop=2.0)
+    ancien = espace_r.evaluer(df, sig, take_profit_r=2.0, horizon_bougies=10, spread=True,
+                              spread_modele=espace_r.CORWIN_SCHULTZ)
+    estimes = espace_r._serie_spread(df, modele=espace_r.CORWIN_SCHULTZ)
+    sortie = 30 + int(ancien.loc[0, "duree_bougies"])
+    attendu = 0.5 * (estimes[30] + estimes[sortie]) * ancien.loc[0, "prix_entree"] / 2.0
+    assert ancien.loc[0, "spread_r"] == pytest.approx(attendu)
+    with pytest.raises(ValueError, match="modele de spread"):
+        espace_r._serie_spread(df, modele="inconnu")
+
+
 def serie_funding(taux: float, n: int = 8) -> pd.DataFrame:
     df = serie(np.full(n, 100.0))              # plate : la sortie se fait a l'horizon
     df["funding_rate"] = taux
@@ -357,6 +412,7 @@ def test_deux_runs_a_couts_differents_ont_des_id_differents(tmp_path, monkeypatc
         "slippage": Run(**base, slippage_pct=0.10).id,
         "sans_spread": Run(**base, spread=False).id,
         "sans_funding": Run(**base, funding=False).id,
+        "spread_ancien": Run(**base, spread_modele="corwin_schultz").id,
     }
     assert len(set(ids.values())) == len(ids), ids
 
@@ -371,8 +427,16 @@ def test_un_run_paie_les_couts_de_detention_par_defaut(tmp_path, monkeypatch):
     assert resume["frais_pct"] == run.frais_pct
     assert resume["slippage_pct"] == run.slippage_pct
     # Les couts de detention ne sont PAS dans le forfait aller-retour : ils se calculent
-    # trade par trade, et confondre les deux ferait payer deux fois.
-    assert resume["cout_aller_retour_pct"] == pytest.approx(0.07)
+    # trade par trade, et confondre les deux ferait payer deux fois. Taker 0,05 % par cote
+    # (0,10 % aller-retour) + 0,02 % de slippage.
+    assert resume["cout_aller_retour_pct"] == pytest.approx(0.12)
+    assert run.spread_modele == resume["spread_modele"] == espace_r.TICK
+
+
+def test_un_modele_de_spread_inconnu_est_refuse(tmp_path, monkeypatch):
+    base = _run_de_test(tmp_path, monkeypatch, "T7")
+    with pytest.raises(ContratError, match="modele de spread"):
+        Run(**base, spread_modele="au_doigt_mouille")
 
 
 # --- registre ------------------------------------------------------------------------

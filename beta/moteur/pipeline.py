@@ -65,6 +65,9 @@ def series_du_run(run: Run) -> dict[str, pd.DataFrame]:
             df = lecture.load(paire, run.timeframe, debut=debut, fin=fin)
             df = _joindre_funding(df, paire)
             df = _joindre_macro(df, paire)
+            # Le tick se lit dans les prix REELS : une colonne, pour que le temoin
+            # synthetique (prix hors grille) paie le meme spread que la serie mere.
+            df["tick"] = espace_r.pas_de_cotation(df)
             series[paire] = df
         except lecture.DataError as exc:
             log.error("%s %s indisponible : %s", paire, run.timeframe, exc)
@@ -160,7 +163,8 @@ def trades_du_run(run: Run, series: dict[str, pd.DataFrame]) -> pd.DataFrame:
             df, signaux, take_profit_r=run.take_profit_r,
             horizon_bougies=run.horizon_bougies, stop_atr=run.stop_atr,
             cout_aller_retour_pct=run.cout_aller_retour_pct,
-            spread=run.spread, funding=run.funding, paire=paire)
+            spread=run.spread, funding=run.funding, paire=paire,
+            spread_modele=run.spread_modele)
         if not trades.empty:
             morceaux.append(trades)
     if not morceaux:
@@ -178,8 +182,8 @@ def _resultats_synthetiques(run: Run, series: dict[str, pd.DataFrame],
     (« cette forme de signal gagne-t-elle sur une serie sans structure ? »). C'est une
     limite assumee, elle est ecrite dans les reserves du verdict.
 
-    Le temoin paie les MEMES couts que le reel : le spread, estime sur ses propres meches,
-    et le funding, que `_reconstruire_ohlcv` recopie de la serie mere sur les memes dates.
+    Le temoin paie les MEMES couts que le reel : le spread, au tick de la serie mere, et le
+    funding, que `_reconstruire_ohlcv` recopie tous deux de la serie mere sur les memes dates.
     Sans cette recopie, l'ecart reel/synthetique contenait un cout de detention au lieu de
     ne contenir qu'un edge, et une candidate qui tient longtemps gagnait la porte par sa
     duree. Les colonnes exogenes qui ne sont pas des couts (fng, macro) ne sont pas
@@ -197,7 +201,8 @@ def _resultats_synthetiques(run: Run, series: dict[str, pd.DataFrame],
                 faux, signaux, take_profit_r=run.take_profit_r,
                 horizon_bougies=run.horizon_bougies, stop_atr=run.stop_atr,
                 cout_aller_retour_pct=run.cout_aller_retour_pct,
-                spread=run.spread, funding=run.funding, paire=f"{paire}~{i}")
+                spread=run.spread, funding=run.funding, paire=f"{paire}~{i}",
+                spread_modele=run.spread_modele)
         except Exception as exc:                     # noqa: BLE001 - un chemin ne doit pas
             log.debug("chemin synthetique %d ecarte : %s", i, exc)   # tuer le temoin entier
             continue
@@ -239,7 +244,7 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
     resultat = batterie.evaluer(
         sequence, equity=courbe, series_marche=series,
         n_essais=n, cout_aller_retour_pct=run.cout_aller_retour_pct,
-        spread=run.spread, funding=run.funding,
+        spread=run.spread, funding=run.funding, spread_modele=run.spread_modele,
         resultats_synthetiques=synthetiques, equities_voisines=equities_voisines,
         nom=run.candidate.nom, univers_candidates=univers_candidates,
         famille=famille, graine=run.graine)

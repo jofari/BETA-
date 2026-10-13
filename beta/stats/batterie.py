@@ -53,6 +53,7 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
             series_marche: dict[str, pd.DataFrame] | None = None,
             n_essais: int = 30, cout_aller_retour_pct: float = 0.0,
             spread: bool = False, funding: bool = False,
+            spread_modele: str = reference.espace_r.MODELE_SPREAD,
             resultats_synthetiques: list[float] | None = None,
             equities_voisines: dict[str, pd.DataFrame] | None = None,
             nom: str = "candidate", famille: pd.DataFrame | None = None,
@@ -131,7 +132,8 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
     # --- S8 : buy-and-hold, reference imposee ----------------------------------------
     if equity is not None and series_marche:
         ref = reference.hold(series_marche, cout_aller_retour_pct,
-                             spread=spread, funding=funding)
+                             spread=spread, funding=funding,
+                             spread_modele=spread_modele)
         moi = reference.strategie_journaliere(equity)
         comparaison = reference.comparer(moi, ref)
         detail["S8_buy_and_hold"] = {"hold": ref, "candidate": moi, **comparaison}

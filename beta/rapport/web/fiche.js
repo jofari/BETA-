@@ -23,6 +23,10 @@ const FICHE = (() => {
   const jour = (s) => s ? String(s).slice(0, 10) : "—";
 
   const TONS = { confirmee: "good", infirmee: "critical", indecidable: "warn" };
+  // Le spread facture par le moteur. Avant le 13/10 : l'estimateur de Corwin & Schultz, qui
+  // suivait la volatilite (12 pb par trade sur BTC en 1h pour 0,01 pb reel).
+  const SPREADS = { tick: "1 tick / prix (lu dans les prix du lake)",
+                    corwin_schultz: "estimé (Corwin-Schultz, avant le 13/10 : surévalué)" };
   const ETIQUETTE_PORTE = {
     S1_benjamini_hochberg: "S1 · Benjamini-Hochberg",
     S2_sharpe_degonfle: "S2 · Sharpe dégonflé",
@@ -382,7 +386,9 @@ const FICHE = (() => {
             ["Take-profit", `${n2(ex.take_profit_r)} R`],
             ["Horizon maximal", `${ent(ex.horizon_bougies)} bougies${
               enJours(ex.horizon_bougies, ex.timeframe)}`],
-            ["Coût aller-retour", `${n2(ex.cout_aller_retour_pct)} %`],
+            ["Frais + slippage (aller-retour)", `${n2(ex.cout_aller_retour_pct)} %`],
+            ["Spread", ex.spread === false ? "non payé"
+              : SPREADS[e.spread_modele] || echapper(e.spread_modele || "—")],
             ["Univers", echapper((ex.paires || []).join(" · ") || "—")],
             ["Unité de temps", echapper(ex.timeframe || "—")],
             ["Empreinte du code", `<code>${echapper(ex.empreinte || "—")}</code>`],

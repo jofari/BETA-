@@ -33,6 +33,7 @@ from typing import Protocol, runtime_checkable
 
 import pandas as pd
 
+from beta.moteur import espace_r
 from beta.protocole import experiences, holdout
 
 log = logging.getLogger("beta.moteur")
@@ -157,15 +158,19 @@ class Run:
     stop_atr: float = 2.0
     take_profit_r: float = 2.0
     horizon_bougies: int = 96
-    frais_pct: float = 0.05             # aller-retour, taker Binance perp
+    # Aller-retour : le taker des perpetuels Binance coute 0,05 % PAR COTE (bareme de base,
+    # celui des voies C et du paper), soit 0,10 %. Jusqu'au 13/10 : 0,05, un seul cote.
+    frais_pct: float = 0.10
     slippage_pct: float = 0.02
     # Les deux couts de DETENTION, actifs par defaut : ce qu'on paie parce qu'on TIENT une
     # position, pas parce qu'on l'ouvre. Les laisser a False ferait du banc une machine a
     # sacrer les candidates qui tiennent longtemps — le contraire de son objet.
-    # Le spread est estime (Corwin & Schultz) faute de serie de carnet libre ; le funding
-    # n'est paye que par les paires dont le pipeline a joint `funding_rate` (perpetuels).
+    # Le spread vaut un tick rapporte au prix (`espace_r.MODELE_SPREAD`) ; `corwin_schultz`
+    # rejoue les runs d'avant le 13/10. Le funding n'est paye que par les paires dont le
+    # pipeline a joint `funding_rate` (perpetuels).
     spread: bool = True
     funding: bool = True
+    spread_modele: str = espace_r.MODELE_SPREAD
     graine: int = 0
     preenregistrement: dict = field(default_factory=dict, repr=False)
     lance_le: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
@@ -187,6 +192,9 @@ class Run:
                     f"'{id_exp}' n'autorise pas le hold-out (split_autorise="
                     f"{autorise!r}). Le regarder, c'est le bruler.")
             log.warning("RUN SUR LE HOLD-OUT : '%s'. Une seule fois, sans retour.", id_exp)
+        if self.spread_modele not in espace_r.MODELES_SPREAD:
+            raise ContratError(f"modele de spread inconnu : {self.spread_modele} "
+                               f"(connus : {espace_r.MODELES_SPREAD})")
         if self.horizon_bougies < 1:
             raise ContratError("horizon_bougies doit valoir au moins 1")
         if not self.paires:
@@ -200,11 +208,13 @@ class Run:
         0,07 % de frais puis a 0,20 %, ou avec et sans funding, rendait deux fois le meme
         id : le second run ecrasait le premier dans `data/runs/` et la comparaison (S7/S9)
         n'en voyait qu'un. Deux chiffres differents ne peuvent pas partager un identifiant.
+        Le modele de spread en fait partie depuis le 13/10, pour la meme raison.
         """
         graine = (f"{self.id_experience}|{self.candidate.empreinte}|{self.paires}|"
                   f"{self.timeframe}|{self.split}|{self.debut}|{self.fin}|"
                   f"{self.stop_atr}|{self.take_profit_r}|{self.horizon_bougies}|"
-                  f"{self.frais_pct}|{self.slippage_pct}|{self.spread}|{self.funding}")
+                  f"{self.frais_pct}|{self.slippage_pct}|{self.spread}|{self.funding}|"
+                  f"{self.spread_modele}")
         return hashlib.sha256(graine.encode("utf-8")).hexdigest()[:12]
 
     @property
@@ -228,6 +238,7 @@ class Run:
                 "cout_aller_retour_pct": self.cout_aller_retour_pct,
                 "frais_pct": self.frais_pct, "slippage_pct": self.slippage_pct,
                 "spread": self.spread, "funding": self.funding,
+                "spread_modele": self.spread_modele,
                 "parametres": dict(self.candidate.parametres),
                 "lance_le": self.lance_le}
 

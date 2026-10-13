@@ -159,6 +159,17 @@ def test_le_chemin_synthetique_herite_du_funding_de_la_serie_mere(generateur):
     assert (chemin["date"].to_numpy() == mere["date"].to_numpy()).all()
 
 
+@pytest.mark.parametrize("generateur", ["gbm", "phase"])
+def test_le_chemin_synthetique_paie_le_spread_de_la_serie_mere(generateur):
+    """Les prix fabriques ne tombent sur aucune grille : sans la recopie du tick, le temoin
+    paierait le forfait (1 pb) au lieu du spread reel de la serie mere."""
+    mere = _serie_marche(n=200)
+    mere["tick"] = 0.01
+    chemin = next(iter(synthetique.GENERATEURS[generateur](mere, n_chemins=1)))
+    assert np.allclose(chemin["tick"].to_numpy(), 0.01)
+    assert np.allclose(espace_r._serie_spread(chemin), 0.01 / chemin["close"].to_numpy())
+
+
 def test_le_temoin_synthetique_paie_bien_le_funding():
     """Herite la colonne ne suffit pas : il faut que le moteur la facture sur le temoin."""
     mere = _serie_marche(n=200)

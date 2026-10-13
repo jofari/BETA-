@@ -164,7 +164,12 @@ def explication(verdict: dict) -> dict:
         "execution": {cle: verdict.get(cle) for cle in
                       ("timeframe", "paires", "split", "stop_atr", "take_profit_r",
                        "horizon_bougies", "cout_aller_retour_pct", "empreinte",
-                       "debut", "fin")},
+                       "debut", "fin", "spread", "funding")},
+        # Les runs d'avant le 13/10 ne portent pas le champ : ils ont paye l'estimateur de
+        # Corwin & Schultz (s'ils payaient un spread). Le dire, plutot que de laisser croire
+        # que deux runs ont paye le meme cout.
+        "spread_modele": verdict.get("spread_modele")
+                         or ("corwin_schultz" if verdict.get("spread") else None),
         "code": _code_source(identifiants.get("module") or ""),
     }
 

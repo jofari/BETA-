@@ -30,8 +30,11 @@ Les trois couts se comptent tous en **% du prix d'entree**, puis se convertissen
 le meme facteur `entree / risque` (notionnel 1x, collateral plein, pas de levier) :
 
 - **frais + slippage** — forfaitaires, payes une fois par aller-retour ;
-- **spread bid-ask** — estime depuis les high/low du lake (Corwin & Schultz), paye une
-  demi-fois a l'entree et une demi-fois a la sortie, soit un spread complet par trade ;
+- **spread bid-ask** — un pas de cotation (tick) rapporte au prix, le tick etant celui que
+  revelent les prix du lake mois par mois (modele `tick`, depuis le 13/10). Paye une
+  demi-fois a l'entree et une demi-fois a la sortie, soit un spread complet par trade.
+  L'estimateur d'avant (Corwin & Schultz) reste disponible pour rejouer les runs anterieurs
+  a l'identique : il mesurait la volatilite, pas le spread (voir `MODELE_SPREAD`) ;
 - **funding** — cumule sur les bougies TENUES et signe par le sens : un funding positif
   coute au long et paie le short. C'est le seul cout qui grandit avec la duree du trade,
   donc le seul que le R par trade d'ARIT ne pouvait pas voir.
@@ -64,6 +67,25 @@ PERIODE_ATR = 14
 # c'est voulu, un spread se paie a l'echelle du trade, pas a celle du mois.
 FENETRE_SPREAD = 21
 _K_CS = 3.0 - 2.0 * np.sqrt(2.0)          # la constante de Corwin & Schultz
+
+# Modeles de spread (audit du 13/10). « tick » : le spread d'un perpetuel liquide vaut UN pas
+# de cotation. Mesure le 13/10 sur le carnet Binance : BTC 0,01 pb, ETH 0,04, BNB 0,13,
+# XRP 0,73, LINK 0,77, SOL 0,93 — exactement tick / prix pour les six paires. Le tick n'est
+# pas une constante (BTC 0,01 puis 0,1 en 2022 ; SOL 0,0001 en 2020) : on le lit dans les
+# prix du lake, mois par mois (`pas_de_cotation`), sans autre source (invariant n° 2).
+# « corwin_schultz » : l'estimateur d'avant le 13/10, garde pour rejouer les runs anterieurs.
+# Il suit la volatilite, pas le spread : ~0,13 R par trade en 1h sur TOUTES les paires
+# (2021-2024), 12 pb par trade sur BTC en 1h pour 0,01 pb reel.
+TICK, CORWIN_SCHULTZ = "tick", "corwin_schultz"
+MODELES_SPREAD = (TICK, CORWIN_SCHULTZ)
+MODELE_SPREAD = TICK
+# Sans grille de prix lisible (serie fabriquee, prix ajustes d'un indice), aucun tick ne se
+# deduit : on paie alors 1 pb, au-dessus du plus large des six perpetuels mesures le 13/10.
+SPREAD_INCONNU = 1e-4
+# Un « tick » plus fin que ce seuil, en fraction du prix, n'est pas une grille de cotation
+# mais du bruit d'arrondi : 1e-7 = 0,001 pb, dix fois sous le tick relatif de BTC (0,012 pb).
+TICK_RELATIF_MIN = 1e-7
+_ECHELLE_PRIX = 1e8                        # 8 decimales : la precision des prix Binance
 
 # Periode de reglement du funding des perpetuels Binance. Sert a ramener au prorata de la
 # bougie un taux que le pipeline a recopie en palier (cf. _serie_funding).
@@ -138,20 +160,64 @@ def spread_corwin_schultz(df: pd.DataFrame, fenetre: int = FENETRE_SPREAD) -> pd
     return bi_bougie.rolling(max(1, int(fenetre)), min_periods=1).mean()
 
 
-def _serie_spread(df: pd.DataFrame, fenetre: int = FENETRE_SPREAD) -> np.ndarray:
-    """L'estimateur, rendu utilisable bougie par bougie : plus aucun NaN.
+def pas_de_cotation(df: pd.DataFrame) -> np.ndarray:
+    """Le pas de cotation (tick) en vigueur sur chaque bougie, lu dans les prix du lake.
 
-    Avec `min_periods=1`, la seule bougie qui reste sans estimation est la PREMIERE de la
-    serie — il lui faut une voisine pour exister. On lui donne la moyenne des spreads connus
+    Tous les prix d'un mois sont des multiples du tick de ce mois-la : leur plus grand commun
+    diviseur EST le tick, sauf si tous partageaient par hasard un multiple plus grand — avec
+    des centaines de prix par mois, cela n'arrive pas. Le calcul est fait par mois calendaire
+    UTC : il suit les changements de tick de Binance sans constante a tenir a jour. Un mois a
+    cheval sur deux ticks prend le plus fin, ce qui sous-estime un spread deja minuscule.
+
+    Une colonne `tick` deja presente (recopiee sur un chemin synthetique, dont les prix ne
+    sont sur aucune grille) est reprise telle quelle. NaN quand aucune grille ne se lit : le
+    spread retombe alors sur SPREAD_INCONNU.
+    """
+    if "tick" in df.columns:
+        return pd.to_numeric(df["tick"], errors="coerce").to_numpy(dtype=float)
+    resultat = np.full(len(df), np.nan)
+    if df.empty or "date" not in df.columns:
+        return resultat
+    colonnes = [c for c in ("open", "high", "low", "close") if c in df.columns]
+    prix = df[colonnes].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+    dates = pd.to_datetime(df["date"], utc=True)
+    mois = dates.dt.year.to_numpy() * 100 + dates.dt.month.to_numpy()
+    for lignes in pd.Series(np.arange(len(df))).groupby(mois).indices.values():
+        valeurs = prix[lignes].ravel()
+        # Au moins deux prix DISTINCTS : un mois immobile rendrait le prix lui-meme.
+        valeurs = np.unique(valeurs[np.isfinite(valeurs) & (valeurs > 0)])
+        if len(valeurs) < 2:
+            continue
+        tick = np.gcd.reduce(np.rint(valeurs * _ECHELLE_PRIX).astype(np.int64)) / _ECHELLE_PRIX
+        if tick / float(np.median(valeurs)) >= TICK_RELATIF_MIN:
+            resultat[lignes] = tick
+    return resultat
+
+
+def _serie_spread(df: pd.DataFrame, fenetre: int = FENETRE_SPREAD,
+                  modele: str = MODELE_SPREAD) -> np.ndarray:
+    """Le spread RELATIF de chaque bougie (fraction du prix), sans aucun NaN.
+
+    `tick` : un pas de cotation divise par la cloture. Sans grille lisible, SPREAD_INCONNU.
+
+    `corwin_schultz` (runs d'avant le 13/10) : avec `min_periods=1`, la seule bougie qui reste
+    sans estimation est la PREMIERE de la serie ; on lui donne la moyenne des spreads connus
     plutot que zero : un cout nul est la seule valeur a coup sur fausse, et ecarter le signal
     serait pire encore, parce que l'ensemble des trades mesures changerait selon qu'on paie
     le spread ou non. Un cout doit changer ce qu'un trade RAPPORTE, jamais quels trades
-    existent.
+    existent — c'est vrai des deux modeles.
     """
-    estimes = spread_corwin_schultz(df, fenetre).to_numpy(dtype=float)
-    connus = estimes[np.isfinite(estimes)]
-    defaut = float(connus.mean()) if len(connus) else 0.0
-    return np.where(np.isfinite(estimes), estimes, defaut)
+    if modele == CORWIN_SCHULTZ:
+        estimes = spread_corwin_schultz(df, fenetre).to_numpy(dtype=float)
+        connus = estimes[np.isfinite(estimes)]
+        defaut = float(connus.mean()) if len(connus) else 0.0
+        return np.where(np.isfinite(estimes), estimes, defaut)
+    if modele != TICK:
+        raise ValueError(f"modele de spread inconnu : {modele} (connus : {MODELES_SPREAD})")
+    cloture = pd.to_numeric(df["close"], errors="coerce").to_numpy(dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        relatif = pas_de_cotation(df) / cloture
+    return np.where(np.isfinite(relatif) & (relatif > 0), relatif, SPREAD_INCONNU)
 
 
 def _heures_par_bougie(df: pd.DataFrame) -> float:
@@ -212,7 +278,8 @@ def evaluer(df: pd.DataFrame, signaux: pd.DataFrame, *, take_profit_r: float = 2
             cout_aller_retour_pct: float = 0.0, spread: bool = False,
             funding: bool = False, fenetre_spread: int = FENETRE_SPREAD,
             heures_funding: float = HEURES_FUNDING, paire: str = "",
-            periode_atr: int = PERIODE_ATR) -> pd.DataFrame:
+            periode_atr: int = PERIODE_ATR,
+            spread_modele: str = MODELE_SPREAD) -> pd.DataFrame:
     """Rejoue chaque signal en triple barriere. Une ligne par signal, en R.
 
     `df` : OHLCV du lake (colonnes date/open/high/low/close), plus `funding_rate` si le
@@ -263,7 +330,8 @@ def evaluer(df: pd.DataFrame, signaux: pd.DataFrame, *, take_profit_r: float = 2
     hauts, bas, clotures = (df[c].to_numpy(dtype=float) for c in ("high", "low", "close"))
     dates = pd.to_datetime(df["date"], utc=True).to_numpy()
 
-    spread_tout = _serie_spread(df, fenetre_spread) if spread else np.zeros(n)
+    spread_tout = (_serie_spread(df, fenetre_spread, spread_modele) if spread
+                   else np.zeros(n))
     funding_tout = _serie_funding(df, heures_funding) if funding else np.zeros(n)
     if funding and "funding_rate" not in df.columns:
         log.debug("%s : funding demande mais colonne absente — cout de funding nul",

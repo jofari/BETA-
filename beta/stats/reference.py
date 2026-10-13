@@ -13,7 +13,8 @@ minimum exigible, pas un exploit.
 
 Ce hold est un LONG PERPETUEL, pas un achat au comptant : il paie donc, en plus des frais
 d'aller-retour, les deux couts de DETENTION que la candidate paie depuis le chantier des
-frais — le spread bid-ask estime et le funding cumule sur toute la duree de detention. Les
+frais — le spread bid-ask (meme modele que la candidate) et le funding cumule sur toute la
+duree de detention. Les
 laisser de cote donnerait a la reference un avantage qu'aucun portefeuille reel n'a, et
 S8 sacrerait des candidates qui ne battent qu'un hold imaginaire. Les deux estimateurs sont
 ceux du moteur (`espace_r`), importes et non recopies : une reference qui paierait un cout
@@ -38,6 +39,7 @@ def _serie_journaliere(df: pd.DataFrame) -> pd.Series:
 
 def _cout_detention_pct(df: pd.DataFrame, debut: pd.Timestamp, fin: pd.Timestamp, *,
                         spread: bool, funding: bool, fenetre_spread: int,
+                        spread_modele: str = espace_r.MODELE_SPREAD,
                         heures_funding: float) -> dict:
     """Ce qu'un long tenu de `debut` a `fin` paie sur UNE paire, en % du notionnel d'entree.
 
@@ -66,7 +68,7 @@ def _cout_detention_pct(df: pd.DataFrame, debut: pd.Timestamp, fin: pd.Timestamp
     entree, sortie = int(positions[0]), int(positions[-1])
     spread_pct = funding_pct = 0.0
     if spread:
-        estimes = espace_r._serie_spread(df, fenetre_spread)
+        estimes = espace_r._serie_spread(df, fenetre_spread, spread_modele)
         spread_pct = 100.0 * 0.5 * float(estimes[entree] + estimes[sortie])
     if funding:
         taux = espace_r._serie_funding(df, heures_funding)
@@ -77,6 +79,7 @@ def _cout_detention_pct(df: pd.DataFrame, debut: pd.Timestamp, fin: pd.Timestamp
 
 def hold(series: dict[str, pd.DataFrame], cout_aller_retour_pct: float = 0.0, *,
          spread: bool = False, funding: bool = False,
+         spread_modele: str = espace_r.MODELE_SPREAD,
          fenetre_spread: int = espace_r.FENETRE_SPREAD,
          heures_funding: float = espace_r.HEURES_FUNDING) -> dict:
     """Buy-and-hold equipondere sur `series` : {paire: OHLCV}. Rendements journaliers.
@@ -109,6 +112,7 @@ def hold(series: dict[str, pd.DataFrame], cout_aller_retour_pct: float = 0.0, *,
 
     couts = [_cout_detention_pct(series[p], courbe.index[0], courbe.index[-1],
                                  spread=spread, funding=funding,
+                                 spread_modele=spread_modele,
                                  fenetre_spread=fenetre_spread,
                                  heures_funding=heures_funding)
              for p in normalisees.columns]
