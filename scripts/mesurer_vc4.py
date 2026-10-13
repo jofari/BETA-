@@ -30,8 +30,6 @@ forward dira si la reactivite paie dans une vraie cassure intraday, ce que 5 ans
 
 from __future__ import annotations
 
-import copy
-import hashlib
 import logging
 import math
 import pathlib
@@ -45,6 +43,7 @@ sys.path.insert(0, str(RACINE))
 
 from beta.protocole import experiences  # noqa: E402
 from beta.stats import bootstrap, multitest  # noqa: E402
+from beta.strategies import mesure_c2 as mc  # noqa: E402
 from beta.strategies import voie_c2 as c2  # noqa: E402
 from beta.strategies import voie_c4 as c4  # noqa: E402
 from beta.strategies import voie_c_verif as vv  # noqa: E402
@@ -59,41 +58,14 @@ L_ALERTE = 20
 N_REPETITIONS = 2000
 
 
-def run_id(id_exp: str, signe: str) -> str:
-    cle = f"{id_exp}|{signe}|{c2.DEPART_SIMULATION:%Y-%m-%d}|{c2.FIN_BACKTEST:%Y-%m-%d}"
-    return hashlib.sha256(cle.encode()).hexdigest()[:12]
+# Fonctions communes a VC3, VC4 et VC5, a l'identique depuis le 13/10 :
+# `beta.strategies.mesure_c2` (la procedure `main` ci-dessous reste celle qui a tourne).
+run_id, maxdd, sharpe_an, ligne, pire_baisse = (
+    mc.run_id, mc.maxdd, mc.sharpe_an, mc.ligne, mc.pire_baisse)
 
 
 def voisin(cfg: dict, chemin: str, valeur) -> dict:
-    v = copy.deepcopy(cfg)
-    bloc, cle = chemin.split(".")
-    if cle not in v[bloc]:
-        raise KeyError(f"voisin {chemin} : cle absente de la config VC4")
-    v[bloc][cle] = valeur
-    v["version"] = f"{ID}~{chemin}={valeur}"
-    return v
-
-
-def maxdd(r: np.ndarray) -> float:
-    equite = np.cumprod(1.0 + np.asarray(r, dtype=float))
-    return float((equite / np.maximum.accumulate(equite) - 1.0).min())
-
-
-def sharpe_an(r: np.ndarray) -> float:
-    return multitest.sharpe(r) * math.sqrt(vc.PPA)
-
-
-def ligne(nom: str, r: pd.Series, extra: str = "") -> str:
-    p = vc.performance(r)
-    return (f"  {nom:<34s} Sharpe {p['sharpe']:5.2f} | CAGR {p['cagr']:7.1%} | "
-            f"vol {p['vol']:5.1%} | maxDD {p['mdd']:7.1%}{extra}")
-
-
-def pire_baisse(r: pd.Series) -> tuple[pd.Timestamp, pd.Timestamp, float]:
-    equite = (1.0 + r).cumprod()
-    dd = equite / equite.cummax() - 1.0
-    creux = dd.idxmin()
-    return equite.loc[:creux].idxmax(), creux, float(dd.min())
+    return mc.voisin(cfg, chemin, valeur, ID)
 
 
 def par_jour(valeurs: np.ndarray, instants: pd.DatetimeIndex) -> pd.Series:
