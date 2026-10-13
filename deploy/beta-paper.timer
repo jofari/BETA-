@@ -1,8 +1,10 @@
 [Unit]
-Description=BETA - paper trading des trois voies C, chaque jour a 01:00 UTC
+Description=BETA - paper trading quotidien des cinq voies (VOIE_C, VC2, VC3, VC4, VC5), chaque jour a 01:00 UTC
 
 [Timer]
-# Apres les suivis (voie C 00:45, VC2 et VC3 00:50, quelques secondes chacun) : les consignes
+# VC4 passe aussi ici (point quotidien, 0 ordre en general) ET aux ouvertures de session
+# (beta-vc4-sessions.timer, paper.py --voie VC4).
+# Apres les suivis (voie C 00:45, VC2 a VC5 00:50, quelques secondes chacun) : les consignes
 # du jour sont ecrites. Le modele traite a 00:00 UTC ; l'ecart a l'ouverture mesure aussi ce
 # delai d'une heure.
 OnCalendar=*-*-* 01:00:00 UTC

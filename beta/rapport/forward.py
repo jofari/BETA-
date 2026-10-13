@@ -139,6 +139,9 @@ def paper(lignes: list[dict], modele: list[dict]) -> dict | None:
     derniere = lignes[-1]
     return {
         "capital": capital, "debut": lignes[0]["date"], "fin": derniere["date"],
+        # Heure reelle du dernier passage (01:00 UTC, ou les sessions pour VC4) : la date seule
+        # ne dit pas si le run du jour a eu lieu.
+        "dernier_passage": derniere.get("execute_le"),
         "n_jours": len(premieres), "points": points,
         "equite": derniere["equite"],
         "rendement": premieres[-1]["equite_avant"] / capital - 1.0,

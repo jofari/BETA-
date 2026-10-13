@@ -107,7 +107,7 @@ def main() -> int:
     toutes = paper.voies()
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--voie", action="append", choices=sorted(toutes),
-                    help="une voie (repetable) ; defaut : les trois")
+                    help="une voie (repetable) ; defaut : toutes")
     ap.add_argument("--repertoire", type=Path, default=config.RACINE,
                     help="ou ecrire les PAPER_<voie>.jsonl (defaut : racine du depot)")
     args = ap.parse_args()

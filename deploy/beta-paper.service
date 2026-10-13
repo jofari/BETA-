@@ -1,14 +1,17 @@
-# BETA — paper trading des trois voies C (voie C figee, VC2, VC3) : execution SIMULEE des
-# consignes du jour contre le vrai carnet Binance, 10 000 USDT fictifs par voie. Aucune cle,
+# BETA — paper trading quotidien des voies C (VOIE_C figee, VC2, VC3, VC4, VC5) : execution SIMULEE
+# des consignes du jour contre le vrai carnet Binance, 10 000 USDT fictifs par voie. Aucune cle,
 # aucun ordre : seules les routes publiques de Binance sont lues.
 # Installe par : cp deploy/beta-paper.{service,timer} /etc/systemd/system/
 #                systemctl daemon-reload && systemctl enable --now beta-paper.timer
 # Unite en "failed" (`systemctl --failed`, puis `journalctl -u beta-paper`) : une voie n'a pas
 # pu s'executer (marche illisible, ou consigne absente parce que son suivi n'est pas passe).
 [Unit]
-Description=BETA - paper trading des trois voies C
-After=network-online.target beta-suivi.service beta-suivi-vc2.service beta-suivi-vc3.service
+Description=BETA - paper trading quotidien des cinq voies (VOIE_C, VC2, VC3, VC4, VC5)
+After=network-online.target beta-suivi.service beta-suivi-vc2.service beta-suivi-vc3.service beta-suivi-vc4.service beta-suivi-vc5.service
 Wants=network-online.target
+# Relances (voir [Service]) : 6 essais au plus dans l'heure, puis "failed" -> alerte Discord.
+StartLimitIntervalSec=1h
+StartLimitBurst=6
 
 [Service]
 Type=oneshot
@@ -16,6 +19,13 @@ WorkingDirectory=/root/BETA-
 Environment=ARIT_HOME=/root/ARIT2.0
 ExecStart=/root/venvs/arit/bin/python scripts/paper.py
 TimeoutStartSec=600
+# L'ordre suivis -> paper ne repose plus sur les seuls 10 min d'ecart : si un suivi est en retard
+# (consigne absente) ou Binance illisible, on relance 5 min plus tard. executer_voie est
+# idempotent (une fois par jour et par voie) : une relance ne refait que les voies manquantes.
+# Sortie 4 = critere du dry-run franchi : un resultat, pas une panne -> pas de relance.
+Restart=on-failure
+RestartSec=5min
+RestartPreventExitStatus=4
 Nice=10
 CPUQuota=50%
 MemoryMax=1G

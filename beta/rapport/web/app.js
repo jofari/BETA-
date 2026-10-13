@@ -420,3 +420,9 @@ async function identifierServeur() {
 
 identifierServeur();
 charger();
+
+/* Le paper et les suivis ecrivent leurs journaux en tache de fond (01:00 UTC, sessions VC4) :
+   l'onglet Forward se relit seul, sans toucher aux autres onglets (calculs plus lourds). */
+setInterval(() => {
+  if (document.visibilityState === "visible") FORWARD.charger();
+}, 5 * 60 * 1000);

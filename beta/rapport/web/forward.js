@@ -165,9 +165,14 @@ const FORWARD = (() => {
       ["Consigne", consigne],
       ["Paper", p ? `<span class="${ton(p.rendement)}">${pc(p.rendement)}</span> sur ${p.n_jours} j`
         + ` <span class="muet">· modèle ${pc(p.modele)}</span>` : "démarre au prochain passage"],
+      ["Dernier passage", p ? heureUtc(p.dernier_passage) : "—"],
     ];
     return `<div class="carte voie">${tete}<dl class="voie-dl">${lignes.map(([k, x]) =>
       `<dt>${k}</dt><dd>${x}</dd>`).join("")}</dl></div>`;
+  }
+
+  function heureUtc(iso) {
+    return iso ? iso.slice(0, 16).replace("T", " ") + " UTC" : "—";
   }
 
   /* ---------- allocation du compte paper et effet de levier ------------------------------ */
@@ -433,8 +438,10 @@ const FORWARD = (() => {
     $$("#forward-positions").innerHTML = tablePositions(vue);
     $$("#forward-execution").innerHTML = tableExecution(vue);
     $$("#forward-ordres").innerHTML = tableOrdres(vue);
-    $$("#forward-genere").textContent = "relu le " + vue.genere_le.replace("T", " ")
-      .replace("+00:00", " UTC");
+    // « relu » = lecture des journaux par la page, PAS l'heure du paper (voir « Dernier passage »).
+    $$("#forward-genere").textContent = "Journaux relus le " + heureUtc(vue.genere_le)
+      + " · la page se relit seule toutes les 5 min · paper : chaque jour 01:00 UTC,"
+      + " VC4 aux ouvertures de Londres et New York (semaine)";
     dessiner();
   }
 
