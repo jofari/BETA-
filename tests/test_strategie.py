@@ -126,20 +126,43 @@ def test_split_coupe_a_la_date_scellee():
                                              holdout.HOLDOUT]
 
 
-def test_exiger_train_refuse_le_holdout():
-    df = pd.DataFrame({"split": [holdout.TRAIN, holdout.HOLDOUT]})
-    with pytest.raises(holdout.HoldoutError, match="bruler"):
-        holdout.exiger_train(df)
+def test_une_lecture_de_train_s_arrete_avant_la_premiere_bougie_du_hold_out():
+    """Audit du 13/10 : `lecture.load` a des bornes INCLUSIVES ; couper a 2025-01-01 lisait
+    la bougie qui ouvre a 00:00 ce jour-la — une journee entiere de hold-out en 1d."""
+    assert holdout.borner_train() == "2024-12-31T23:59:59.999999"
+    assert pd.Timestamp(holdout.borner_train(), tz="UTC") < holdout.DEBUT
+    assert holdout.borner_train("2023-06-01") == "2023-06-01T00:00:00"
+    assert holdout.borner_train("2026-03-01") == holdout.borner_train()
+    assert holdout.borner_train("2025-03-01T00:00:00+00:00") == holdout.borner_train()
 
 
-def test_exiger_train_refuse_sans_colonne_split():
-    with pytest.raises(holdout.HoldoutError, match="absente"):
-        holdout.exiger_train(pd.DataFrame({"x": [1]}))
+def test_le_pipeline_ne_lit_plus_la_bougie_du_1er_janvier():
+    from types import SimpleNamespace
+
+    from beta.moteur import pipeline
+    train = SimpleNamespace(split=holdout.TRAIN, debut=None, fin=None)
+    _, fin = pipeline._bornes_du_split(train)
+    assert pd.Timestamp(fin, tz="UTC") < holdout.DEBUT
+    tard = SimpleNamespace(split=holdout.TRAIN, debut=None, fin="2026-01-01")
+    assert pipeline._bornes_du_split(tard)[1] == fin
+    hold = SimpleNamespace(split=holdout.HOLDOUT, debut=None, fin=None)
+    assert pipeline._bornes_du_split(hold)[0] == "2025-01-01"
 
 
-def test_filtrer_train():
-    df = pd.DataFrame({"ts_entree": pd.to_datetime(["2024-01-01", "2025-06-01"], utc=True)})
-    assert len(holdout.filtrer_train(df)) == 1
+def test_l_outil_mcp_ne_sert_pas_le_hold_out(monkeypatch):
+    """Un agent passait par `beta_load_ohlcv` pour lire 2025+ sans aucune garde."""
+    from beta.lake import lecture
+    from beta.mcp import serveur
+    lu = {}
+
+    def faux_load(paire, timeframe, debut=None, fin=None):
+        lu["fin"] = fin
+        return pd.DataFrame({"date": pd.to_datetime(["2024-12-31"], utc=True), "close": [1.0]})
+
+    monkeypatch.setattr(lecture, "load", faux_load)
+    rendu = serveur._ohlcv("BTC", "1d", fin="2026-10-01")
+    assert pd.Timestamp(lu["fin"], tz="UTC") < holdout.DEBUT
+    assert rendu["fin_lue"] == lu["fin"] and "2025-01-01" in rendu["hold_out_exclu"]
 
 
 # --- protocole : le verrou --------------------------------------------------------------

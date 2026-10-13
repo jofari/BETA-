@@ -127,7 +127,7 @@ def _serie_temoin(timeframe_voulu: str = ""):
     from beta.lake import catalogue, lecture
     from beta.protocole import holdout
 
-    coupure = holdout.DEBUT.date().isoformat()
+    coupure = holdout.borner_train()
     essais = [(PAIRE_TEMOIN, timeframe_voulu or TIMEFRAME_TEMOIN)]
     etat = catalogue.etat()
     if not etat.empty:

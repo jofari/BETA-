@@ -54,7 +54,7 @@ def test_univers_compte_six_paires():
 
 
 def test_quatre_paires_importables_deux_a_telecharger():
-    assert {p.base for p in univers.a_importer()} == {"BTC", "ETH", "SOL", "BNB"}
+    assert {p.base for p in univers.PAIRES if p.importable} == {"BTC", "ETH", "SOL", "BNB"}
     assert {p.base for p in univers.a_telecharger()} == {"LINK", "XRP"}
 
 

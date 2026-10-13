@@ -21,7 +21,7 @@ essayees sur la meme fenetre, et le Sharpe du gagnant du train est un maximum d'
 pas une esperance.
 
     ARIT_HOME=/root/ARIT2.0 PYTHONPATH=/root/BETA- \
-        /root/venvs/arit/bin/python beta/strategies/voie_b_trading.py
+        /root/venvs/arit/bin/python archives/recherche_2026-09/voie_b_trading.py
 """
 
 from __future__ import annotations

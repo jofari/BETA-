@@ -26,7 +26,8 @@ Causalite — tout est decale d'un jour avant de rencontrer un rendement :
 - le levier du jour t n'utilise que des rendements de composite <= t-1 ;
 - le funding du jour d (3 reglements a 00:00, 08:00 et 16:00 UTC) est entierement connu
   avant la cloture de la bougie quotidienne d (00:00 UTC de d+1) : le decalage d'un jour
-  suffit, et c'est la convention deja retenue par `voie_b_trading.funding_quotidien`.
+  suffit, et c'est la convention deja retenue par `voie_b_trading.funding_quotidien`
+  (archive depuis le 13/10 : `archives/recherche_2026-09/`).
 
 Ce fichier est un SCRIPT DE MESURE, pas une candidate du moteur : il ne passe ni par
 `contrats.Run`, ni par le preenregistrement, ni par la batterie S1-S9. Ce qu'il imprime est

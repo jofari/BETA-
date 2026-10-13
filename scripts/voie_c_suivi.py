@@ -54,7 +54,6 @@ log = logging.getLogger("beta.voie_c_suivi")
 # ⚠️ FIGEE le 2026-10-03. Ne pas modifier : ouvrir un nouveau suivi a la place.
 CONFIG_FIGEE = {"cible": 0.20, "fenetre": 30, "lmin": 0.25, "lmax": 2.0, "seuil_levier": 0.25,
                 "pas": 1, "bande": 0.20}
-DATE_GEL = "2026-10-03"
 DEBUT_SUIVI = pd.Timestamp("2026-09-06", tz="UTC")
 # Meme point de depart que toutes les mesures : l'etat (bande, hysteresis) au 06/09 est
 # donc exactement celui du backtest, pas un portefeuille qui demarre a plat.

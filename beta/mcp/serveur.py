@@ -74,7 +74,7 @@ def _catalogue(**_) -> dict:
 
 @outil("beta_load_ohlcv",
        "OHLCV d'une paire du lake, en UTC. Tout timeframe multiple de 5 min est derive a "
-       "la volee. Bornes inclusives.",
+       "la volee. Bornes inclusives. Train seulement : rien a partir du hold-out (2025-01-01).",
        {"type": "object",
         "properties": {"paire": {"type": "string", "description": "BTC, ETH, SOL, BNB, LINK, XRP"},
                        "timeframe": {"type": "string", "description": "5m, 1h, 4h, 1d, ou tout multiple de 5m"},
@@ -84,11 +84,16 @@ def _catalogue(**_) -> dict:
 def _ohlcv(paire: str, timeframe: str, debut: str | None = None, fin: str | None = None,
            limite: int = MAX_LIGNES, **_) -> dict:
     from beta.lake import lecture
-    df = lecture.load(paire, timeframe, debut=debut, fin=fin)
+    from beta.protocole import holdout
+    # Le hold-out est scelle pour les agents aussi (audit du 13/10 : cet outil le servait sans
+    # garde). La fin demandee est ramenee juste avant 2025-01-01, et la reponse le dit.
+    fin_lue = holdout.borner_train(fin)
+    df = lecture.load(paire, timeframe, debut=debut, fin=fin_lue)
     limite = min(int(limite), MAX_LIGNES)
     tronque = len(df) > limite
     extrait = df.tail(limite) if tronque else df
-    return {"paire": paire, "timeframe": timeframe, "n_total": len(df),
+    return {"paire": paire, "timeframe": timeframe, "fin_lue": fin_lue,
+            "hold_out_exclu": f"rien a partir du {holdout.DEBUT.date()}", "n_total": len(df),
             "n_rendu": len(extrait), "tronque_aux_plus_recentes": tronque,
             "lignes": json.loads(extrait.to_json(orient="records", date_format="iso"))}
 

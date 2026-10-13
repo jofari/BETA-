@@ -475,9 +475,9 @@ actions proposées, **sauf la mesure de R12 : aucun nouveau test pour le moment*
 ### Coûts du moteur : le spread vaut un tick, les frais deux côtés
 
 **Constat** : l'estimateur de Corwin & Schultz, imposé par le chantier des frais
-(`chantier_frais.md`, mi-septembre), facturait 3 pb par trade sur BTC en 5 min, 12 pb en 1 h,
-60 pb en 1 j (XRP : 6, 24 et 118 pb). Le spread réel, lu le 13/10 sur le carnet Binance des
-perpétuels : BTC 0,01 pb, ETH 0,04, BNB 0,13, XRP 0,73, LINK 0,77, SOL 0,93. En 1 h, il coûtait
+(`archives/consignes_agents/chantier_frais.md`, mi-septembre), facturait 3 pb par trade sur
+BTC en 5 min, 12 pb en 1 h, 60 pb en 1 j (XRP : 6, 24 et 118 pb). Le spread réel, lu le
+13/10 sur le carnet Binance des perpétuels : BTC 0,01 pb, ETH 0,04, BNB 0,13, XRP 0,73, LINK 0,77, SOL 0,93. En 1 h, il coûtait
 ~0,13 R par trade sur **toutes** les paires (2021-2024), alors que leurs vrais spreads diffèrent
 d'un facteur 90 : il suivait la volatilité, pas le spread. Sur les runs 4 h du 19/09, 0,11 R par
 trade, huit fois les frais. **Aucun verdict ne change** : ces règles perdaient déjà avant tout
@@ -517,6 +517,34 @@ du seuil : la modification ne relâche pas ce que le critère voulait juger (l'e
 retire ce qu'il ne devait pas juger (le marché). Premières lignes concernées : passage du
 14/10 01:00 ; avant, le calcul ancien s'applique faute du champ.
 
+### Hold-out : consommé pour l'allocation quotidienne, scellé pour le reste
+
+**Constat** : le hold-out (2025-01-01+) n'a jamais servi de split à une mesure du moteur (17
+runs, tous sur le train). Mais les voies A et B (tests 2024+), l'optimisation de la voie C
+(jusqu'au 05/09/2026) et les mesures de VC2 à VC5 (jusqu'au 05/09/2026) l'ont regardé, hors du
+moteur — chaque préenregistrement des VC le disait (« fenêtre déjà vue »). Et toute mesure
+« train » du moteur lisait la première bougie du hold-out (01/01/2025 00:00, une journée en
+1 d), faute de borne exclusive ; l'outil MCP `beta_load_ohlcv` servait 2025+ sans garde.
+
+**Décision** :
+- **Pour les stratégies d'allocation quotidienne (famille des voies A, B, C, VC), le hold-out est
+  consommé.** Seul le forward compte (suivis et paper depuis septembre), ce qui était déjà la
+  pratique depuis A2.
+- **Pour le reste** (le moteur, les candidates R, R12 comprise), il reste scellé, et désormais
+  sans fuite : `holdout.borner_train()` arrête toute lecture de train juste avant 2025-01-01
+  (pipeline, épreuve de l'atelier, outil MCP, qui dit maintenant ce qu'il a exclu).
+- Les deux fonctions du « verrou par colonne » (`exiger_train`, `filtrer_train`), jamais
+  appelées hors des tests, sont retirées : la coupure réelle passe par les dates.
+
+### Archives et code mort
+
+Rangés dans `archives/` (voir son README) : les voies A et B (scripts de recherche du 25/09, hors
+protocole, importés nulle part), les cahiers des charges d'agents (`chantier_frais*.md`) et les
+prompts de `strategies/`. Retirés : `construction.importer_depuis_arit`,
+`univers.a_importer`, `contrats.Signaux`, `COLONNES_SIGNAUX_OPTIONNELLES`,
+`SEUIL_PARTITION_PAR_ANNEE`, `DATE_GEL`. Les scripts de préenregistrement et de mesure déjà
+exécutés restent tels quels (ce sont des enregistrements).
+
 ---
 
 ## En attente de Jonas
@@ -525,6 +553,7 @@ retire ce qu'il ne devait pas juger (le marché). Premières lignes concernées 
 |---|---|---|---|
 | ~~**A1**~~ | ~~Ce que compte N : hypothèses ou mesures~~ | ✅ **tranchée 20/08 — (b)**, appliquée | 19/08 |
 | **B-a** | R3 (funding) : la mesurer quand même, ou l'écarter ? Sa prémisse (86 % du profit de MacroFlip) est attaquée par les mesures ARIT du 05/09 | 🔴 ouverte | 11/09 |
-| **B-b** | R4 (macro seule) : D6 est débloqué le jour où ARIT enterre la macro — mesurer, ou classer ? | 🔴 ouverte | 11/09 |
+| ~~**B-b**~~ | ~~R4 (macro seule) : mesurer, ou classer ?~~ | ✅ **tranchée dans les faits** : R4 mesurée le 08/09 et le 19/09, INFIRMÉE, close (constaté par l'audit du 13/10) | 11/09 |
 | **B-c** | I16 (momentum 14-60 j) : la promouvoir en **candidate n° 2** du banc, lookback 30 j figé ? | 🔴 ouverte | 11/09 |
 | ~~**A2**~~ | ~~Nature de l'edge : alpha vs ARP (options A/B/C)~~ | ✅ **tranchée — (A)**, suivi forward depuis le 03/10 | 22/09 |
+| **A3** | Compteur : ajouter les ~7 150 configurations testées hors protocole (voie A 216, voie B 1 176, optimisation de la voie C 5 760, + `/root/arit_funding`), ou écrire qu'elles forment une famille à part et pourquoi | 🔴 ouverte | 13/10 |

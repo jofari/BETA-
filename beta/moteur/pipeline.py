@@ -44,7 +44,9 @@ def _bornes_du_split(run: Run) -> tuple[str | None, str | None]:
     debut, fin = run.debut, run.fin
     coupure = holdout.DEBUT.date().isoformat()
     if run.split == holdout.TRAIN:
-        fin = min(fin, coupure) if fin else coupure
+        # Bornes INCLUSIVES : la fin s'arrete juste avant DEBUT (audit du 13/10 : couper a
+        # DEBUT lisait la premiere bougie du hold-out).
+        fin = holdout.borner_train(fin)
     else:
         debut = max(debut, coupure) if debut else coupure
     return debut, fin

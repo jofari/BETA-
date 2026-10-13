@@ -40,7 +40,6 @@ TRADING_MODE = "futures"
 # en 5m sur 6 ans, soit une quinzaine de Mo compresses, que DuckDB lit sans les charger.
 # Repartir par annee ne se justifiera qu'au-dela de ~50 paires — le noter plutot que le
 # faire trop tot.
-SEUIL_PARTITION_PAR_ANNEE = 50
 
 # Tolerance de trous. Au-dela, la serie est marquee SUSPECTE au catalogue : un backtest sur
 # une serie trouee produit des resultats faux EN SILENCE (invariant n° 3).

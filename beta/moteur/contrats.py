@@ -29,7 +29,6 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
 
 import pandas as pd
 
@@ -38,9 +37,9 @@ from beta.protocole import experiences, holdout
 
 log = logging.getLogger("beta.moteur")
 
-# Colonnes que signaux() doit rendre, et celles qu'il peut rendre en plus.
+# Colonnes que signaux() doit rendre. En option, le moteur lit `stop_distance` (le risque R)
+# et `prix_entree` (rejouer des trades deja pris) ; toute autre colonne est ignoree.
 COLONNES_SIGNAUX_REQUISES = ("sens",)
-COLONNES_SIGNAUX_OPTIONNELLES = ("stop_distance", "force", "note")
 
 SENS_VALIDES = (-1, 0, 1)
 
@@ -50,13 +49,6 @@ ISSUES = (CONFIRMEE, INFIRMEE, INDECIDABLE)
 
 class ContratError(RuntimeError):
     """Une candidate, un run ou un verdict qui ne respecte pas son contrat."""
-
-
-@runtime_checkable
-class Signaux(Protocol):
-    """La seule chose qu'une candidate sait faire."""
-
-    def __call__(self, df: pd.DataFrame) -> pd.DataFrame: ...
 
 
 @dataclass(frozen=True)

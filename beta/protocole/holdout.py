@@ -18,9 +18,8 @@ DEBUT = pd.Timestamp("2025-01-01", tz="UTC")
 
 TRAIN, HOLDOUT = "train", "holdout"
 
-
-class HoldoutError(RuntimeError):
-    """Tentative de lire le hold-out sans autorisation explicite."""
+# La derniere date du train. La bougie qui OUVRE a DEBUT appartient deja au hold-out.
+FIN_TRAIN = DEBUT - pd.Timedelta(microseconds=1)
 
 
 def split(dates: pd.Series) -> pd.Series:
@@ -33,20 +32,17 @@ def split(dates: pd.Series) -> pd.Series:
                       for d in pd.to_datetime(dates, utc=True)], index=dates.index)
 
 
-def exiger_train(df: pd.DataFrame, colonne: str = "split") -> pd.DataFrame:
-    """Refuse de laisser passer une ligne de hold-out. A appeler avant toute mesure."""
-    if colonne not in df.columns:
-        raise HoldoutError(f"colonne '{colonne}' absente : impossible de garantir que le "
-                           "hold-out est exclu. Poser la colonne avec split().")
-    intrus = int((df[colonne] == HOLDOUT).sum())
-    if intrus:
-        raise HoldoutError(f"{intrus} ligne(s) de hold-out dans un jeu de mesure. "
-                           "Le regarder, c'est le bruler.")
-    return df
+def borner_train(fin: str | None = None) -> str:
+    """La borne de fin, INCLUSIVE, d'une lecture de train : `fin`, sans jamais atteindre DEBUT.
 
-
-def filtrer_train(df: pd.DataFrame, colonne_date: str = "ts_entree") -> pd.DataFrame:
-    """Ne garde que l'avant-coupure. La voie normale d'acces aux donnees de mesure."""
-    if colonne_date not in df.columns:
-        raise HoldoutError(f"colonne '{colonne_date}' absente")
-    return df[pd.to_datetime(df[colonne_date], utc=True) < DEBUT].copy()
+    `lecture.load` prend des bornes inclusives : couper « a DEBUT » lui faisait lire la
+    bougie qui ouvre a DEBUT, la premiere du hold-out (une journee entiere en 1d). Constate
+    par l'audit du 13/10 sur toutes les mesures du moteur. Rend une date ISO naive (UTC).
+    """
+    limite = FIN_TRAIN
+    if fin:
+        demande = pd.Timestamp(fin)
+        demande = (demande.tz_localize("UTC") if demande.tzinfo is None
+                   else demande.tz_convert("UTC"))
+        limite = min(limite, demande)
+    return limite.tz_convert(None).isoformat()

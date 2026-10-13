@@ -1,7 +1,7 @@
 """Voie A — allocation multi-actifs inverse-vol avec tilt de regime, optimisee train/test.
 
     ARIT_HOME=/root/ARIT2.0 PYTHONPATH=/root/BETA- \
-        /root/venvs/arit/bin/python beta/strategies/voie_a_allocation.py
+        /root/venvs/arit/bin/python archives/recherche_2026-09/voie_a_allocation.py
 
 Ce que fait ce script, dans l'ordre :
 

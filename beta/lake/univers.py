@@ -118,10 +118,6 @@ def a_telecharger() -> tuple[Paire, ...]:
     return tuple(p for p in PAIRES if not p.importable)
 
 
-def a_importer() -> tuple[Paire, ...]:
-    return tuple(p for p in PAIRES if p.importable)
-
-
 def par_base(base: str) -> Paire:
     for paire in PAIRES:
         if paire.base == base.upper():

@@ -165,16 +165,6 @@ def convertir(paire: univers.Paire, timeframe: str, source: pathlib.Path,
     return deposer(paire, timeframe, _lire_feather(source), origine)
 
 
-def importer_depuis_arit(paire: univers.Paire, timeframe: str) -> dict:
-    """Les 4 paires historiques : on prend le feather d'ARIT tel quel, en LECTURE SEULE.
-
-    Retelecharger ce qui est deja sur disque coute ~27 min pour un resultat identique au bit
-    pres. ARIT n'est jamais ecrit (invariant n° 1) : `pd.read_feather` ouvre en lecture.
-    """
-    return convertir(paire, timeframe, config.chemin_feather_arit(paire.slug, timeframe),
-                     origine="arit2.0")
-
-
 def integrer_telechargement(paire: univers.Paire, timeframe: str) -> dict:
     """Les paires nouvelles, deposees par freqtrade dans `data/raw/`."""
     return convertir(paire, timeframe, config.chemin_feather_brut(paire.slug, timeframe),

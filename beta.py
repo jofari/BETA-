@@ -355,7 +355,8 @@ def cmd_doctor(_args) -> int:
     print(f"donnees       {config.DATA}")
     print(f"ARIT (lecture) {config.ARIT}"
           f"{'' if config.ARIT.exists() else '   <- INTROUVABLE'}")
-    print(f"hold-out      scelle au {holdout.DEBUT.date()}")
+    print(f"hold-out      scelle au {holdout.DEBUT.date()} pour le moteur ; consomme pour "
+          "l'allocation quotidienne (voies A/B/C, VC — DECISIONS 13/10)")
     print(f"essais cumules {experiences.compteur()} "
           f"(dont {experiences.ESSAIS_INITIAUX} de dette initiale)")
 
