@@ -194,6 +194,11 @@ def donnees_forward() -> dict:
     return forward.vue()
 
 
+def donnees_valorisation() -> dict:
+    from beta.rapport import forward
+    return forward.valorisation()
+
+
 _ROUTES_BRUTES = {
     "/api/lake": lambda p: donnees_lake(),
     "/api/strategie": lambda p: donnees_strategie(bool(p.get("holdout"))),
@@ -205,6 +210,7 @@ _ROUTES_BRUTES = {
     "/api/comparaison": donnees_comparaison,
     "/api/idees": lambda p: donnees_idees(),
     "/api/forward": lambda p: donnees_forward(),
+    "/api/forward/valorisation": lambda p: donnees_valorisation(),
 }
 
 # Toutes les routes passent par `propre` : aucune ne peut renvoyer de NaN au navigateur,

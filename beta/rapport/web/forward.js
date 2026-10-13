@@ -8,7 +8,7 @@
 
 const FORWARD = (() => {
   const $$ = (sel) => document.querySelector(sel);
-  const etat = { vue: null };
+  const etat = { vue: null, valo: null };
 
   const echapper = (t) => String(t ?? "").replace(/[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -134,9 +134,17 @@ const FORWARD = (() => {
     if (!s) return `<div class="carte voie">${tete}<p class="vide">Aucun suivi sur cette machine
       (les timers tournent sur le VPS).</p></div>`;
     const d = s.derniere, c = s.consigne;
-    const regime = d.etat ? `<span class="puce regime-${d.etat}">${d.etat}</span>` : "";
-    const votes = d.votes ? Object.entries(d.votes).map(([k, x]) =>
-      `${VOTES[k] || k} ${x > 0 ? "+" : ""}${x}`).join(" · ") + ` = ${d.somme > 0 ? "+" : ""}${d.somme}`
+    // Le regime affiche est celui de la CONSIGNE DU JOUR (meme source que le panneau Indicateurs),
+    // pas celui de la derniere journee close : les deux ne coincidaient pas (+2 / +3 le 13/10).
+    const r = c && c.votes ? c : d;
+    const indic = (c && c.indicateurs && c.indicateurs.votes) || {};
+    const regime = r.etat ? `<span class="puce regime-${r.etat}">${r.etat}</span>` : "";
+    const votes = r.votes ? Object.entries(r.votes).map(([k, x]) =>
+      `${VOTES[k] || k} ${x > 0 ? "+" : ""}${x}`
+      + (r === c && indic[k] && indic[k].perimee ? " (donnée périmée → 0)" : "")).join(" · ")
+      + ` = <strong>${r.somme > 0 ? "+" : ""}${r.somme}</strong>`
+      + (r === c && d.somme !== undefined && d.somme !== c.somme
+        ? ` <span class="muet">(veille ${d.somme > 0 ? "+" : ""}${d.somme})</span>` : "")
       : (d.levier ? `multiplicateur vol-cible ${Number(d.levier).toFixed(2)}`
         + ' <span class="muet">(pas un effet de levier)</span>' : "");
     const live = s.live ? `${s.live.n} j live, ${pc(s.live.net)}, maxDD ${pc(s.live.mdd)}`
@@ -159,16 +167,30 @@ const FORWARD = (() => {
         + ` <span class="muet">· BTC ${pc(s.btc)}</span>`],
       ["MaxDD / vol", `${pc(s.tout.mdd)} · ${s.tout.vol === null ? "—" : pc(s.tout.vol, 1)}`],
       ["Live", live],
-      ["Régime", regime ? `${regime} <span class="muet">${votes}</span>` : votes || "—"],
+      [r === c ? `Régime du ${String(c.date).slice(0, 10)}` : "Régime", regime ? `${regime} <span class="muet">${votes}</span>` : votes || "—"],
       ["Exposition", exposition],
       ["Effet de levier", levier],
       ["Consigne", consigne],
       ["Paper", p ? `<span class="${ton(p.rendement)}">${pc(p.rendement)}</span> sur ${p.n_jours} j`
         + ` <span class="muet">· modèle ${pc(p.modele)}</span>` : "démarre au prochain passage"],
+      ["Paper maintenant", maintenant(v.nom)],
       ["Dernier passage", p ? heureUtc(p.dernier_passage) : "—"],
     ];
     return `<div class="carte voie">${tete}<dl class="voie-dl">${lignes.map(([k, x]) =>
       `<dt>${k}</dt><dd>${x}</dd>`).join("")}</dl></div>`;
+  }
+
+  /* Le paper n'est execute qu'aux passages : son chiffre est celui de 01:00. Ici, la meme
+     position revalorisee aux prix actuels (sans le funding couru), relue avec la page. */
+  function maintenant(nom) {
+    const valo = etat.valo;
+    if (!valo) return '<span class="muet">prix en cours de lecture…</span>';
+    if (valo.erreur) return `<span class="muet">${echapper(valo.erreur)}</span>`;
+    const x = valo.voies[nom];
+    if (!x) return "—";
+    return `<span class="${ton(x.rendement)}">${pc(x.rendement)}</span>`
+      + ` <span class="muet">· ${pc(x.depuis_passage)} depuis le`
+      + ` passage · prix de ${heureUtc(valo.prix_le).slice(11)}</span>`;
   }
 
   function heureUtc(iso) {
@@ -452,6 +474,13 @@ const FORWARD = (() => {
       etat.vue = { erreur: "serveur injoignable : " + exc.message };
     }
     rendre();
+    // Les prix viennent de Binance (quelques centaines de ms) : la page s'affiche sans attendre.
+    try {
+      etat.valo = await fetch("/api/forward/valorisation").then((r) => r.json());
+    } catch (exc) {
+      etat.valo = { erreur: "valorisation injoignable : " + exc.message };
+    }
+    if (etat.vue && !etat.vue.erreur) rendre();
   }
 
   return { charger, redessiner: dessiner, aDesDonnees: () => !!(etat.vue && !etat.vue.erreur) };

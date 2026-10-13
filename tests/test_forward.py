@@ -189,3 +189,24 @@ def test_cadence_instant_consigne_et_paper_compares_au_modele_quotidien(tmp_path
     assert [pt["date"] for pt in p["points"]] == ["2026-10-12", "2026-10-13"]
     assert p["rendement"] == pytest.approx(0.10)              # 11 000 a 00:00, pas 11 200
     assert p["modele"] == pytest.approx(0.10) and p["n_jours"] == 2
+
+
+# ------------------------------------------------------------ valorisation au prix du moment
+
+def test_valorisation_revalorise_le_dernier_passage_aux_prix_actuels(tmp_path):
+    passage = {**_execution(3_000.0, {"BTC": 0.05, "ETH": 1.0}, {"BTC": 100_000.0, "ETH": 2_000.0}),
+               "instrument": "spot", "capital_initial": 10_000.0}
+    _jsonl(tmp_path / "PAPER_VC3.jsonl", [passage])
+    prix = {"spot": {"BTC": 110_000.0, "ETH": 2_000.0}, "perpetuel": {}}
+    v = forward.valorisation(tmp_path, prix=prix, le="2026-10-13T06:00:00+00:00")
+    x = v["voies"]["VC3"]
+    assert x["equite"] == pytest.approx(3_000.0 + 5_500.0 + 2_000.0)
+    assert x["rendement"] == pytest.approx(0.05) and x["depuis_passage"] == pytest.approx(0.05)
+    assert "VOIE_C" not in v["voies"] and v["prix_le"] == "2026-10-13T06:00:00+00:00"
+
+
+def test_valorisation_sans_prix_de_l_instrument_ne_devine_rien(tmp_path):
+    passage = {**_execution(3_000.0, {"BTC": 0.05}, {"BTC": 100_000.0}),
+               "instrument": "perpetuel", "capital_initial": 10_000.0}
+    _jsonl(tmp_path / "PAPER_VC2.jsonl", [passage])
+    assert forward.valorisation(tmp_path, prix={"spot": {"BTC": 1.0}})["voies"] == {}
