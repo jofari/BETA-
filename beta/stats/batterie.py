@@ -121,11 +121,10 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
         wf = walkforward.marche_en_avant(trades)
         cp = walkforward.cpcv(trades)
         detail["S6_walk_forward"] = {"ancre": wf, "cpcv": cp}
-        efficacite = wf.get("efficacite", float("nan"))
         perdants = cp.get("part_chemins_perdants", float("nan"))
-        portes["S6_walk_forward"] = bool(
-            np.isfinite(efficacite) and efficacite >= SEUIL_EFFICACITE_WF
-            and np.isfinite(perdants) and perdants <= SEUIL_CHEMINS_PERDANTS)
+        portes["S6_walk_forward"], reserve_s6 = porte_s6(wf, cp)
+        if reserve_s6:
+            reserves.append(reserve_s6)
         if np.isfinite(perdants):
             reserves.append(f"{perdants:.0%} des chemins CPCV finissent en perte")
 
@@ -184,6 +183,28 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
     metriques.update({"n_essais_cumules": n_essais})
     return {"metriques": metriques, "portes": portes, "reserves": tuple(reserves),
             "detail": detail}
+
+
+def porte_s6(ancre: dict, cpcv: dict) -> tuple[bool, str]:
+    """La porte S6 et sa reserve eventuelle, a partir du walk-forward ancre et du CPCV.
+
+    Le ratio OOS/IS ne veut rien dire si l'IS perd deja : IS = -0,10 et OOS = -0,15
+    donnent 1,5, qui franchissait le seuil jusqu'au 15/10. Sans IS positif, il n'y a pas
+    d'edge a retrouver hors echantillon, donc la porte echoue.
+    """
+    efficacite = _nombre(ancre.get("efficacite"))
+    is_moyen = _nombre(ancre.get("is_moyen"))
+    perdants = _nombre(cpcv.get("part_chemins_perdants"))
+    passe = bool(np.isfinite(is_moyen) and is_moyen > 0
+                 and np.isfinite(efficacite) and efficacite >= SEUIL_EFFICACITE_WF
+                 and np.isfinite(perdants) and perdants <= SEUIL_CHEMINS_PERDANTS)
+    reserve = (f"R moyen in-sample {is_moyen:+.4f} <= 0 : efficacite OOS/IS sans objet, "
+               "S6 echoue") if np.isfinite(is_moyen) and is_moyen <= 0 else ""
+    return passe, reserve
+
+
+def _nombre(valeur) -> float:
+    return float("nan") if valeur is None else float(valeur)
 
 
 def issue(portes: dict, n_trades: int = 0) -> str:

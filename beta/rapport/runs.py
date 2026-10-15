@@ -21,6 +21,7 @@ import pandas as pd
 from beta.moteur.pipeline import RESULTATS
 from beta.rapport import identite
 from beta.stats import descriptif
+from beta.stats.batterie import SEUIL_EFFICACITE_WF
 
 log = logging.getLogger("beta.rapport.runs")
 
@@ -69,13 +70,73 @@ def _echantillonner(valeurs: list, maximum: int = MAX_POINTS_COURBE) -> list:
     return [valeurs[min(int(i * pas), len(valeurs) - 1)] for i in range(maximum)]
 
 
+DD_PLANCHER_PCT = -100.0          # on ne perd pas plus que tout : au-dela, c'est la ruine
+
+
+def _dd_affiche(valeur):
+    """Un drawdown sous -100 % n'existe pas : l'equity non composee est passee sous zero.
+
+    Le calcul du moteur reste tel quel (courbe / sommet - 1 descend a -3 000 % quand
+    l'equity devient negative) ; c'est l'AFFICHAGE qui plafonne, et la ruine se dit a cote.
+    """
+    if valeur is None or not np.isfinite(valeur):
+        return valeur
+    return max(float(valeur), DD_PLANCHER_PCT)
+
+
+def _ruine(equity: pd.DataFrame) -> dict | None:
+    """Le premier instant ou l'equity touche zero, lu sur la courbe COMPLETE.
+
+    Sur la courbe echantillonnee pour l'ecran, le point de ruine peut tomber entre deux
+    points gardes : il se cherche donc avant l'echantillonnage.
+    """
+    if equity.empty:
+        return None
+    sous_zero = (equity["equity"].to_numpy(dtype=float) <= 0.0).nonzero()[0]
+    if not len(sous_zero):
+        return None
+    ts = pd.to_datetime(equity["ts"].iloc[int(sous_zero[0])], utc=True)
+    return {"ts": ts.isoformat(), "date": str(ts.date())}
+
+
 def _courbe(equity: pd.DataFrame) -> dict:
     if equity.empty:
-        return {"ts": [], "equity": [], "drawdown_pct": []}
+        return {"ts": [], "equity": [], "drawdown_pct": [], "ruine": None}
     ts = pd.to_datetime(equity["ts"], utc=True)
-    return {"ts": _echantillonner([t.isoformat() for t in ts]),
+    echantillon = _echantillonner([t.isoformat() for t in ts])
+    ruine = _ruine(equity)
+    if ruine:
+        # Position a l'ecran : le premier point garde qui n'est pas avant la ruine. Une
+        # ruine apres le dernier point garde (les derniers points ne sont pas toujours
+        # echantillonnes) se place sur ce dernier point.
+        ruine["indice"] = next((i for i, t in enumerate(echantillon) if t >= ruine["ts"]),
+                               len(echantillon) - 1)
+    return {"ts": echantillon,
             "equity": _echantillonner([float(v) for v in equity["equity"]]),
-            "drawdown_pct": _echantillonner([float(v) for v in equity["drawdown_pct"]])}
+            "drawdown_pct": _echantillonner([_dd_affiche(float(v))
+                                             for v in equity["drawdown_pct"]]),
+            "ruine": ruine}
+
+
+def _efficacite(ancre: dict, seuil: float = SEUIL_EFFICACITE_WF) -> dict:
+    """L'efficacite OOS/IS telle qu'elle peut s'afficher, avec sa couleur.
+
+    Le ratio n'a de sens que si l'IS est positif : IS = -0,10 et OOS = -0,15 donnent 1,5,
+    qui se lirait « l'OOS fait mieux que l'IS » alors que les deux perdent. Dans ce cas on
+    affiche n/a, jamais un nombre. Le calcul de `walkforward` n'est pas touche.
+    """
+    is_ = ancre.get("is_moyen")
+    oos = ancre.get("oos_moyen")
+    valeur = ancre.get("efficacite")
+    base = {"seuil": seuil, "is_moyen": is_, "oos_moyen": oos}
+    if is_ is None or not np.isfinite(is_) or is_ <= 0:
+        return base | {"valeur": None, "ton": "muted", "raison": "IS <= 0 : ratio sans objet"}
+    if valeur is None or not np.isfinite(valeur):
+        return base | {"valeur": None, "ton": "muted", "raison": "non mesuree"}
+    if oos is None or not np.isfinite(oos) or oos <= 0:
+        return base | {"valeur": valeur, "ton": "critical", "raison": "OOS <= 0"}
+    return base | {"valeur": valeur, "ton": "good" if valeur >= seuil else "critical",
+                   "raison": ""}
 
 
 def _par_annee(trades: pd.DataFrame) -> list[dict]:
@@ -218,15 +279,20 @@ def fiche(run_id: str) -> dict:
             "p_drawdown": permutation.get("p_drawdown_pire_que_seuil"),
             "seuil_dd_pct": permutation.get("seuil_dd_pct"),
             "centile_drawdown_reel": permutation.get("centile_drawdown_reel"),
-            "drawdown_max_reel_pct": permutation.get("drawdown_max_reel_pct"),
+            "drawdown_max_reel_pct": _dd_affiche(permutation.get("drawdown_max_reel_pct")),
+            "ruine_reelle": _ruine(equity),
+            # Les runs d'avant le 15/10 ne l'ont pas : None, affiche « non calculee ».
+            "p_ruine": remise.get("p_ruine"),
             "equity_finale_reelle": remise.get("equity_finale_reelle"),
             "equity_finale": remise.get("equity_finale", {}),
-            "drawdown_max": permutation.get("drawdown_max", {}),
+            "drawdown_max": {cle: _dd_affiche(v) for cle, v in
+                             (permutation.get("drawdown_max") or {}).items()},
             "cone": {cle: _echantillonner(valeurs)
                      for cle, valeurs in (permutation.get("cone") or {}).items()},
         },
         "walk_forward": {"plis": wf.get("ancre", {}).get("plis", []),
                          "efficacite": wf.get("ancre", {}).get("efficacite"),
+                         "efficacite_affichee": _efficacite(wf.get("ancre", {})),
                          "cpcv": {c: wf.get("cpcv", {}).get(c) for c in
                                   ("n_combinaisons", "oos_median", "oos_p5", "oos_p95",
                                    "part_chemins_perdants")},

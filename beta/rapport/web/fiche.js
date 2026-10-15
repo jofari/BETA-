@@ -115,6 +115,24 @@ const FICHE = (() => {
     const fin = moi[moi.length - 1];
     serie(ctx, moi, xm, y, fin >= 100 ? couleur("--status-good") : couleur("--status-critical"));
 
+    // La ruine : l'equity non composee a touche zero. Le serveur donne la position du
+    // point sur la courbe echantillonnee ; on ne la recalcule pas ici.
+    const ruine = donnees.courbe.ruine;
+    if (ruine && Number.isInteger(ruine.indice)) {
+      const xr = Math.round(xm(ruine.indice)) + 0.5;
+      ctx.strokeStyle = couleur("--status-critical");
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(xr, marge.haut);
+      ctx.lineTo(xr, haut - marge.bas);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = couleur("--status-critical");
+      ctx.textAlign = xr > large / 2 ? "right" : "left";
+      ctx.fillText("ruine " + ruine.date, xr + (xr > large / 2 ? -6 : 6), marge.haut + 26);
+    }
+
     ctx.fillStyle = couleur("--text-muted");
     ctx.textAlign = "left";
     ctx.fillText(jour(donnees.courbe.ts[0]), marge.gauche, haut - 6);
@@ -287,6 +305,16 @@ const FICHE = (() => {
     </div>`;
   }
 
+  /** Le serveur decide valeur et couleur (`runs._efficacite`) ; on ne fait qu'afficher.
+   *  IS <= 0 : « n/a », jamais un nombre. */
+  function tuileEfficacite(e) {
+    if (!e) return tuileF("—", "efficacité OOS/IS", "muted");
+    const note = e.valeur === null || e.valeur === undefined
+      ? echapper(e.raison || "") : `seuil ${n2(e.seuil)}${e.raison ? " · " + echapper(e.raison) : ""}`;
+    return tuileF(e.valeur === null || e.valeur === undefined ? "n/a" : n2(e.valeur),
+      "efficacité OOS/IS", e.ton, note);
+  }
+
   function echapper(texte) {
     const div = document.createElement("div");
     div.textContent = String(texte);
@@ -416,13 +444,20 @@ const FICHE = (() => {
       ${tuileF(pc(mc.p_perte), "P(finir en perte)", mc.p_perte > 0.1 ? "critical" : "good")}
       ${tuileF(pc(mc.p_drawdown), `P(drawdown > ${n2(mc.seuil_dd_pct)} %)`,
         mc.p_drawdown > 0.1 ? "critical" : "good")}
-      ${tuileF(n2(mc.drawdown_max_reel_pct) + " %", "drawdown observé")}
+      ${tuileF(n2(mc.drawdown_max_reel_pct) + " %", "drawdown observé",
+        mc.ruine_reelle ? "critical" : "",
+        mc.ruine_reelle ? `ruine le ${echapper(mc.ruine_reelle.date)}` : "")}
       ${tuileF(n2(mc.centile_drawdown_reel) + "e", "centile du drawdown observé", "warn",
-        "bas = la chronologie réelle a été chanceuse")}`;
+        "bas = la chronologie réelle a été chanceuse")}
+      ${tuileF(pc(mc.p_ruine), "P(ruine)",
+        mc.p_ruine === null || mc.p_ruine === undefined ? "muted"
+          : (mc.p_ruine > 0 ? "critical" : "good"),
+        mc.p_ruine === null || mc.p_ruine === undefined ? "non calculée pour ce run"
+          : "équité ≤ 0 (tirages avec remise)")}`;
 
     const wf = d.walk_forward;
     q("#fiche-wf-chiffres").innerHTML = `
-      ${tuileF(n2(wf.efficacite), "efficacité OOS/IS", wf.efficacite >= 0.5 ? "good" : "critical")}
+      ${tuileEfficacite(wf.efficacite_affichee)}
       ${tuileF(ent(wf.cpcv.n_combinaisons), "chemins CPCV")}
       ${tuileF(pc(wf.cpcv.part_chemins_perdants), "chemins perdants",
         wf.cpcv.part_chemins_perdants > 0.35 ? "critical" : "good")}

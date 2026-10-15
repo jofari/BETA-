@@ -135,3 +135,101 @@ def test_le_dossier_web_contient_bien_les_trois_fichiers():
 def test_port_distinct_d_alpha():
     """ALPHA occupe 7373 : partager le port ferait echouer le second demarre, en silence."""
     assert serveur.PORT != 7373
+
+
+# --- efficacite OOS/IS et ruine (bugs du 15/10) -------------------------------------------
+
+from beta.rapport import runs as vue_runs  # noqa: E402
+from beta.stats import montecarlo  # noqa: E402
+from beta.stats.batterie import SEUIL_EFFICACITE_WF  # noqa: E402
+
+
+def _ancre(is_, oos):
+    return {"is_moyen": is_, "oos_moyen": oos,
+            "efficacite": oos / is_ if is_ else float("nan")}
+
+
+def test_efficacite_is_negatif_donne_na_et_pas_un_ratio():
+    # IS = -0,10 et OOS = -0,15 : le ratio brut vaut 1,5 et passerait pour excellent.
+    e = vue_runs._efficacite(_ancre(-0.10, -0.15))
+    assert e["valeur"] is None
+    assert e["ton"] == "muted"
+
+
+@pytest.mark.parametrize("is_", [0.0, -0.01, float("nan")])
+def test_efficacite_na_des_que_is_n_est_pas_positif(is_):
+    e = vue_runs._efficacite({"is_moyen": is_, "oos_moyen": 0.05, "efficacite": 3.0})
+    assert e["valeur"] is None and e["ton"] == "muted"
+
+
+def test_efficacite_oos_negatif_avec_is_positif_est_rouge():
+    e = vue_runs._efficacite(_ancre(0.10, -0.02))
+    assert e["valeur"] == pytest.approx(-0.2)
+    assert e["ton"] == "critical"
+
+
+def test_efficacite_verte_seulement_au_dessus_du_seuil_de_la_config():
+    assert vue_runs._efficacite(_ancre(0.10, 0.10 * SEUIL_EFFICACITE_WF))["ton"] == "good"
+    assert vue_runs._efficacite(_ancre(0.10, 0.10 * SEUIL_EFFICACITE_WF * 0.99))["ton"] \
+        == "critical"
+    assert vue_runs._efficacite(_ancre(0.10, 0.08))["seuil"] == SEUIL_EFFICACITE_WF
+
+
+def _equity_qui_passe_sous_zero():
+    ts = pd.date_range("2024-01-01", periods=6, freq="D", tz="UTC")
+    courbe = pd.Series([100_000.0, 110_000.0, 40_000.0, -10_000.0, -50_000.0, 5_000.0])
+    sommet = courbe.cummax()
+    return pd.DataFrame({"ts": ts, "equity": courbe,
+                         "drawdown_pct": (courbe / sommet - 1.0) * 100.0})
+
+
+def test_equity_sous_zero_donne_dd_moins_100_et_date_de_ruine():
+    equity = _equity_qui_passe_sous_zero()
+    assert equity["drawdown_pct"].min() < -100.0          # le moteur, lui, va au-dela
+    courbe = vue_runs._courbe(equity)
+    assert min(courbe["drawdown_pct"]) == -100.0
+    assert courbe["ruine"]["date"] == "2024-01-04"
+    assert courbe["ruine"]["indice"] == 3
+    assert vue_runs._dd_affiche(-231.4) == -100.0
+    assert vue_runs._dd_affiche(-56.8) == -56.8
+
+
+def test_pas_de_ruine_si_l_equity_reste_positive():
+    equity = _equity_qui_passe_sous_zero().iloc[:3]
+    assert vue_runs._courbe(equity)["ruine"] is None
+
+
+def test_le_point_de_ruine_survit_a_l_echantillonnage():
+    # 2 000 points, ruine au point 1 000 : l'echantillon a 600 points peut l'enjamber.
+    n = 2_000
+    ts = pd.date_range("2020-01-01", periods=n, freq="h", tz="UTC")
+    valeurs = [1_000.0 - i for i in range(n)]               # touche 0 au point 1 000
+    courbe = pd.Series(valeurs)
+    equity = pd.DataFrame({"ts": ts, "equity": courbe,
+                           "drawdown_pct": (courbe / courbe.cummax() - 1.0) * 100.0})
+    ruine = vue_runs._courbe(equity)["ruine"]
+    assert ruine["ts"] == ts[1_000].isoformat()
+    echantillon = vue_runs._courbe(equity)["ts"]
+    assert echantillon[ruine["indice"]] >= ruine["ts"] > echantillon[ruine["indice"] - 1]
+
+
+def test_une_ruine_apres_le_dernier_point_garde_ne_fait_pas_tomber_la_fiche():
+    # 10 000 points, ruine au tout dernier : l'echantillon a 600 points s'arrete avant.
+    n = 10_000
+    ts = pd.date_range("2020-01-01", periods=n, freq="h", tz="UTC")
+    courbe = pd.Series([1_000.0] * (n - 1) + [-1.0])
+    equity = pd.DataFrame({"ts": ts, "equity": courbe,
+                           "drawdown_pct": (courbe / courbe.cummax() - 1.0) * 100.0})
+    vue = vue_runs._courbe(equity)
+    assert vue["ruine"]["ts"] == ts[-1].isoformat()
+    assert vue["ruine"]["indice"] == len(vue["ts"]) - 1
+
+
+def test_monte_carlo_compte_la_ruine_a_part_sans_toucher_au_reste():
+    r = [-30.0, -30.0, -30.0, -30.0, 5.0, 5.0]             # 1 % de risque : -120 % au pire
+    res = montecarlo.simuler(r, "permutation", n_tirages=200)
+    assert res["p_ruine"] == 1.0                            # la perte totale depasse 100 %
+    sain = montecarlo.simuler([1.0, -0.5, 1.0, -0.5], "remise", n_tirages=200)
+    assert sain["p_ruine"] == 0.0
+    # Le drawdown du moteur n'est pas plafonne : seul l'affichage l'est.
+    assert res["drawdown_max_reel_pct"] < -100.0

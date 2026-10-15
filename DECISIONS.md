@@ -547,6 +547,27 @@ exécutés restent tels quels (ce sont des enregistrements).
 
 ---
 
+## 2026-10-15 — S6 : une porte de verdict corrigée (bug 1), malgré « ne toucher à aucun calcul de verdict »
+
+La consigne du 15/10 interdisait de toucher au calcul des verdicts. **Une exception, et une
+seule** : la porte **S6 (walk-forward)** a changé de logique, parce qu'elle était fausse.
+
+- **Le bug** : S6 passait si `efficacite = OOS moyen / IS moyen >= 0,5` (et CPCV ≤ seuil).
+  Quand l'IS perd déjà, le ratio de deux négatifs est positif : IS = −0,10, OOS = −0,15
+  donnent 1,5, et le critère d'efficacité **passait**.
+- **La correction** (`beta/stats/batterie.py`, `porte_s6`) : S6 exige aussi **IS moyen > 0**.
+  Sans edge in-sample, il n'y a rien à retrouver hors échantillon ; la porte échoue, avec
+  une réserve qui le dit. Le calcul de `walkforward.marche_en_avant` n'est pas touché.
+- **Effet sur les 17 runs enregistrés** (`scripts/reevaluer_s6_ruine.py`, à blanc) :
+  **aucune porte S6 ni aucune issue ne change**. Le bug était pourtant actif : 14 runs ont
+  un IS ≤ 0, dont 12 avec une efficacité ≥ 0,5 (jusqu'à 28,2 pour `f76121140b7c`) — leur
+  S6 échouait déjà, mais **uniquement** par le critère CPCV, qui masquait le bug.
+- Le reste du lot du 15/10 n'est que de l'affichage (DD plafonné à −100 % à l'écran,
+  date de ruine, efficacité « n/a » si IS ≤ 0) et un ajout au Monte-Carlo (`p_ruine`,
+  compté à part, qui ne nourrit aucune porte).
+
+---
+
 ## En attente de Jonas
 
 | # | Objet | État | Depuis |

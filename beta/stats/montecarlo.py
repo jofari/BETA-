@@ -78,6 +78,9 @@ def simuler(r: np.ndarray, mode: str = "permutation", n_tirages: int = N_TIRAGES
                          for p in PERCENTILES_CONE},
         "p_perte": float((finaux < capital).mean()),
         "p_drawdown_pire_que_seuil": float((dd <= -SEUIL_DD_PCT).mean()),
+        # Sans composition, l'equity peut passer sous zero : la ruine, comptee a part
+        # (le drawdown, lui, n'a plus de sens au-dela de -100 %).
+        "p_ruine": float((courbes.min(axis=1) <= 0.0).mean()),
         "seuil_dd_pct": SEUIL_DD_PCT,
         # Rang du drawdown observe dans la distribution simulee : proche de 0, la sequence
         # reelle a ete CHANCEUSE, et le MDD publie sous-estime le risque reel.

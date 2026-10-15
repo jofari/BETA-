@@ -374,3 +374,39 @@ def test_une_porte_absente_reste_none_et_ne_vaut_pas_franchie():
     resultat = batterie.evaluer(trades, n_essais=36)
     assert resultat["portes"]["S8_buy_and_hold"] is None
     assert resultat["portes"]["S5_synthetique"] is None
+
+
+@pytest.mark.parametrize("is_, oos, attendu", [
+    (-0.10, -0.15, False),     # ratio 1,5 : passait la porte avant le 15/10
+    (0.0, 0.0, False),
+    (0.10, 0.06, True),
+    (0.10, 0.04, False),
+])
+def test_s6_exige_un_is_positif(monkeypatch, is_, oos, attendu):
+    """Le walk-forward et le CPCV sont figes : seul l'IS/OOS decide ici."""
+    monkeypatch.setattr(walkforward, "marche_en_avant", lambda t: {
+        "n_plis": 4, "plis": [], "is_moyen": is_, "oos_moyen": oos,
+        "efficacite": oos / is_ if is_ else float("nan")})
+    monkeypatch.setattr(walkforward, "cpcv", lambda t: {"part_chemins_perdants": 0.0})
+    resultat = batterie.evaluer(_trades(n=60), n_essais=36)
+    assert resultat["portes"]["S6_walk_forward"] is attendu
+    assert any("in-sample" in r for r in resultat["reserves"]) is (is_ <= 0)
+
+
+def test_le_rejeu_par_blocs_rend_les_memes_tirages_que_le_monte_carlo():
+    """scripts/reevaluer_s6_ruine.py rejoue S4 par blocs pour tenir en memoire sur le VPS."""
+    import importlib.util
+    import pathlib
+    chemin = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "reevaluer_s6_ruine.py"
+    spec = importlib.util.spec_from_file_location("reevaluer_s6_ruine", chemin)
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    r = edge(n=120, mu=-0.4)
+    for mode in ("permutation", "remise"):
+        entier = montecarlo.simuler(r, mode, n_tirages=1_000)
+        blocs = script.rejouer_mc(r, mode, n_tirages=1_000, bloc=64)
+        for cle, valeur in blocs.items():
+            if isinstance(valeur, dict):
+                assert valeur == pytest.approx(entier[cle])
+            else:
+                assert valeur == pytest.approx(entier[cle]), (mode, cle)
