@@ -163,7 +163,11 @@ def strategie_journaliere(equity: pd.DataFrame) -> dict:
               .resample("1D").last().ffill().dropna())
     if len(courbe) < 2:
         return {"rendement_total_pct": float("nan")}
-    rendements = courbe.pct_change().dropna()
+    # P&L du jour en unites de capital, pas `pct_change` : la courbe du moteur est a risque
+    # fixe (non composee) et peut passer sous zero, ou chaque rendement change de signe
+    # (-100 k -> -200 k = +100 %). Le Sharpe ne depend pas de l'echelle : diviser par le
+    # capital initial ne changerait rien, donc on ne divise par rien.
+    rendements = courbe.diff().dropna()
     sommet = courbe.cummax()
     return {"n_jours": len(courbe),
             "debut": str(courbe.index[0].date()), "fin": str(courbe.index[-1].date()),

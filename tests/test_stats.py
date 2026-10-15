@@ -289,6 +289,21 @@ def test_le_hold_nu_reste_exactement_celui_d_avant_les_couts_de_detention():
     assert resultat["cout_detention_pct"] == 0.0
 
 
+def test_le_sharpe_s8_reste_negatif_quand_l_equity_passe_sous_zero():
+    """Bug du 15/10 : `pct_change` sur une courbe non composee qui passe sous zero inversait
+    le signe des rendements, et une candidate ruinee affichait un Sharpe S8 positif."""
+    rng = np.random.default_rng(3)
+    pnl = rng.normal(-2_000.0, 5_000.0, 400)
+    pnl[:5] = -40_000.0                                  # ruine des la premiere semaine
+    equity = pd.DataFrame({"ts": pd.date_range("2022-01-01", periods=400, freq="1D", tz="UTC"),
+                           "equity": 100_000.0 + np.cumsum(pnl)})
+    assert equity["equity"].min() < 0
+    moi = reference.strategie_journaliere(equity)
+    assert moi["sharpe_annuel"] < 0
+    attendu = reference.sharpe_annuel(pd.Series(pnl[1:]) / 100_000.0)
+    assert moi["sharpe_annuel"] == pytest.approx(attendu)
+
+
 def test_ne_pas_battre_le_hold_fait_echouer_la_porte():
     comparaison = reference.comparer({"rendement_total_pct": 10.0, "sharpe_annuel": 0.5,
                                       "drawdown_max_pct": -20.0},

@@ -568,6 +568,27 @@ seule** : la porte **S6 (walk-forward)** a changé de logique, parce qu'elle ét
 
 ---
 
+## 2026-10-15 — S8 : le Sharpe de la candidate corrigé (même famille que S6), feu vert de Jonas
+
+Audit des ratios à dénominateur ≤ 0 demandé après S6 (`/root/rapports/2026-10-15_ratios-denominateurs.md`
+sur le VPS). Jonas : « oui corrige-le strictement ».
+
+- **Le bug** : `reference.strategie_journaliere` calculait le Sharpe S8 sur `courbe.pct_change()`.
+  La courbe du moteur est à risque fixe, non composée, et passe sous zéro sur 9 runs sur 17 :
+  le dénominateur devient négatif et le signe s'inverse (−100 k → −200 k = +100 %). Sharpe
+  stocké +0,77 pour un vrai −0,60 (`274eb02a15ee`), +0,48 pour une perte de −236 %
+  (`21acf3928232`). Même sans ruine, le Sharpe était gonflé (16 runs sur 17).
+- **La correction** : le Sharpe se calcule sur le P&L du jour (`courbe.diff()`), ce qui équivaut
+  à P&L / capital initial (le Sharpe ne dépend pas de l'échelle). Seule cette ligne change : le
+  rendement total, le CAGR, le drawdown et le hold ne sont pas touchés.
+- **Effet sur les verdicts : aucun.** Les 17 runs échouent à S8 par l'écart de rendement
+  (−2 000 à −5 000 pts). Les `batterie.json` déjà stockés gardent l'ancien Sharpe S8 (affichage
+  seulement).
+- **Pas corrigé, en attente** : les gardes « équité ≤ 0 » des voies C (CAGR complexe, dérive des
+  poids `/(1 + r_brut)`), et la comparaison de deux Sharpe négatifs.
+
+---
+
 ## En attente de Jonas
 
 | # | Objet | État | Depuis |
