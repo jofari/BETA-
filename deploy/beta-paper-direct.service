@@ -13,7 +13,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/root/BETA-
 Environment=ARIT_HOME=/root/ARIT2.0
-ExecStart=/root/venvs/arit/bin/python scripts/paper_direct.py
+ExecStart=/root/venvs/beta/bin/python scripts/paper_direct.py
 TimeoutStartSec=50
 Nice=10
 CPUQuota=25%

@@ -13,7 +13,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/root/BETA-
-ExecStart=/root/venvs/arit/bin/python scripts/vision.py
+ExecStart=/root/venvs/beta/bin/python scripts/vision.py
 TimeoutStartSec=12h
 # Ne jamais gener ARIT ni DS1 qui tournent sur la meme machine.
 Nice=10

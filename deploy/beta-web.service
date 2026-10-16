@@ -12,7 +12,7 @@ After=network.target
 Type=simple
 WorkingDirectory=/root/BETA-
 Environment=ARIT_HOME=/root/ARIT2.0
-ExecStart=/root/venvs/arit/bin/python beta.py serve --host 127.0.0.1 --port 7474 --no-browser --lecture-seule --lien-vps http://127.0.0.1:7580
+ExecStart=/root/venvs/beta/bin/python beta.py serve --host 127.0.0.1 --port 7474 --no-browser --lecture-seule --lien-vps http://127.0.0.1:7580
 Restart=on-failure
 RestartSec=10
 Nice=10

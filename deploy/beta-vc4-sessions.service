@@ -7,9 +7,9 @@ WorkingDirectory=/root/BETA-
 Environment=ARIT_HOME=/root/ARIT2.0
 # Dans l'ordre ; le premier echec arrete la suite (une decision sur un lake en retard n'a
 # pas lieu, le paper n'execute rien de perime).
-ExecStart=/root/venvs/arit/bin/python scripts/rafraichir_5m.py
-ExecStart=/root/venvs/arit/bin/python scripts/c4_suivi.py
-ExecStart=/root/venvs/arit/bin/python scripts/paper.py --voie VC4
+ExecStart=/root/venvs/beta/bin/python scripts/rafraichir_5m.py
+ExecStart=/root/venvs/beta/bin/python scripts/c4_suivi.py
+ExecStart=/root/venvs/beta/bin/python scripts/paper.py --voie VC4
 TimeoutStartSec=900
 Nice=10
 CPUQuota=50%

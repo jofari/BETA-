@@ -11,7 +11,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/root/BETA-
 Environment=ARIT_HOME=/root/ARIT2.0
-ExecStart=/root/venvs/arit/bin/python scripts/build_lake.py
+ExecStart=/root/venvs/beta/bin/python scripts/build_lake.py
 TimeoutStartSec=3600
 # Ne jamais gener ARIT ni DS1 qui tournent sur la meme machine.
 Nice=10

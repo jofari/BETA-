@@ -17,7 +17,7 @@ StartLimitBurst=6
 Type=oneshot
 WorkingDirectory=/root/BETA-
 Environment=ARIT_HOME=/root/ARIT2.0
-ExecStart=/root/venvs/arit/bin/python scripts/paper.py
+ExecStart=/root/venvs/beta/bin/python scripts/paper.py
 TimeoutStartSec=600
 # L'ordre suivis -> paper ne repose plus sur les seuls 10 min d'ecart : si un suivi est en retard
 # (consigne absente) ou Binance illisible, on relance 5 min plus tard. executer_voie est
