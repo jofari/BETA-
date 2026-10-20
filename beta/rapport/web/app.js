@@ -378,7 +378,7 @@ function ongletActif(nom) {
   etat.onglet = nom;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("is-active", t.dataset.onglet === nom));
-  ["strategie", "forward", "candidates", "comparaison", "atelier", "lake", "protocole"]
+  ["strategie", "forward", "candidates", "comparaison", "atelier", "lake", "protocole", "invest"]
     .forEach((o) => ($("#onglet-" + o).hidden = o !== nom));
   // L'onglet ouvert vit dans l'adresse : un lien (depuis le dashboard VPS) peut y mener.
   history.replaceState(null, "", "#" + nom);
@@ -386,6 +386,8 @@ function ongletActif(nom) {
   // Un canvas d'onglet masque a une largeur nulle : la fiche se redessine a l'affichage.
   if (nom === "candidates" && FICHE.aDesDonnees()) FICHE.redessiner();
   if (nom === "comparaison" && COMPARAISON.aDesDonnees()) COMPARAISON.redessiner();
+  // Test invest : charge a la premiere ouverture seulement (rien au chargement de la page).
+  if (nom === "invest") INVEST.afficher();
   if (nom === "strategie" && etat.strategie && !etat.strategie.erreur) {
     // Le canvas d'un onglet masque a une largeur nulle : on redessine a l'affichage.
     courbeEquity($("#equity"), etat.strategie.equity);

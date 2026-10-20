@@ -199,6 +199,16 @@ def donnees_direct() -> dict:
     return forward.direct()
 
 
+def donnees_invest() -> dict:
+    from beta.rapport import invest
+    return invest.vue()
+
+
+def donnees_invest_run(params: dict) -> dict:
+    from beta.rapport import invest
+    return invest.run(params)
+
+
 _ROUTES_BRUTES = {
     "/api/lake": lambda p: donnees_lake(),
     "/api/strategie": lambda p: donnees_strategie(bool(p.get("holdout"))),
@@ -211,6 +221,9 @@ _ROUTES_BRUTES = {
     "/api/idees": lambda p: donnees_idees(),
     "/api/forward": lambda p: donnees_forward(),
     "/api/forward/direct": lambda p: donnees_direct(),
+    # Onglet Test invest (TI1, 20/10) : lecture seule, le calcul passe par la ligne de commande.
+    "/api/invest": lambda p: donnees_invest(),
+    "/api/invest/run": donnees_invest_run,
 }
 
 # Toutes les routes passent par `propre` : aucune ne peut renvoyer de NaN au navigateur,

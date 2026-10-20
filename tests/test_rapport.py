@@ -58,6 +58,10 @@ def _params(route: str) -> dict | None:
         from beta.rapport import runs
         liste = runs.liste()
         return {"id": [liste[0]["run_id"]]} if liste else None
+    if route == "/api/invest/run":
+        from beta.rapport import invest
+        liste = invest.vue()["runs"]
+        return {"id": [liste[0]["run_id"]]} if liste else None
     if route == "/api/candidate":
         from beta.moteur import registre
         modules = sorted(registre.toutes())
@@ -85,7 +89,7 @@ def _refuser(constante):
 
 def test_chaque_id_utilise_par_le_js_existe_dans_le_html():
     js = "\n".join((WEB / f).read_text(encoding="utf-8")
-                    for f in ("app.js", "fiche.js"))
+                    for f in ("app.js", "fiche.js", "invest.js"))
     html = (WEB / "index.html").read_text(encoding="utf-8")
     utilises = set(re.findall(r'[$q]\("#([^"]+)"\)', js))
     declares = set(re.findall(r'id="([^"]+)"', html))
@@ -95,7 +99,7 @@ def test_chaque_id_utilise_par_le_js_existe_dans_le_html():
 def test_aucune_ressource_externe():
     """Zero CDN : la page doit fonctionner hors ligne, comme ALPHA."""
     for fichier in ("index.html", "app.js", "fiche.js", "atelier.js",
-                    "comparaison.js", "forward.js", "style.css"):
+                    "comparaison.js", "forward.js", "invest.js", "style.css"):
         contenu = (WEB / fichier).read_text(encoding="utf-8")
         for motif in ("http://", "https://"):
             for occurrence in re.findall(rf"{motif}[^\s\"')]+", contenu):

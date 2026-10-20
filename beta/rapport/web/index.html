@@ -54,6 +54,9 @@
     <button class="tab" data-onglet="protocole" role="tab">
       <span aria-hidden="true">⎔</span> Protocole
     </button>
+    <button class="tab" data-onglet="invest" role="tab">
+      <span aria-hidden="true">⛨</span> Test invest
+    </button>
   </div>
   <p class="portee" id="portee"></p>
 </nav>
@@ -419,12 +422,131 @@
     </div>
   </section>
 
+  <!-- Test invest (TI1, 20/10) : les votes du socle VC en usage invest. Lecture seule : les
+       mesures se lancent par scripts/test_invest.py (decision D3). -->
+  <section class="panneau" id="onglet-invest" hidden>
+    <div class="carte" id="invest-entete"></div>
+
+    <div class="carte">
+      <h2>Configuration</h2>
+      <p class="sous">L'onglet relit les configurations déjà calculées. Une autre se calcule en
+        ligne de commande — chaque nouvelle configuration compte un essai de plus.</p>
+      <div class="invest-selection">
+        <label>période <select id="invest-periode"></select></label>
+        <fieldset class="invest-votes" id="invest-votes"><legend>indicateurs actifs</legend></fieldset>
+        <label>mapping <select id="invest-mapping"><option>socle</option><option>paliers</option></select></label>
+        <label>θ épisodes <input id="invest-theta" type="number" step="0.05" value="0.2"></label>
+        <label>κ (pb) <input id="invest-cout-pb" type="number" step="1" value="10"></label>
+        <label>B <input id="invest-b" type="number" step="100" value="1000"></label>
+        <label>graine <input id="invest-graine" type="number" step="1" value="0"></label>
+        <button class="btn" id="invest-afficher">Afficher</button>
+      </div>
+      <p class="sous" id="invest-message"></p>
+    </div>
+
+    <div class="carte">
+      <h2>Le socle et chaque vote seul — tests de permutation</h2>
+      <p class="sous">Mêmes paramètres pour tous (paliers 1,0 / 0,7 / 0,25 pour les votes seuls,
+        mapping du socle pour le score complet), même moteur, mêmes coûts ; deux nulls de
+        1 000 tirages qui gardent la distribution de l'exposition et ne cassent que son lien
+        avec les prix. Cliquer sur un signal l'affiche en détail.</p>
+      <div class="tableau-wrap" id="invest-c1"></div>
+      <div class="atelier-boutons" style="margin-top:10px">
+        <button class="btn" data-export="campagne-md">Exporter la campagne (Markdown)</button>
+        <button class="btn" data-export="campagne-csv">Exporter la campagne (CSV)</button>
+      </div>
+    </div>
+
+    <div id="invest-detail" hidden>
+      <div class="carte" id="invest-resume"></div>
+
+      <div class="duo">
+        <div class="carte">
+          <h2>Base 100</h2>
+          <p class="sous">Stratégie, panier et BTC tenus, échelle logarithmique.</p>
+          <canvas class="graphique" id="invest-courbes" height="280"></canvas>
+          <div id="invest-courbes-legende"></div>
+        </div>
+        <div class="carte">
+          <h2>Drawdown</h2>
+          <p class="sous">En rouge : les épisodes de grande baisse du panier (du pic au retour).</p>
+          <canvas class="graphique" id="invest-dd" height="280"></canvas>
+          <div id="invest-dd-legende"></div>
+        </div>
+      </div>
+
+      <div class="carte">
+        <h2>Exposition en vigueur</h2>
+        <p class="sous">E décidée à la clôture de la veille ; pointillé : e_neutre.</p>
+        <canvas class="graphique" id="invest-expo" height="150"></canvas>
+      </div>
+
+      <div class="duo">
+        <div class="carte">
+          <h2>Null 1 — décalage circulaire</h2>
+          <p class="sous">L'Ulcer du même signal décalé dans le temps ; trait vert : l'observé.</p>
+          <canvas class="graphique" id="invest-null-circ" height="200"></canvas>
+        </div>
+        <div class="carte">
+          <h2>Null 2 — mélange de segments</h2>
+          <p class="sous">Les mêmes périodes de régime, dans un autre ordre.</p>
+          <canvas class="graphique" id="invest-null-seg" height="200"></canvas>
+        </div>
+      </div>
+
+      <div class="carte">
+        <h2>Métriques</h2>
+        <p class="sous">Le témoin a la même exposition moyenne, sans timing : il sépare « moins
+          exposé » de « bien placé ».</p>
+        <div class="tableau-wrap" id="invest-metriques"></div>
+      </div>
+
+      <div class="carte">
+        <h2>Épisodes de grande baisse — protection, retard, rebond raté</h2>
+        <div class="tableau-wrap" id="invest-episodes"></div>
+      </div>
+
+      <div class="duo">
+        <div class="carte">
+          <h2>p-values (D3)</h2>
+          <div class="tableau-wrap" id="invest-pvalues"></div>
+        </div>
+        <div class="carte">
+          <h2>Coût de la protection</h2>
+          <div id="invest-cout"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="duo">
+      <div class="carte">
+        <h2>Contribution de chaque vote (ablation)</h2>
+        <div class="tableau-wrap" id="invest-c2"></div>
+      </div>
+      <div class="carte">
+        <h2>Redondance entre votes</h2>
+        <div id="invest-kappa"></div>
+      </div>
+    </div>
+
+    <div class="carte">
+      <h2>Point-in-time — votes au calendrier de publication</h2>
+      <div class="tableau-wrap" id="invest-pit"></div>
+    </div>
+
+    <div class="carte">
+      <h2>Configurations calculées</h2>
+      <div class="tableau-wrap" id="invest-runs"></div>
+    </div>
+  </section>
+
 </main>
 
 <script src="fiche.js"></script>
 <script src="atelier.js"></script>
 <script src="comparaison.js"></script>
 <script src="forward.js"></script>
+<script src="invest.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
