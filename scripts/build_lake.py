@@ -93,6 +93,10 @@ def main() -> int:
         log.info("--sans-telechargement : indices non telecharges (%s)",
                  ", ".join(i.base for i in univers.INDICES))
 
+    # 4. Les perpetuels TradFi (or, QQQ, SPY ; Jonas 20/10) : meme porte que les 6 paires,
+    #    apres tout le reste — une panne ici ne retarde jamais les donnees des cryptos.
+    echecs += maj.mettre_a_jour_tradfi(reseau=not args.sans_telechargement)
+
     print()
     code = _afficher_etat()
     if not args.sans_telechargement:

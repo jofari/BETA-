@@ -14,6 +14,12 @@ Pourquoi ces 6 paires (decision de Jonas, 2026-08-18) :
   commande — passer de 4 a 6 paires ne vaut que si les 2 nouvelles apportent des annees, pas
   seulement des lignes.
 
+Les 3 perpetuels TRADFI (Jonas, 2026-10-20 : « xau, nasdaq et spx, depuis le debut, sur les
+memes timeframes que les crypto ») sont des `Paire` comme les autres — Binance USDⓈ-M, meme
+porte freqtrade, 5m/1h/4h/1d, funding — mais HORS de `PAIRES` : les mesures qui parcourent
+l'univers crypto ne changent pas en silence. Or = XAUUSDT, NASDAQ-100 = son ETF QQQUSDT,
+S&P 500 = son ETF SPYUSDT ; historique depuis leur cotation seulement (12/2025 et 04/2026).
+
 Les 5 INDICES (spike du 2026-09-14) sont une structure PARALLELE, pas une extension de
 `Paire` : source differente (yfinance, pas Binance), un seul timeframe (1d), pas de
 funding ni de Fear & Greed. Ils elargissent l'univers en classes d'actifs la ou les paires
@@ -61,6 +67,15 @@ PAIRES: tuple[Paire, ...] = (
     Paire("LINK", "20200101", False, "ajout 18/08 — perp parmi les plus anciens (oracle)"),
     Paire("XRP", "20200101", False, "ajout 18/08 — perp parmi les plus anciens (paiements)"),
 )
+
+# Perpetuels TRADFI de Binance (20/10) : cotes 24/24 7/7, comme les cryptos. Prix d'ETF pour
+# QQQ et SPY, pas des niveaux d'indice. ⚠️ SPXUSDT chez Binance est le meme SPX6900.
+TRADFI: tuple[Paire, ...] = (
+    Paire("XAU", "20251211", False, "or — perpetuel TradFi XAUUSDT, cote le 11/12/2025"),
+    Paire("QQQ", "20260406", False, "NASDAQ-100 par son ETF — perpetuel TradFi, 06/04/2026"),
+    Paire("SPY", "20260406", False, "S&P 500 par son ETF — perpetuel TradFi, 06/04/2026"),
+)
+
 
 class Indice(NamedTuple):
     """Une serie quotidienne hors crypto : indice boursier, ETF, ou future sur l'or.
@@ -135,7 +150,7 @@ def resoudre(nom: str) -> Paire | Indice:
     portent `base`, `slug` et `symbole` — c'est tout ce que le lake leur demande.
     """
     nom = nom.strip()
-    for paire in PAIRES:
+    for paire in PAIRES + TRADFI:
         spot = paire.symbole.upper().split(":")[0]
         if nom.upper() in (paire.base, paire.symbole.upper(), paire.slug.upper(), spot):
             return paire
@@ -143,7 +158,7 @@ def resoudre(nom: str) -> Paire | Indice:
         if nom.upper() in (indice.base, indice.ticker.upper(), indice.slug.upper()):
             return indice
     raise KeyError(f"actif hors univers : {nom} (paires : "
-                   f"{', '.join(p.base for p in PAIRES)} ; indices : "
+                   f"{', '.join(p.base for p in PAIRES + TRADFI)} ; indices : "
                    f"{', '.join(i.base for i in INDICES)})")
 
 

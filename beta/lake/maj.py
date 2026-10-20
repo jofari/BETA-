@@ -179,7 +179,7 @@ def fraicheur(maintenant: pd.Timestamp | None = None) -> list[dict]:
         lignes.append({"serie": serie, "derniere": derniere, "retard": retard,
                        "en_retard": retard is None or retard > RETARD_MAX[genre]})
 
-    for paire in univers.PAIRES:
+    for paire in univers.PAIRES + univers.TRADFI:
         try:
             noter(f"{paire.base} 1d", "bougies_1d", lecture.load(paire.base, "1d")["date"].max())
         except Exception:                            # noqa: BLE001 - absente = en retard
@@ -222,6 +222,30 @@ def rafraichir_5m(paires: tuple[univers.Paire, ...] = univers.PAIRES) -> list[st
             construction.integrer_telechargement(paire, "5m")
         except construction.LakeError as exc:
             problemes.append(f"{paire.base} 5m (conversion) : {exc}")
+    return problemes
+
+
+def mettre_a_jour_tradfi(reseau: bool = True) -> list[str]:
+    """Les perpetuels TradFi (or, QQQ, SPY ; Jonas 20/10) : meme porte que les 6 paires.
+
+    Appele APRES elles par `scripts/build_lake.py` : une panne ici ne retarde jamais les
+    donnees des cryptos. Une paire a la fois, comme `mettre_a_jour` ; un echec n'arrete pas
+    les autres. La boucle des 6 paires n'est pas touchee : elle tourne chaque nuit.
+    """
+    problemes: list[str] = []
+    for paire in univers.TRADFI:
+        if reseau:
+            for base, etat in telechargement.telecharger((paire,)).items():
+                if etat != "ok":
+                    problemes.append(f"{base} (telechargement) : {etat}")
+        for timeframe in univers.TIMEFRAMES:
+            if not config.chemin_feather_brut(paire.slug, timeframe).exists():
+                problemes.append(f"{paire.base} {timeframe} : feather absent de data/raw")
+                continue
+            try:
+                construction.integrer_telechargement(paire, timeframe)
+            except construction.LakeError as exc:
+                problemes.append(f"{paire.base} {timeframe} (conversion) : {exc}")
     return problemes
 
 

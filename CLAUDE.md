@@ -144,6 +144,15 @@ jamais re-téléchargée en entier, cf. `beta/lake/maj.py`) + `LINK` `XRP` (ajou
 perpétuels les plus anciens après les majors — c'est l'historique qui commande, puisque le
 N est le goulot). Source unique : `beta/lake/univers.py`.
 
+**3 perpétuels TradFi** (Jonas, 20/10) : `XAU` (or, XAUUSDT, coté depuis le 11/12/2025),
+`QQQ` (NASDAQ-100 par son ETF) et `SPY` (S&P 500 par son ETF), cotés depuis le 06/04/2026,
+24/24 7/7 sur Binance USDⓈ-M. Mêmes timeframes et même porte que les 6 paires (freqtrade →
+parquet → catalogue, funding compris), historique complet depuis la cotation, complétés chaque
+nuit APRÈS le reste (`maj.mettre_a_jour_tradfi`). Ils sont dans `univers.TRADFI`, **hors** de
+`univers.PAIRES` : rien de ce qui parcourt l'univers crypto ne les ramasse sans le dire.
+`data.load("XAU", "1h")`. ⚠️ `SPXUSDT` chez Binance est le jeton mème SPX6900, pas le S&P 500.
+DS1 collecte aussi leur carnet et leur bookTicker en live (services `ds1-*-tradfi`).
+
 **Historique public Binance** (10/10, `beta/lake/vision.py`) : `metrics` (OI, ratios
 long/short, 5 min), `bookDepth` (profondeur cumulée ±0,2-5 %, 30 s, depuis 2023) et
 `aggTrades` agrégés à la minute (flux acheteur/vendeur taker), mêmes 6 paires, hors du
