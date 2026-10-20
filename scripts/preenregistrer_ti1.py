@@ -66,7 +66,8 @@ def config_ti1() -> dict:
                        "paliers": {"theta_h": 0.4, "theta_b": 0.4, "e_haut": 1.0,
                                    "e_neutre": 0.7, "e_def": 0.25},
                        "score": "somme des votes actifs / nombre de votes actifs",
-                       "levier": "aucun (E <= 1) ; rf = 0 ; pas de cout d'entree (ni pour le hold)"},
+                       "levier": "aucun (E <= 1) ; rf = 0 ; pas de cout d'entree (ni pour "
+                                 "le hold)"},
         "couts": {"kappa_pb": 10.0, "par": "unite de |E(t-1) - E(t-2)|"},
         "survie": {"theta_episode": 0.20, "theta_faux": 0.10, "horizon_faux_j": 60,
                    "captures": "semaines civiles completes (lundi -> dimanche UTC)"},
