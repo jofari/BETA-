@@ -237,3 +237,37 @@ def test_aucune_donnee_crypto_n_entre_dans_le_labo():
         texte = f.read_text(encoding="utf-8")
         for interdit in ("beta.lake", "beta.strategies", "beta.data", "voie_c2"):
             assert interdit not in texte, f"{f.name} importe {interdit}"
+
+
+# ----------------------------------------------------------------------------- bout en bout
+
+def test_campagne_et_rapport_de_bout_en_bout_sur_donnees_synthetiques(tmp_path, monkeypatch):
+    from beta.temps1 import rapport
+    monkeypatch.setattr(experiences, "REGISTRE", tmp_path / "EXPERIMENTS.jsonl")
+    monkeypatch.setattr(experiences, "JOURNAL_RUNS", tmp_path / "RUNS.jsonl")
+    monkeypatch.setattr(ca, "DOSSIER", tmp_path / "data_temps1")
+    monkeypatch.setattr(ca, "LABO", ("1991-01-01", "1991-12-31"))
+    monkeypatch.setattr(ca, "DEBUT_INFORMATIVE", "1992-01-01")
+    monkeypatch.setattr(rapport, "DOSSIER_RAPPORT", tmp_path / "temps1")
+    experiences.preenregistrer(ca.ID_EXP, "h", "Ulcer", {"r": "x"}, split_autorise="labo",
+                               compteur={"avant": experiences.compteur()})
+    d = _donnees()
+    syn = ca.lancer_campagne(d, b=20)
+    assert syn["compteur"]["avant_t1a"] == 30 and syn["compteur"]["apres_preenregistrement"] == 31
+    assert syn["compteur"]["apres"] == 44 and experiences.compteur() == 44
+    assert len(syn["labo"]) == 14 and len(syn["informative"]) == 14
+    assert syn["verdict"]["verdict"] in ("candidat retenu", "SMA200 retenue",
+                                         "aucun timing demontre")
+    mesures = [x for x in experiences._lignes() if x.get("statut") == "mesure"]
+    assert len(mesures) == 1
+    ca.lancer_campagne(d, b=20)                                   # rejeu : rien de plus
+    assert experiences.compteur() == 44
+    assert len([x for x in experiences._lignes() if x.get("statut") == "mesure"]) == 1
+    chemin = rapport.ecrire(syn, ["ecart de test"])
+    texte = chemin.read_text(encoding="utf-8")
+    for titre in ("## 1. Compteur", "## 2. Couverture", "## 3. Tableau principal",
+                  "## 4. Bande SMA", "## 5. Période informative", "## 6. Verdict mécanique",
+                  "## 7. Écarts au prompt", "déjà vu, ne décide rien", "ecart de test"):
+        assert titre in texte
+    lignes = (tmp_path / "temps1" / "RAPPORT_ETAPE_A.csv").read_text(encoding="utf-8")
+    assert len(lignes.strip().splitlines()) == 1 + 28

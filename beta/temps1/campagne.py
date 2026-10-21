@@ -72,8 +72,8 @@ class Config:
 
 
 def configs(fin_informative: pd.Timestamp, b: int = 1000) -> list[Config]:
-    return [Config(detecteur=x, cible=c, informative=(DEBUT_INFORMATIVE,
-                                                      f"{fin_informative:%Y-%m-%d}"), b=b)
+    return [Config(detecteur=x, cible=c, labo=LABO,
+                   informative=(DEBUT_INFORMATIVE, f"{fin_informative:%Y-%m-%d}"), b=b)
             for x in det.DETECTEURS for c in CIBLES]
 
 
@@ -298,6 +298,9 @@ def journaliser(cfgs: list[Config], empreinte_donnees: str) -> dict[str, Config]
 def lancer_campagne(d: dn.Donnees, b: int = 1000, recalculer: bool = False) -> dict:
     """La campagne preenregistree. Compteur note avant / apres la journalisation des 14 essais."""
     experiences.exiger(ID_EXP)
+    # La ligne de preenregistrement elle-meme (l'etat fusionne prend le N de la derniere ligne).
+    pre = [x for x in experiences._lignes() if x.get("id") == ID_EXP
+           and x.get("statut") == "preenregistre"][-1]
     cfgs = configs(d.fin, b)
     compteur_avant = experiences.compteur()
     rids = journaliser(cfgs, d.empreinte)
@@ -323,7 +326,9 @@ def lancer_campagne(d: dn.Donnees, b: int = 1000, recalculer: bool = False) -> d
     synthese = _propre({
         "experience": ID_EXP, "runs": list(resultats), "code": _code(),
         "calcule_le": datetime.now(UTC).isoformat(timespec="seconds"),
-        "compteur": {"avant_journalisation": compteur_avant, "apres": compteur_apres},
+        "compteur": {"avant_t1a": (pre.get("compteur") or {}).get("avant"),
+                     "apres_preenregistrement": pre.get("n_essais_cumules"),
+                     "avant_journalisation": compteur_avant, "apres": compteur_apres},
         "donnees": {"empreinte": d.empreinte, "pit_dexjpus": d.pit_dexjpus,
                     "fin": f"{d.fin:%Y-%m-%d}", "couverture": d.couverture},
         "labo": labo, "informative": info, "verdict": v})

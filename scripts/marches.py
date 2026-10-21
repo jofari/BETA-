@@ -38,8 +38,9 @@ def afficher(etat: dict) -> int:
           f"{'retard':>8s}  source")
     pire = 0
     for nom, e in etat.items():
+        trous = e.get("trous_plus_de_5_seances", "—")
         print(f"{nom:10s}{e.get('statut', '?'):11s}{e.get('debut', '—'):>12s}"
-              f"{e.get('fin', '—'):>12s}{e.get('n', 0):>8}{e.get('trous_plus_de_5_seances', '—'):>9}"
+              f"{e.get('fin', '—'):>12s}{e.get('n', 0):>8}{trous:>9}"
               f"{e.get('retard_j', '—'):>8}  {e.get('source')} {e.get('identifiant')}")
         if e.get("erreur"):
             print(f"{'':10s}erreur : {e['erreur']}")
