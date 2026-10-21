@@ -127,7 +127,9 @@ avant de coder**.
   `beta-suivi-vc2`…`vc5` 00:50 · `beta-paper` 01:00 (cinq voies) · `beta-journaux` 01:15
   (commit + push des journaux) · `beta-vision` 03:30 (historique public Binance) ·
   `beta-vc4-sessions` (08:02 Londres, 09:32 New York, en semaine) · `beta-paper-direct`
-  (chaque minute).
+  (chaque minute) · `beta-marches` 23:10 (vrais marchés, quotidien) · `beta-marches-direct`
+  (toutes les 5 min, intraday) · `beta-marches-histo` (toutes les heures, rattrapage de l'or
+  intraday depuis 2003).
 - **Journaux forward**, à la racine, en ajout seul : `SUIVI_*.jsonl`, `CONSIGNES_VC4.jsonl`,
   `PAPER_*.jsonl` (poussés chaque nuit) ; `DIRECT_PAPER.jsonl` (relevé minute, hors git).
 - **Dashboard** `beta-web` en lecture seule sur `127.0.0.1:7474`, ouvert depuis le PC par
@@ -167,6 +169,34 @@ schéma parquet et même catalogue que les paires (audit en jours **ouvrés**, j
 tolérés, trou > 7 jours = suspect). Sans funding ni Fear & Greed (crypto-only) ; les séries
 macro globales FRED se joignent normalement. `data.load("SP500", "1d")`, et rien d'autre :
 demander un `4h` sur un indice est une `DataError`, pas un resampling.
+
+**Les vrais marchés** (Jonas, 20-21/10 : « pas la version de Binance », « sortir de freqtrade »).
+Le paquet `beta/marches` est une structure **parallèle** au lake, comme `vision`. Fichiers dans
+`data/marches/` : `<NOM>-<tf>.parquet`, plus `etat.json` et `etat_intraday.json`. Rien de ce
+qui tourne ne la lit ; seul le labo `beta/temps1` (T1A) l'utilise. Noms **neufs**, sans collision
+avec le lake (test) : `SP500`, `NASDAQ` et `XAUUSD` gardent leur sens ci-dessus.
+- Quotidien (`collecte.lire("SPX")`, timer `beta-marches`, 23:10 UTC) :
+  - `SPX` : S&P 500 `^GSPC`, Yahoo, depuis 1927 ;
+  - `NDX` : Nasdaq-100 `^NDX`, Yahoo, depuis 1985 ;
+  - `VIX` : `^VIX`, Yahoo, depuis 1990 ;
+  - `XAU_LBMA` : or comptant au fixing LBMA PM, via l'API du World Gold Council, à requêter
+    **par année** (une plage courte rend un autre prix, 7 jours sur 7), depuis 1970 ;
+  - `DEXJPUS` : USD/JPY H.10, FRED, hebdomadaire ; colonne `publie_le` = première publication
+    ALFRED.
+  - Règles : la séance du jour n'est jamais écrite avant sa clôture, et une réécriture du passé
+    par la source part dans `revisions.jsonl`.
+- Intraday (`intraday.lire("SPX", "5m")`, avec un 4h dérivé du 1h sur la grille UTC) :
+  - `SPX`, `NDX` : Yahoo 5m (60 jours à la source, s'allonge à chaque passage) et 1h (730 jours),
+    timer `beta-marches-direct` toutes les 5 min ;
+  - `XAU_SPOT` : or comptant XAU/USD, bougies BID Dukascopy à la minute agrégées en 5m/1h/1d. La
+    journée en cours vient des ticks horaires (retard ≤ ~1 h) ; l'historique depuis 2003 est
+    rattrapé par `beta-marches-histo`. ⚠️ Dukascopy bride : une requête à la fois, 4 s entre deux,
+    arrêt propre après trois 503 et reprise à l'heure suivante.
+- Qualité, vérifiée le 21/10 :
+  - `SP500` du lake = `SPX`, à l'identique ;
+  - **FRED `NASDAQ100` (vote du socle) est faux sur 407 séances de 2003-2005** (31/12/2003 : 1 459,06
+    contre 1 467,92 officiel) : Yahoo `^NDX` est juste. Le socle ne lit que 2019+ ;
+  - FRED `VIXCLS` et `^VIX` diffèrent sur 11 séances, mais jamais de part et d'autre de 25.
 
 ## Conventions
 
