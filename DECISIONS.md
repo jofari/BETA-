@@ -589,6 +589,71 @@ sur le VPS). Jonas : « oui corrige-le strictement ».
 
 ---
 
+## 2026-10-20 — TI1 (Test invest) : les votes du socle en usage invest — aucun ne bat le hasard
+
+Le cahier des charges de Jonas date du 20/10 (onglet « Test invest »). Phase 0 :
+`/root/rapports/2026-10-20_test-invest-phase0.md`. Jonas a répondu « oui pour tout » aux
+décisions D1-D6 :
+- D1 : DFII10 et NASDAQ au calendrier de publication de FRED ;
+- D2 : socle converti, plus le socle en paliers ;
+- D3 : calculs par commande, l'onglet est en lecture seule ;
+- D4 : il faut battre les deux nulls, BH reste informatif ;
+- D5 : +1 au compteur par (config × période) ;
+- D6 : trou F&G du 26/10/2024 comblé par la règle de péremption.
+
+Préenregistrée le 20/10 (`51f242a`) et mesurée le même jour (24 mesures, compteur 117).
+
+- **Résultat** : en période principale (11/01/2024 → 19/10/2026, 3 épisodes), les 6 signaux sont
+  « hasard » (p retenue de 0,27 à 0,91). En stress test (15/09/2020 → 19/10/2026, 7 épisodes), le
+  socle, DFII10, NASDAQ et F&G sont « non concluants » (p de 0,14 à 0,17) ; le momentum et T10YIE
+  sont « hasard ». En principale, le socle fait pire que son témoin à exposition constante (Ulcer
+  0,261 contre 0,231).
+- **Revérification du 21/10** (`scripts/ti1_reverification.py`) : les 24 mesures ont été
+  recalculées sur les mêmes données (empreinte `e3a68d75801f4ebe`). **0 écart.** Rien n'a été
+  écrit ni compté. Détail par année : `/root/rapports/2026-10-21_ti1-reverification.md`.
+- **Limites connues** : peu d'épisodes ; les deux périodes ne sont pas indépendantes ; rien n'est
+  hors échantillon (les seuils ont été choisis sur ces fenêtres) ; le test porte sur le régime
+  seul ; exécution idéalisée ; perpétuels pris comme proxy du spot ; FRED sans millésimes ; Sharpe
+  en racine de 365 ; panier non rebalancé ; ablations lues sans nulls. Détail :
+  `/root/rapports/2026-10-21_ti1-rapport-final.md`.
+- Les 24 lignes de `RUNS.jsonl` étaient restées hors commit : elles ont été commitées le 21/10
+  (`27c7528`).
+- **Statut : « mesure ».** La clôture revient à Jonas. Un « non concluant » n'autorise aucune
+  conclusion favorable.
+
+---
+
+## 2026-10-21 — Temps 1, étape A (T1A) : laboratoire actions, SMA 200 contre MOM126 et COUCHE1
+
+Prompt de Jonas du 21/10. Les règles sont reprises du préenregistrement du 21/10/2026 :
+- moteur TI1 tel quel ;
+- aucun paramètre optimisé ;
+- arrêt si une règle n'est pas implémentable exactement ;
+- +1 au compteur par (détecteur × actif) ;
+- aucune donnée crypto.
+
+Phase 1 écrite avant tout code : `temps1/DISCOVERY.md` (`714aeae`). Décisions de Jonas du même
+soir, posées avant tout code :
+- **Nasdaq = Nasdaq-100 `^NDX`** (pas le Composite) ;
+- **or = fixing LBMA PM via le World Gold Council**. Yahoo n'a que le future GC=F, depuis 2000
+  seulement : COUCHE1 aurait été incalculable sur 1991-2001.
+
+- **Données** : nouveau collecteur `beta/marches`, hors lake, hors Binance, hors freqtrade.
+  - S&P 500 depuis 1927, Nasdaq-100 depuis 1985 et VIX depuis 1990 (Yahoo) ;
+  - or depuis 1970 (WGC) ;
+  - USD/JPY H.10 (FRED `DEXJPUS`), avec les dates de première publication ALFRED.
+
+  Timer quotidien `beta-marches` à 23:10 UTC.
+- **Branchement** : le moteur TI1 n'est pas modifié. Les clôtures sont posées sur le calendrier
+  civil, comblées. Aux dates de séance, la courbe est identique à un calcul séance par séance
+  (test).
+- **Préenregistrée** le 21/10 (`3c0b69b`, empreinte `58fc781a2cfef379`). Compteur : 117 avant,
+  118 après le préenregistrement, 131 attendu une fois les 14 couples journalisés (avant le premier
+  calcul).
+- **Résultat** : voir `temps1/RAPPORT_ETAPE_A.md`.
+
+---
+
 ## En attente de Jonas
 
 | # | Objet | État | Depuis |
@@ -599,3 +664,4 @@ sur le VPS). Jonas : « oui corrige-le strictement ».
 | **B-c** | I16 (momentum 14-60 j) : la promouvoir en **candidate n° 2** du banc, lookback 30 j figé ? | 🔴 ouverte | 11/09 |
 | ~~**A2**~~ | ~~Nature de l'edge : alpha vs ARP (options A/B/C)~~ | ✅ **tranchée — (A)**, suivi forward depuis le 03/10 | 22/09 |
 | **A3** | Compteur : ajouter les ~7 150 configurations testées hors protocole (voie A 216, voie B 1 176, optimisation de la voie C 5 760, + `/root/arit_funding`), ou écrire qu'elles forment une famille à part et pourquoi | 🔴 ouverte | 13/10 |
+| **TI1** | Clore TI1 : « aucun vote ne protège mieux que le hasard ; socle, DFII10, NASDAQ, F&G non concluants en stress test » (revérifié le 21/10, 0 écart) | 🟠 ouverte | 21/10 |
