@@ -39,8 +39,9 @@ PAS = {"5m": pd.Timedelta(minutes=5), "1h": pd.Timedelta(hours=1), "4h": pd.Time
        "1d": pd.Timedelta(days=1)}
 REGLE = {"5m": "5min", "1h": "1h", "4h": "4h", "1d": "1D"}
 PERIODE_DIRECT = "5d"                 # un passage courant ne relit que les 5 derniers jours
-PAUSE_DUKASCOPY_S = 4.0
-ATTENTE_BRIDE_S = 120.0
+PAUSE_DUKASCOPY_S = 4.0              # entre deux heures de ticks (direct)
+PAUSE_RATTRAPAGE_S = 10.0            # entre deux jours (rattrapage) : ~1 jour pour tout 2003+
+ATTENTE_BRIDE_S = 300.0
 ECHECS_MAX = 3                        # 503 d'affilee : on s'arrete, la progression est gardee
 ECRIRE_TOUS_LES_N_JOURS = 30
 # Un fichier de jour VIDE n'est definitif qu'apres ce delai (publication tardive de la veille) :
@@ -217,7 +218,7 @@ def rattraper_dukascopy(nom: str = "XAU_SPOT", limite: int | None = None,
     """Les jours manquants, du plus recent au plus ancien, une requete a la fois. Trois refus
     d'affilee (503) : arret propre, progression gardee, le timer reprendra plus tard."""
     maintenant = maintenant or pd.Timestamp.now(tz="UTC")
-    pause_s = PAUSE_DUKASCOPY_S if pause_s is None else pause_s
+    pause_s = PAUSE_RATTRAPAGE_S if pause_s is None else pause_s
     a_lire = jours_manquants(nom, maintenant, depuis_j)[:limite]
     minutes, lus, echecs, statut = [], set(), 0, "ok"
     for i, jour in enumerate(a_lire):

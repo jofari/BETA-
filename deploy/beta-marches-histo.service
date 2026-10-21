@@ -1,4 +1,4 @@
-# BETA - or intraday (XAU_SPOT) depuis 2003 : rattrapage Dukascopy, une requete toutes les 4 s,
+# BETA - or intraday (XAU_SPOT) depuis 2003 : rattrapage Dukascopy, une requete toutes les 10 s,
 # du plus recent au plus ancien. Bride (503 x 3) = arret propre, progression gardee ; le timer
 # horaire reprend. Une fois tout lu, chaque passage ne fait plus rien (~8 570 jours au depart).
 # Installe par : cp deploy/beta-marches-histo.{service,timer} /etc/systemd/system/
@@ -11,7 +11,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/root/BETA-
-ExecStart=/root/venvs/beta/bin/python scripts/marches.py --dukascopy-histo --limite 700
+ExecStart=/root/venvs/beta/bin/python scripts/marches.py --dukascopy-histo --limite 250
 TimeoutStartSec=3500
 Nice=15
 CPUQuota=25%
