@@ -650,7 +650,20 @@ soir, posées avant tout code :
 - **Préenregistrée** le 21/10 (`3c0b69b`, empreinte `58fc781a2cfef379`). Compteur : 117 avant,
   118 après le préenregistrement, 131 attendu une fois les 14 couples journalisés (avant le premier
   calcul).
-- **Résultat** : voir `temps1/RAPPORT_ETAPE_A.md`.
+- **Amendée avant mesure** (`fb1a755`, décision de Jonas à ~18:26 UTC) : FRED et ALFRED étaient
+  en maintenance. Les valeurs de DEXJPUS viennent donc du paquet H.10 de la Fed Board, et toutes
+  les dates de publication sont au repli de 2 jours ouvrés. ⚠️ Le H.10 est hebdomadaire : Y lit
+  certaines valeurs 1 à 5 jours trop tôt. Une relance avec ALFRED serait une nouvelle mesure
+  (+14).
+- **Mesurée le 21/10 à 18:30 UTC** : compteur 117 → 118 → 131, données `34591fd0a0c5b4f8`.
+  **Verdict mécanique : AUCUN TIMING DÉMONTRÉ.**
+  - SMA200 échoue à la porte 1 sur les deux actifs (p retenue 0,105 sur le S&P 500, 0,210 sur le
+    Nasdaq-100).
+  - MOM126 franchit les 3 portes sur le S&P 500 (p 0,042), mais pas la porte 1 sur le
+    Nasdaq-100 (p 0,132).
+  - COUCHE1 échoue aux 3 portes sur les deux actifs (p 0,79 et 0,87).
+
+  Rapport : `temps1/RAPPORT_ETAPE_A.md`, CSV `temps1/RAPPORT_ETAPE_A.csv` et `_episodes.csv`.
 
 ---
 

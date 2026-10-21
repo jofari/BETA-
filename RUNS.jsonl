@@ -91,3 +91,17 @@
 {"run_id": "cb8301c9d71d", "experience": "TI1", "candidate": "test_invest:campagne:sans inflation_anticipee_10a · socle", "empreinte": "dbd4318239905290", "issue": "mesure", "date": "2026-10-20T17:16:27.708128+00:00"}
 {"run_id": "bcc011c64af0", "experience": "TI1", "candidate": "test_invest:campagne:sans nasdaq · socle", "empreinte": "05e26543dc7c31e8", "issue": "mesure", "date": "2026-10-20T17:16:27.744508+00:00"}
 {"run_id": "ae540320e357", "experience": "TI1", "candidate": "test_invest:campagne:sans fear_greed · socle", "empreinte": "e933a1a20b672053", "issue": "mesure", "date": "2026-10-20T17:16:27.780841+00:00"}
+{"run_id": "eb4a9ba80e4c", "experience": "T1A", "candidate": "temps1:SMA200:SPX", "empreinte": "b372b23f62a1617e", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.791942+00:00"}
+{"run_id": "e6d3ceb6fece", "experience": "T1A", "candidate": "temps1:SMA200:NDX", "empreinte": "1559bf5a8e0f8b38", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.792381+00:00"}
+{"run_id": "72fd032cacff", "experience": "T1A", "candidate": "temps1:SMA126:SPX", "empreinte": "d6f62fffcca3f87d", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.792583+00:00"}
+{"run_id": "27c369e93cff", "experience": "T1A", "candidate": "temps1:SMA126:NDX", "empreinte": "005133d4a94d63bd", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.792728+00:00"}
+{"run_id": "199d93fb15c5", "experience": "T1A", "candidate": "temps1:SMA168:SPX", "empreinte": "abaaf0a115fe1e63", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.792932+00:00"}
+{"run_id": "45f02357e2f4", "experience": "T1A", "candidate": "temps1:SMA168:NDX", "empreinte": "df6e164af0b706f9", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.793505+00:00"}
+{"run_id": "9b9b4d5d3386", "experience": "T1A", "candidate": "temps1:SMA210:SPX", "empreinte": "0dffb609a084d541", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.793707+00:00"}
+{"run_id": "c74243ef28e6", "experience": "T1A", "candidate": "temps1:SMA210:NDX", "empreinte": "27b2b35854cca146", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.793877+00:00"}
+{"run_id": "516cc0f985b7", "experience": "T1A", "candidate": "temps1:SMA252:SPX", "empreinte": "96152376f080e501", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.794136+00:00"}
+{"run_id": "6ec99c559744", "experience": "T1A", "candidate": "temps1:SMA252:NDX", "empreinte": "426ebb8d1e62b6ed", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.794447+00:00"}
+{"run_id": "fb29516398a1", "experience": "T1A", "candidate": "temps1:MOM126:SPX", "empreinte": "e9c46ab3672d51a2", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.794616+00:00"}
+{"run_id": "86660eafc435", "experience": "T1A", "candidate": "temps1:MOM126:NDX", "empreinte": "e0e90e4037b99071", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.794755+00:00"}
+{"run_id": "56ec32a5a3e6", "experience": "T1A", "candidate": "temps1:COUCHE1:SPX", "empreinte": "f884aef20e95e484", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.794903+00:00"}
+{"run_id": "aa0043d81178", "experience": "T1A", "candidate": "temps1:COUCHE1:NDX", "empreinte": "bbae4827b234c19f", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.795095+00:00"}
