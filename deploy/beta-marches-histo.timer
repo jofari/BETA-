@@ -1,0 +1,10 @@
+[Unit]
+Description=BETA - rattrapage de l'or intraday, toutes les heures
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

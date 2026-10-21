@@ -1,0 +1,19 @@
+# BETA - vrais marches en direct : SPX et NDX (Yahoo 5m/1h), XAU_SPOT (ticks Dukascopy du jour).
+# Installe par : cp deploy/beta-marches-direct.{service,timer} /etc/systemd/system/
+#                systemctl daemon-reload && systemctl enable --now beta-marches-direct.timer
+# PAS d'alerte ici (une panne passagere de 5 min n'en vaut pas une) : la fraicheur du direct est
+# jugee par beta-marches (23:10 UTC), qui alerte une fois par jour.
+[Unit]
+Description=BETA - vrais marches en direct (5 min)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+ExecStart=/root/venvs/beta/bin/python scripts/marches.py --direct
+TimeoutStartSec=290
+Nice=10
+CPUQuota=25%
+MemoryMax=600M
+MemorySwapMax=128M

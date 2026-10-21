@@ -1,15 +1,18 @@
 """Les appels reseau des vrais marches, isoles : ce sont eux que les tests remplacent.
 
-Chaque fonction rend la serie BRUTE de sa source, indexee par la date de l'observation (date
-locale de la seance, naive), triee, sans doublon. Elle ne decide rien : la collecte valide,
-compare a ce qui est stocke et ecrit. Une reponse inattendue leve `SourceError` : on garde
-alors l'ancienne copie plutot que d'ecrire un faux.
+Chaque fonction rend la serie BRUTE de sa source, triee, sans doublon : en quotidien, indexee par
+la date de l'observation (date locale de la seance, naive) ; en intraday, par l'heure UTC
+d'OUVERTURE de la bougie (tz-aware). Elle ne decide rien : la collecte valide, compare a ce qui
+est stocke et ecrit. Une reponse inattendue leve `SourceError` : on garde alors l'ancienne copie
+plutot que d'ecrire un faux.
 """
 
 from __future__ import annotations
 
 import io
 import logging
+import lzma
+import struct
 import urllib.request
 
 import pandas as pd
@@ -27,6 +30,15 @@ URL_WGC = "https://fsapi.gold.org/api/goldprice/v13/chart/price/usd/oz/{debut},{
 # fredgraph.csv : en-tetes par defaut de urllib, comme `lake.maj` (certains User-Agent
 # personnalises partent au trou noir, constate cote ARIT le 07/08).
 URL_FRED = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"
+# Dukascopy : bougies BID a la minute d'une journee UTC, et ticks d'une heure. ⚠️ Le mois des
+# URL commence a 00 (janvier). Bride si l'on enchaine : une requete a la fois, espacees, et un
+# 503 se retente plus tard (constate le 20/10). Prix entiers : diviser par l'echelle.
+URL_DUKASCOPY_JOUR = ("https://datafeed.dukascopy.com/datafeed/{instrument}/{a:04d}/{m:02d}/"
+                      "{j:02d}/BID_candles_min_1.bi5")
+URL_DUKASCOPY_HEURE = ("https://datafeed.dukascopy.com/datafeed/{instrument}/{a:04d}/{m:02d}/"
+                       "{j:02d}/{h:02d}h_ticks.bi5")
+ECHELLE_DUKASCOPY = {"XAUUSD": 1000.0}
+COLONNES = ["open", "high", "low", "close", "volume"]
 
 
 class SourceError(RuntimeError):
@@ -63,6 +75,80 @@ def yahoo_1d(ticker: str) -> pd.DataFrame:
     df.index = brut.index.tz_localize(None).normalize()
     df.index.name = "date"
     return _propre(df.astype(float), f"Yahoo {ticker}")
+
+
+def yahoo_intraday(ticker: str, intervalle: str, periode: str) -> pd.DataFrame:
+    """Les bougies intraday Yahoo (5m : 60 jours au plus ; 1h : 730 jours), index = ouverture
+    UTC. La derniere bougie peut etre EN COURS : la collecte la retire."""
+    import yfinance as yf
+
+    try:
+        brut = yf.Ticker(ticker).history(period=periode, interval=intervalle, auto_adjust=False,
+                                         actions=False, timeout=TIMEOUT_S, raise_errors=True)
+    except Exception as exc:
+        raise SourceError(f"Yahoo {ticker} {intervalle} : {type(exc).__name__}: {exc}") from exc
+    if brut is None or brut.empty:
+        raise SourceError(f"Yahoo {ticker} {intervalle} : reponse vide")
+    df = brut.rename(columns=str.lower)[COLONNES].astype(float)
+    df.index = brut.index.tz_convert("UTC")
+    df.index.name = "date"
+    return _propre(df.dropna(subset=["close"]), f"Yahoo {ticker} {intervalle}")
+
+
+# =========================================================================================
+# Dukascopy : or comptant intraday (BID)
+# =========================================================================================
+
+def _dukascopy(url: str) -> bytes | None:
+    """Le contenu decompresse ; None si la source n'a rien (404, ou fichier vide)."""
+    try:
+        r = requests.get(url, timeout=TIMEOUT_S, headers={"User-Agent": UA_NAVIGATEUR})
+    except requests.RequestException as exc:
+        raise SourceError(f"{url} : {type(exc).__name__}: {exc}") from exc
+    if r.status_code == 404:
+        return None
+    if r.status_code != 200:
+        raise SourceError(f"{url} : HTTP {r.status_code} (bride ? reessayer plus tard)")
+    if not r.content:
+        return None
+    try:
+        return lzma.decompress(r.content)
+    except lzma.LZMAError as exc:
+        raise SourceError(f"{url} : contenu illisible ({exc})") from exc
+
+
+def _url_jour(gabarit: str, instrument: str, jour: pd.Timestamp, **k) -> str:
+    return gabarit.format(instrument=instrument, a=jour.year, m=jour.month - 1, j=jour.day, **k)
+
+
+def dukascopy_minutes(instrument: str, jour: pd.Timestamp) -> pd.DataFrame:
+    """Les bougies BID a la minute du jour UTC `jour` ; les minutes sans echange (volume nul,
+    remplies par Dukascopy : pause de 21:00 UTC, week-end) sont retirees."""
+    brut = _dukascopy(_url_jour(URL_DUKASCOPY_JOUR, instrument, jour))
+    if not brut:
+        return pd.DataFrame(columns=COLONNES, index=pd.DatetimeIndex([], tz="UTC", name="date"))
+    echelle = ECHELLE_DUKASCOPY[instrument]
+    rec = list(struct.iter_unpack(">5if", brut))           # s, open, close, low, high, volume
+    df = pd.DataFrame(rec, columns=["s", "open", "close", "low", "high", "volume"])
+    df.index = pd.DatetimeIndex(pd.Timestamp(jour.date(), tz="UTC")
+                                + pd.to_timedelta(df["s"], unit="s"), name="date")
+    df[["open", "high", "low", "close"]] = df[["open", "high", "low", "close"]] / echelle
+    return _propre(df.loc[df["volume"] > 0, COLONNES].astype(float), f"Dukascopy {jour:%F}")
+
+
+def dukascopy_ticks(instrument: str, heure: pd.Timestamp) -> pd.DataFrame:
+    """Les ticks (bid, ask) de l'heure UTC `heure`, index = horodatage UTC du tick."""
+    brut = _dukascopy(_url_jour(URL_DUKASCOPY_HEURE, instrument, heure, h=heure.hour))
+    if not brut:
+        return pd.DataFrame(columns=["bid", "ask", "volume"],
+                            index=pd.DatetimeIndex([], tz="UTC", name="date"))
+    echelle = ECHELLE_DUKASCOPY[instrument]
+    rec = list(struct.iter_unpack(">3i2f", brut))          # ms, ask, bid, vol ask, vol bid
+    df = pd.DataFrame(rec, columns=["ms", "ask", "bid", "v_ask", "v_bid"])
+    df.index = pd.DatetimeIndex(heure.floor("h") + pd.to_timedelta(df["ms"], unit="ms"),
+                                name="date")
+    return pd.DataFrame({"bid": df["bid"] / echelle, "ask": df["ask"] / echelle,
+                         "volume": df["v_bid"]}, index=df.index).sort_index()
 
 
 # =========================================================================================

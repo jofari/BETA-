@@ -1,0 +1,22 @@
+# BETA - les vrais marches (S&P 500, Nasdaq-100, VIX, or LBMA PM, USD/JPY H.10), hors Binance
+# et hors freqtrade : data/marches (collecteur beta/marches). Rien de ce qui tourne ne le lit.
+# Installe par : cp deploy/beta-marches.{service,timer} /etc/systemd/system/
+#                mkdir -p /etc/systemd/system/beta-marches.service.d
+#                cp deploy/notif.conf /etc/systemd/system/beta-marches.service.d/
+#                systemctl daemon-reload && systemctl enable --now beta-marches.timer
+# Echec (source en panne, serie en retard) = unite en "failed" + alerte Discord (salon BETA).
+[Unit]
+Description=BETA - vrais marches (Yahoo, World Gold Council, FRED)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+ExecStart=/root/venvs/beta/bin/python scripts/marches.py
+TimeoutStartSec=1800
+# Ne jamais gener ARIT ni DS1 qui tournent sur la meme machine.
+Nice=10
+CPUQuota=50%
+MemoryMax=1G
+MemorySwapMax=256M

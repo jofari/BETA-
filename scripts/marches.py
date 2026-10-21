@@ -5,6 +5,11 @@ Usage :
   python scripts/marches.py --construire       tout l'historique depuis les sources
   python scripts/marches.py --series SPX VIX   seulement celles-la
   python scripts/marches.py --etat             couverture, trous, retard, sans reseau
+  python scripts/marches.py --direct           intraday : SPX, NDX (Yahoo 5m/1h), XAU_SPOT
+                                               (ticks Dukascopy du jour) ; timer 5 min
+  python scripts/marches.py --dukascopy-histo [--limite N]
+                                               or intraday depuis 2003, une requete a la fois
+                                               (timer beta-marches-histo, toutes les heures)
 
 Sur le VPS, lance chaque jour par deploy/beta-marches.timer (23:10 UTC, apres la cloture de New
 York). Sortie 1 = une serie en echec ou en retard : le timer passe en echec (alerte Discord).
@@ -14,6 +19,7 @@ Rien de ce qui tourne ne lit `data/marches/` : ce collecteur ne change aucune me
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import pathlib
 import sys
@@ -21,7 +27,7 @@ import sys
 RACINE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RACINE))
 
-from beta.marches import collecte  # noqa: E402
+from beta.marches import collecte, intraday  # noqa: E402
 
 for flux in (sys.stdout, sys.stderr):
     if hasattr(flux, "reconfigure"):
@@ -56,12 +62,32 @@ def main() -> int:
     ap.add_argument("--construire", action="store_true")
     ap.add_argument("--series", nargs="*")
     ap.add_argument("--etat", action="store_true")
+    ap.add_argument("--direct", action="store_true")
+    ap.add_argument("--dukascopy-histo", action="store_true")
+    ap.add_argument("--limite", type=int, default=None)
     a = ap.parse_args()
+    if a.direct:
+        intraday.passage_direct()      # une panne passagere se journalise ; le passage quotidien
+        return 0                       # juge la fraicheur et alerte, une fois par jour
+    if a.dukascopy_histo:
+        r = intraday.rattraper_dukascopy(limite=a.limite)
+        print(f"XAU_SPOT : {r['jours_lus']} jour(s) lu(s), {r['jours_restants']} restant(s), "
+              f"statut {r['statut']}")
+        return 0                       # bride = normal, le timer reprendra
+    if a.etat:
+        print(json.dumps(intraday.etat(), ensure_ascii=False, indent=1))
     etat = collecte.etat() if a.etat else collecte.tout_mettre_a_jour(a.series,
                                                                        construire=a.construire)
     if a.series:
         etat = {n: e for n, e in etat.items() if n in {s.upper() for s in a.series}}
-    return afficher(etat)
+    code = afficher(etat)
+    if not a.series:
+        fraicheur = intraday.fraicheur()
+        for nom, f in fraicheur.items():
+            print(f"{nom:13s}{f['statut']:11s}fin {f.get('fin', '—')}  retard "
+                  f"{f.get('retard_h', '—')} h")
+        code = max(code, int(any(f["statut"] != "ok" for f in fraicheur.values())))
+    return code
 
 
 if __name__ == "__main__":

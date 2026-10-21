@@ -1,0 +1,12 @@
+[Unit]
+Description=BETA - vrais marches, chaque jour a 23:10 UTC (apres la cloture de New York)
+
+[Timer]
+# 16:00 ET = 20:00 UTC (ete) / 21:00 UTC (hiver) ; le fixing LBMA PM est a 15:00 Londres ;
+# le H.10 sort le lundi vers 21:15 UTC. 23:10 couvre les trois, loin de beta-maj (00:20).
+OnCalendar=*-*-* 23:10:00 UTC
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=BETA - vrais marches en direct, toutes les 5 min
+
+[Timer]
+OnCalendar=*:0/5:30
+Persistent=false
+
+[Install]
+WantedBy=timers.target
