@@ -141,7 +141,10 @@ def ecrire(synthese: dict, ecarts: list[str]) -> pathlib.Path:
           "## 2. Couverture des données",
           "",
           _table(["série", "source", "début", "fin", "obs.", "trous > 5 séances"],
-                 [[n, f"{x['source']} `{x['identifiant']}`", x["debut"] or "—", x["fin"] or "—",
+                 [[n, f"{x['source']} `{x['identifiant']}`"
+                   + (f" (valeurs : {x['source_effective'].split(' ')[0]})"
+                      if (x.get("source_effective") or x["source"]) != x["source"] else ""),
+                   x["debut"] or "—", x["fin"] or "—",
                    str(x["n"]), str(x["trous_plus_de_5_seances"])]
                   for n, x in don["couverture"].items()]),
           "",

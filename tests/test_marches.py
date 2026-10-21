@@ -166,3 +166,18 @@ def test_dexjpus_sans_alfred_garde_les_valeurs_et_le_dit(isole, monkeypatch):
                                maintenant=pd.Timestamp("2026-10-14", tz="UTC"))
     assert e["statut"] == "ok" and "maintenance" in e["alfred"]["indisponible"]
     assert collecte.lire("DEXJPUS")["publie_le"].isna().all()
+
+
+def test_dexjpus_fred_en_panne_valeurs_prises_a_la_fed_board(isole, monkeypatch):
+    def fred(sid):
+        raise sources.SourceError("FRED DEXJPUS : reponse inattendue — maintenance ?")
+    s = pd.Series([150.0, 151.0], index=pd.DatetimeIndex(["2026-10-09", "2026-10-13"],
+                                                          name="date"), name="close")
+    monkeypatch.setattr(sources, "fred_csv", fred)
+    monkeypatch.setattr(sources, "frb_h10", lambda sid: s)
+    monkeypatch.setattr(sources, "premieres_publications",
+                        lambda sid: (_ for _ in ()).throw(sources.SourceError("ALFRED")))
+    e = collecte.mettre_a_jour(par_nom("DEXJPUS"),
+                               maintenant=pd.Timestamp("2026-10-14", tz="UTC"))
+    assert e["statut"] == "ok" and e["source_effective"].startswith("frb_h10")
+    assert list(collecte.lire("DEXJPUS")["close"]) == [150.0, 151.0]

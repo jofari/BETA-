@@ -143,7 +143,16 @@ def telecharger(serie: Serie, construire: bool = False,
         df = pd.concat(morceaux).to_frame("close")
         notes["annees"] = [int(x) for x in sorted(set(df.index.year))]
     elif serie.source == "fred":
-        df = sources.fred_csv(serie.identifiant).to_frame("close")
+        try:
+            df = sources.fred_csv(serie.identifiant).to_frame("close")
+            notes["source_effective"] = "fred"
+        except sources.SourceError as exc:
+            if serie.identifiant not in sources.SERIES_FRB:
+                raise
+            # La meme serie chez son editeur (Fed Board, H.10) : FRED en maintenance le 21/10.
+            log.warning("%s : %s — valeurs prises au paquet H.10 de la Fed Board", serie.nom, exc)
+            df = sources.frb_h10(serie.identifiant).to_frame("close")
+            notes["source_effective"] = f"frb_h10 (FRED indisponible : {exc})"
         if serie.publication == "alfred":
             try:
                 pub = sources.premieres_publications(serie.identifiant)

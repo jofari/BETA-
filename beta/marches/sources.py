@@ -12,8 +12,10 @@ from __future__ import annotations
 import io
 import logging
 import lzma
+import re
 import struct
 import urllib.request
+import zipfile
 
 import pandas as pd
 import requests
@@ -38,6 +40,10 @@ URL_DUKASCOPY_JOUR = ("https://datafeed.dukascopy.com/datafeed/{instrument}/{a:0
 URL_DUKASCOPY_HEURE = ("https://datafeed.dukascopy.com/datafeed/{instrument}/{a:04d}/{m:02d}/"
                        "{j:02d}/{h:02d}h_ticks.bi5")
 ECHELLE_DUKASCOPY = {"XAUUSD": 1000.0}
+# Le paquet complet du H.10 publie par la Fed Board (SDMX, ~2 Mo zippe) : la SOURCE de DEXJPUS.
+# Secours quand FRED est indisponible (maintenance du 21/10), et controle croise sinon.
+URL_FRB_H10 = "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H10&filetype=zip"
+SERIES_FRB = {"DEXJPUS": "RXI_N.B.JA"}
 COLONNES = ["open", "high", "low", "close", "volume"]
 
 
@@ -206,6 +212,29 @@ def fred_csv(sid: str) -> pd.Series:
     s.index = pd.DatetimeIndex(df["observation_date"]).normalize()
     s.index.name = "date"
     return _propre(s.dropna().rename("close").astype(float), f"FRED {sid}")
+
+
+def frb_h10(sid: str) -> pd.Series:
+    """La serie H.10 de la Fed Board qui correspond a `sid` (FRED) ; « ND » (ferie) retire."""
+    try:
+        r = requests.get(URL_FRB_H10, timeout=TIMEOUT_S, headers={"User-Agent": UA_NAVIGATEUR})
+        r.raise_for_status()
+        xml = zipfile.ZipFile(io.BytesIO(r.content)).read("H10_data.xml").decode("utf-8")
+    except (requests.RequestException, zipfile.BadZipFile, KeyError) as exc:
+        raise SourceError(f"FRB H.10 : {type(exc).__name__}: {exc}") from exc
+    nom = SERIES_FRB[sid]
+    m = re.search(rf'<kf:Series[^>]*SERIES_NAME="{re.escape(nom)}"[^>]*>(.*?)</kf:Series>',
+                  xml, re.S)
+    if m is None:
+        raise SourceError(f"FRB H.10 : serie {nom} absente du paquet")
+    obs = re.findall(r'OBS_STATUS="(\w+)" OBS_VALUE="([^"]*)" TIME_PERIOD="([\d-]+)"',
+                     m.group(1))
+    s = pd.Series({pd.Timestamp(d): float(v) for statut, v, d in obs if statut == "A"},
+                  dtype=float, name="close")
+    s.index.name = "date"
+    if s.empty:
+        raise SourceError(f"FRB H.10 : serie {nom} vide")
+    return _propre(s, f"FRB H.10 {nom}")
 
 
 def premieres_publications(sid: str) -> pd.Series:

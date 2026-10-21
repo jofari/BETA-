@@ -136,7 +136,8 @@ def charger(lire=collecte.lire, etat=collecte.etat) -> Donnees:
     e = etat()
     couverture = {n: {k: e.get(n, {}).get(k) for k in ("debut", "fin", "n",
                                                        "trous_plus_de_5_seances", "empreinte",
-                                                       "source", "identifiant")}
+                                                       "source", "identifiant",
+                                                       "source_effective")}
                   for n in ENTREES}
     return Donnees(closes=closes, dexjpus_dispo=dispo, pit_dexjpus=pit, fin=fin,
                    empreinte=empreinte(closes, dispo), couverture=couverture)
