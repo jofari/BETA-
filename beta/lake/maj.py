@@ -14,7 +14,8 @@ BETA ne peut pas rafraichir ARIT (invariant n° 1). Il garde donc SA copie, dans
 4. le F&G et les series FRED sont retelecharges en entier dans `data/macro/` (quelques
    centaines de Ko) — ecriture atomique : un telechargement rate laisse l'ancien fichier.
    FRED rate est retente (30 s, 120 s, 300 s) ; un echec persistant n'est qu'un avertissement
-   tant que la serie a au plus 5 jours ouvres de retard (incident du 22/10).
+   (notifie en orange) tant que la serie a au plus 5 jours ouvres de retard, 12 si elle n'est
+   pas quotidienne (incident du 22/10).
 
 `data/` reste jetable (invariant n° 8) : le supprimer, puis relancer, rejoue 1 a 4.
 """
@@ -25,7 +26,9 @@ import io
 import json
 import logging
 import pathlib
+import re
 import shutil
+import subprocess
 import time
 import urllib.request
 
@@ -63,16 +66,24 @@ ATTENTES_FRED_S = (30, 120, 300)
 
 # Au-dela, une serie est EN RETARD et la mise a jour sort en erreur (le timer systemd passe
 # en echec, ce qui se voit). Les bougies : la veille doit etre la. Le funding : 3 reglements
-# par jour. FRED quotidien : en JOURS OUVRES (lun-ven), voir `RETARD_MAX_FRED_JOURS_OUVRES`.
+# par jour. FRED : en JOURS OUVRES (lun-ven), seuil par serie, voir `retard_max_fred`.
 RETARD_MAX = {"bougies_1d": pd.Timedelta(days=2), "funding": pd.Timedelta(hours=24),
-              "fred_hebdo": pd.Timedelta(days=16), "fng": pd.Timedelta(days=3)}
+              "fng": pd.Timedelta(days=3)}
 # Publication J+1 ouvre (VIXCLS : J+2) : au-dela de 5 jours ouvres sans nouvelle observation,
 # la serie est en retard et la mise a jour sort en erreur. En dessous, un FRED rate n'est
 # qu'un avertissement (22/10) : l'ancien fichier reste en place et suffit.
 RETARD_MAX_FRED_JOURS_OUVRES = 5
-# DTWEXBGS (dollar large) est publie par la Fed une fois par SEMAINE (H.10, le lundi, pour la
-# semaine d'avant) : 8-13 jours de retard sont normaux. Constate le 03/10 (derniere : 25/09).
+# Series NON quotidiennes : 12 jours ouvres (Jonas, 22/10). DTWEXBGS (dollar large) est publie
+# par la Fed une fois par SEMAINE (H.10, le lundi, pour la semaine d'avant) : 8-13 jours
+# calendaires de retard sont normaux. Constate le 03/10 (derniere : 25/09). Toute nouvelle
+# serie hebdomadaire ou mensuelle va dans FRED_HEBDO.
+RETARD_MAX_FRED_HEBDO_JOURS_OUVRES = 12
 FRED_HEBDO = {"dxy.csv"}
+
+# Avertissements (FRED rate, ancien CSV garde) : envoyes en orange sur le salon Discord BETA,
+# par le meme script que l'alerte OnFailure de beta-maj (notif-echec@). Absent (poste de
+# Jonas, CI) : rien n'est envoye, le journal suffit.
+NOTIF_ENVOYER = pathlib.Path("/root/.claude/skills/notif/envoyer.py")
 
 
 class MajError(RuntimeError):
@@ -121,6 +132,28 @@ def _telecharger_texte(url: str) -> str:
     """
     with urllib.request.urlopen(url, timeout=TIMEOUT_HTTP_S) as reponse:
         return reponse.read().decode("utf-8")
+
+
+def retard_max_fred(fichier: str) -> int:
+    """Seuil de retard de la serie, en jours ouvres : 12 si elle n'est pas quotidienne, 5 sinon."""
+    if fichier in FRED_HEBDO:
+        return RETARD_MAX_FRED_HEBDO_JOURS_OUVRES
+    return RETARD_MAX_FRED_JOURS_OUVRES
+
+
+def jours_ouvres_ecoules(derniere: pd.Timestamp, maintenant: pd.Timestamp) -> int:
+    """Jours ouvres (lun-ven) dans ]derniere, aujourd'hui] : vendredi -> lundi = 1."""
+    un_jour = np.timedelta64(1, "D")
+    return int(np.busday_count(np.datetime64(derniere.date()) + un_jour,
+                               np.datetime64(maintenant.date()) + un_jour))
+
+
+def derniere_fred(fichier: str) -> pd.Timestamp | None:
+    """Derniere observation du CSV en place, None s'il n'existe pas."""
+    chemin = config.chemin_macro(fichier, globale=True)
+    if not chemin.exists():
+        return None
+    return pd.read_csv(chemin, parse_dates=["observation_date"])["observation_date"].max()
 
 
 def _attendre(secondes: float) -> None:
@@ -199,7 +232,7 @@ def fraicheur(maintenant: pd.Timestamp | None = None) -> list[dict]:
     maintenant = maintenant or pd.Timestamp.now(tz="UTC")
     lignes = []
 
-    def noter(serie: str, genre: str, derniere) -> None:
+    def noter(serie: str, genre: str, derniere, seuil_ouvres: int | None = None) -> None:
         derniere = pd.Timestamp(derniere) if derniere is not None else None
         if derniere is not None and derniere.tz is None:
             derniere = derniere.tz_localize("UTC")
@@ -208,11 +241,7 @@ def fraicheur(maintenant: pd.Timestamp | None = None) -> list[dict]:
         if retard is None:
             en_retard = True
         elif genre == "fred":
-            # Jours ouvres ecoules dans ]derniere, aujourd'hui] : vendredi -> lundi = 1.
-            un_jour = np.timedelta64(1, "D")
-            ouvres = np.busday_count(np.datetime64(derniere.date()) + un_jour,
-                                     np.datetime64(maintenant.date()) + un_jour)
-            en_retard = int(ouvres) > RETARD_MAX_FRED_JOURS_OUVRES
+            en_retard = jours_ouvres_ecoules(derniere, maintenant) > seuil_ouvres
         else:
             en_retard = retard > RETARD_MAX[genre]
         lignes.append({"serie": serie, "derniere": derniere, "retard": retard,
@@ -228,13 +257,7 @@ def fraicheur(maintenant: pd.Timestamp | None = None) -> list[dict]:
         except Exception:                            # noqa: BLE001
             noter(f"{paire.base} funding", "funding", None)
     for fichier in SERIES_FRED:
-        chemin = config.chemin_macro(fichier, globale=True)
-        derniere = None
-        if chemin.exists():
-            derniere = pd.read_csv(chemin, parse_dates=["observation_date"])[
-                "observation_date"].max()
-        noter(f"FRED {fichier[:-4]}", "fred_hebdo" if fichier in FRED_HEBDO else "fred",
-              derniere)
+        noter(f"FRED {fichier[:-4]}", "fred", derniere_fred(fichier), retard_max_fred(fichier))
     try:
         noter("F&G", "fng", lecture.fear_greed()["date"].max())
     except Exception:                                # noqa: BLE001
@@ -288,10 +311,48 @@ def mettre_a_jour_tradfi(reseau: bool = True) -> list[str]:
     return problemes
 
 
-def mettre_a_jour(reseau: bool = True) -> list[str]:
+def avertissement_fred(fichier: str, etat: str,
+                       maintenant: pd.Timestamp | None = None) -> str:
+    """Une ligne lisible : la serie, son retard en jours ouvres et le seuil, la cause."""
+    maintenant = maintenant or pd.Timestamp.now(tz="UTC")
+    derniere = derniere_fred(fichier)
+    if derniere is None:
+        retard = "aucun CSV en place"
+    else:
+        retard = (f"ancien CSV conserve, derniere observation {derniere.date()}, "
+                  f"{jours_ouvres_ecoules(derniere, maintenant)} j ouvres de retard "
+                  f"(seuil {retard_max_fred(fichier)})")
+    return f"FRED {SERIES_FRED[fichier]} ({fichier}) : {retard} — {etat}"
+
+
+def notifier_avertissements(avertissements: list[str]) -> bool:
+    """Les avertissements en orange sur le salon BETA. Ne leve jamais : la mise a jour a reussi."""
+    if not avertissements:
+        return False
+    if not NOTIF_ENVOYER.exists():
+        log.info("notification non envoyee : %s absent", NOTIF_ENVOYER)
+        return False
+    lignes = "\n".join(f"- {a}" for a in avertissements)
+    lignes = re.sub(r"https?://\S+", "<url>", lignes)      # comme echec.py
+    texte = (f"🟠 AVERTISSEMENT — beta-maj.service : {len(avertissements)} serie(s) FRED non "
+             f"rafraichie(s), sous le seuil de retard (pas d'echec)\n{lignes}\n"
+             "Detail : `journalctl -u beta-maj.service -n 80`")
+    try:
+        r = subprocess.run(["/usr/bin/python3", str(NOTIF_ENVOYER), "-", "--salon", "beta"],
+                           input=texte, text=True, capture_output=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.warning("notification non envoyee : %s", exc)
+        return False
+    if r.returncode:
+        log.warning("notification non envoyee (sortie %d)", r.returncode)
+    return r.returncode == 0
+
+
+def mettre_a_jour(reseau: bool = True, avertissements: list[str] | None = None) -> list[str]:
     """Amorce, complete, integre au lake, rafraichit la macro. Retourne la liste des problemes.
 
     `reseau=False` : amorcage + integration seulement (aucun appel exterieur).
+    `avertissements` : si fourni, recoit une ligne par serie FRED ratee (serie + retard).
     """
     problemes: list[str] = []
     amorcer()
@@ -318,8 +379,11 @@ def mettre_a_jour(reseau: bool = True) -> list[str]:
                 continue
             if nom in SERIES_FRED:
                 # Pas un probleme a lui seul : l'ancien fichier reste. La sortie en erreur ne
-                # vient que de `fraicheur` (plus de 5 jours ouvres de retard).
-                log.warning("macro %s : %s — ancien fichier conserve", nom, etat)
+                # vient que de `fraicheur` (retard au-dela du seuil de la serie).
+                ligne = avertissement_fred(nom, etat)
+                log.warning("%s", ligne)
+                if avertissements is not None:
+                    avertissements.append(ligne)
             else:
                 problemes.append(f"macro {nom} : {etat}")
     return problemes

@@ -56,6 +56,13 @@ def _afficher_etat() -> int:
     return 0
 
 
+def _afficher_avertissements(avertissements: list[str]) -> None:
+    if avertissements:
+        print(f"\n{len(avertissements)} avertissement(s) :")
+        for ligne in avertissements:
+            print(f"  - {ligne}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--sans-telechargement", action="store_true",
@@ -75,7 +82,10 @@ def main() -> int:
     #      feathers absents, puis freqtrade COMPLETE chaque fichier, puis integration au
     #      lake, puis F&G + FRED. Depuis le 03/10 : avant, les 4 paires historiques, le
     #      funding et la macro restaient figes a la date des fichiers d'ARIT.
-    echecs: list[str] = maj.mettre_a_jour(reseau=not args.sans_telechargement)
+    #      Un FRED rate (ancien CSV garde, sous le seuil de retard) n'est qu'un avertissement.
+    avertissements: list[str] = []
+    echecs: list[str] = maj.mettre_a_jour(reseau=not args.sans_telechargement,
+                                          avertissements=avertissements)
     for echec in echecs:
         log.error("%s", echec)
 
@@ -110,7 +120,12 @@ def main() -> int:
         print(f"\n{len(echecs)} probleme(s) :")
         for echec in echecs:
             print(f"  - {echec}")
+        # En DERNIER : l'alerte OnFailure (notif-echec@) poste la fin du journal.
+        _afficher_avertissements(avertissements)
         return 1
+    # Pas d'echec, donc pas d'alerte OnFailure : les avertissements partent en orange (22/10).
+    _afficher_avertissements(avertissements)
+    maj.notifier_avertissements(avertissements)
     # Verification de bout en bout : le lake doit etre LISIBLE, pas seulement ecrit.
     try:
         apercu = lecture.load(univers.PAIRES[0].base, "4h")
