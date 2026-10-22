@@ -13,6 +13,8 @@ BETA ne peut pas rafraichir ARIT (invariant n° 1). Il garde donc SA copie, dans
 3. les 6 paires passent au lake par la meme porte qu'avant (`integrer_telechargement`).
 4. le F&G et les series FRED sont retelecharges en entier dans `data/macro/` (quelques
    centaines de Ko) — ecriture atomique : un telechargement rate laisse l'ancien fichier.
+   FRED rate est retente (30 s, 120 s, 300 s) ; un echec persistant n'est qu'un avertissement
+   tant que la serie a au plus 5 jours ouvres de retard (incident du 22/10).
 
 `data/` reste jetable (invariant n° 8) : le supprimer, puis relancer, rejoue 1 a 4.
 """
@@ -24,7 +26,10 @@ import json
 import logging
 import pathlib
 import shutil
+import time
 import urllib.request
+
+import numpy as np
 
 import pandas as pd
 
@@ -50,13 +55,21 @@ SERIES_FRED = {
 URL_FRED = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"
 URL_FNG = "https://api.alternative.me/fng/?limit=0&format=json"
 TIMEOUT_HTTP_S = 60
+# Nuit du 22/10 (00:23 UTC) : les 11 series ont recu une page HTML au lieu du CSV, incident
+# FRED passager (la relance de 08:00 est passee). Les series ratees sont retentees ensemble,
+# par tours, apres ces attentes : 7,5 min au pire, quel que soit le nombre de series en echec
+# (beta-suivi demarre a 00:45 et attend la fin de beta-maj).
+ATTENTES_FRED_S = (30, 120, 300)
 
 # Au-dela, une serie est EN RETARD et la mise a jour sort en erreur (le timer systemd passe
 # en echec, ce qui se voit). Les bougies : la veille doit etre la. Le funding : 3 reglements
-# par jour. FRED : publication J+1 ouvre, week-ends et feries -> 7 jours de marge.
+# par jour. FRED quotidien : en JOURS OUVRES (lun-ven), voir `RETARD_MAX_FRED_JOURS_OUVRES`.
 RETARD_MAX = {"bougies_1d": pd.Timedelta(days=2), "funding": pd.Timedelta(hours=24),
-              "fred": pd.Timedelta(days=7), "fred_hebdo": pd.Timedelta(days=16),
-              "fng": pd.Timedelta(days=3)}
+              "fred_hebdo": pd.Timedelta(days=16), "fng": pd.Timedelta(days=3)}
+# Publication J+1 ouvre (VIXCLS : J+2) : au-dela de 5 jours ouvres sans nouvelle observation,
+# la serie est en retard et la mise a jour sort en erreur. En dessous, un FRED rate n'est
+# qu'un avertissement (22/10) : l'ancien fichier reste en place et suffit.
+RETARD_MAX_FRED_JOURS_OUVRES = 5
 # DTWEXBGS (dollar large) est publie par la Fed une fois par SEMAINE (H.10, le lundi, pour la
 # semaine d'avant) : 8-13 jours de retard sont normaux. Constate le 03/10 (derniere : 25/09).
 FRED_HEBDO = {"dxy.csv"}
@@ -110,6 +123,11 @@ def _telecharger_texte(url: str) -> str:
         return reponse.read().decode("utf-8")
 
 
+def _attendre(secondes: float) -> None:
+    """L'attente entre deux tours FRED, isolee : les tests la remplacent."""
+    time.sleep(secondes)
+
+
 def _ecrire_atomique(cible: pathlib.Path, contenu: str) -> None:
     cible.parent.mkdir(parents=True, exist_ok=True)
     tmp = cible.with_suffix(cible.suffix + ".partiel")
@@ -136,20 +154,31 @@ def valider_fng(texte: str) -> list:
 def maj_macro() -> dict[str, str]:
     """Retelecharge le F&G et les series FRED dans `data/macro/`. Retourne {nom: etat}.
 
-    Une serie en echec n'annule pas les autres et laisse son ancien fichier en place.
+    Une serie en echec n'annule pas les autres et laisse son ancien fichier en place : rien
+    n'est ecrit tant que `valider_fred` n'a pas reconnu le CSV de la serie (jamais de HTML ni
+    de fichier vide). Les series FRED ratees sont retentees apres chaque `ATTENTES_FRED_S`.
     """
     etats: dict[str, str] = {}
-    for fichier, sid in SERIES_FRED.items():
-        try:
-            texte = _telecharger_texte(URL_FRED.format(sid=sid))
-            df = valider_fred(texte, sid)
-            _ecrire_atomique(config.MACRO_GLOBAL / fichier, texte)
-            etats[fichier] = "ok"
-            log.info("FRED %-13s %5d lignes, derniere %s", sid, len(df),
-                     df["observation_date"].max().date())
-        except Exception as exc:                     # noqa: BLE001 - reseau : tout peut lever
-            etats[fichier] = f"echec : {exc}"
-            log.error("FRED %s : %s", sid, exc)
+    a_faire = dict(SERIES_FRED)
+    for tour, attente in enumerate((0, *ATTENTES_FRED_S)):
+        if not a_faire:
+            break
+        if attente:
+            log.warning("FRED : %d serie(s) en echec, nouvel essai dans %d s (essai %d/%d)",
+                        len(a_faire), attente, tour + 1, len(ATTENTES_FRED_S) + 1)
+            _attendre(attente)
+        for fichier, sid in list(a_faire.items()):
+            try:
+                texte = _telecharger_texte(URL_FRED.format(sid=sid))
+                df = valider_fred(texte, sid)
+                _ecrire_atomique(config.MACRO_GLOBAL / fichier, texte)
+                etats[fichier] = "ok"
+                del a_faire[fichier]
+                log.info("FRED %-13s %5d lignes, derniere %s", sid, len(df),
+                         df["observation_date"].max().date())
+            except Exception as exc:                 # noqa: BLE001 - reseau : tout peut lever
+                etats[fichier] = f"echec : {exc}"
+                log.warning("FRED %s : %s", sid, exc)
     try:
         texte = _telecharger_texte(URL_FNG)
         donnees = valider_fng(texte)
@@ -176,8 +205,18 @@ def fraicheur(maintenant: pd.Timestamp | None = None) -> list[dict]:
             derniere = derniere.tz_localize("UTC")
         retard = (maintenant - derniere) if derniere is not None else None
         # Une bougie 1d porte l'heure de son OUVERTURE : celle d'hier est la plus recente close.
+        if retard is None:
+            en_retard = True
+        elif genre == "fred":
+            # Jours ouvres ecoules dans ]derniere, aujourd'hui] : vendredi -> lundi = 1.
+            un_jour = np.timedelta64(1, "D")
+            ouvres = np.busday_count(np.datetime64(derniere.date()) + un_jour,
+                                     np.datetime64(maintenant.date()) + un_jour)
+            en_retard = int(ouvres) > RETARD_MAX_FRED_JOURS_OUVRES
+        else:
+            en_retard = retard > RETARD_MAX[genre]
         lignes.append({"serie": serie, "derniere": derniere, "retard": retard,
-                       "en_retard": retard is None or retard > RETARD_MAX[genre]})
+                       "en_retard": en_retard})
 
     for paire in univers.PAIRES + univers.TRADFI:
         try:
@@ -275,6 +314,12 @@ def mettre_a_jour(reseau: bool = True) -> list[str]:
                 problemes.append(f"{paire.base} {timeframe} (conversion) : {exc}")
     if reseau:
         for nom, etat in maj_macro().items():
-            if etat != "ok":
+            if etat == "ok":
+                continue
+            if nom in SERIES_FRED:
+                # Pas un probleme a lui seul : l'ancien fichier reste. La sortie en erreur ne
+                # vient que de `fraicheur` (plus de 5 jours ouvres de retard).
+                log.warning("macro %s : %s — ancien fichier conserve", nom, etat)
+            else:
                 problemes.append(f"macro {nom} : {etat}")
     return problemes

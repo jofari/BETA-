@@ -146,10 +146,72 @@ def test_maj_macro_rate_garde_l_ancien_fichier(isole, monkeypatch):
         raise OSError("reseau coupe")
 
     monkeypatch.setattr(maj, "_telecharger_texte", faux)
+    monkeypatch.setattr(maj, "_attendre", lambda s: None)
     etats = maj.maj_macro()
     assert etats["vix.csv"].startswith("echec")
     assert ancien.read_text() == FRED_OK
     assert not list(config.MACRO_GLOBAL.glob("*.partiel"))
+
+
+HTML_FRED = "<!doctype html>\n<html><head><title>FRED</title></head><body>maintenance</body></html>\n"
+
+
+def test_fred_repond_html_le_csv_existant_reste_intact(isole, monkeypatch):
+    """Nuit du 22/10 : page HTML au lieu du CSV, a chaque essai. Le CSV en place ne bouge pas."""
+    ancien = _ecrire(config.MACRO_GLOBAL / "vix.csv", FRED_OK)
+    contenu, mtime = ancien.read_bytes(), ancien.stat().st_mtime_ns
+    essais: dict[str, int] = {}
+    attentes: list[float] = []
+
+    def faux(url):
+        if "alternative.me" in url:
+            return json.dumps({"data": [{"value": "50", "timestamp": "1790985600"}]})
+        sid = url.rsplit("=", 1)[1]
+        essais[sid] = essais.get(sid, 0) + 1
+        return HTML_FRED
+
+    monkeypatch.setattr(maj, "_telecharger_texte", faux)
+    monkeypatch.setattr(maj, "_attendre", attentes.append)
+    etats = maj.maj_macro()
+    assert ancien.read_bytes() == contenu and ancien.stat().st_mtime_ns == mtime
+    assert not (config.MACRO_GLOBAL / "hy_oas.csv").exists()     # ni HTML ni fichier vide
+    assert not list(config.MACRO_GLOBAL.glob("*.partiel"))
+    assert attentes == list(maj.ATTENTES_FRED_S)                 # par tours, pas par serie
+    assert set(essais.values()) == {len(maj.ATTENTES_FRED_S) + 1}
+    assert all(etats[f].startswith("echec") for f in maj.SERIES_FRED)
+    assert etats["fear_greed.json"] == "ok"
+
+
+def test_fred_html_puis_csv_au_nouvel_essai(isole, monkeypatch):
+    ancien = _ecrire(config.MACRO_GLOBAL / "vix.csv", "observation_date,VIXCLS\n2026-09-30,15\n")
+    vus: set[str] = set()
+
+    def faux(url):
+        sid = url.rsplit("=", 1)[1]
+        if sid not in vus:                                        # 1er essai : HTML
+            vus.add(sid)
+            return HTML_FRED
+        return FRED_OK.replace("VIXCLS", sid)
+
+    attentes: list[float] = []
+    monkeypatch.setattr(maj, "_telecharger_texte", faux)
+    monkeypatch.setattr(maj, "_attendre", attentes.append)
+    etats = maj.maj_macro()
+    assert all(etats[f] == "ok" for f in maj.SERIES_FRED)
+    assert attentes == [maj.ATTENTES_FRED_S[0]]
+    assert ancien.read_text() == FRED_OK
+
+
+def test_fred_rate_n_est_pas_un_probleme_le_f_g_rate_si(isole, monkeypatch):
+    """Un FRED rate n'est qu'un avertissement : seule `fraicheur` peut faire sortir en erreur."""
+    monkeypatch.setattr(maj, "amorcer", lambda *a, **k: [])
+    monkeypatch.setattr(maj.telechargement, "telecharger", lambda *a, **k: {})
+    monkeypatch.setattr(maj, "maj_macro", lambda: {
+        "vix.csv": "echec : FRED VIXCLS : reponse inattendue (<!doctype html>)",
+        "dxy.csv": "ok", "fear_greed.json": "echec : F&G : reponse sans donnees"})
+    problemes = maj.mettre_a_jour(reseau=True)
+    assert not [p for p in problemes if "vix" in p]
+    assert [p for p in problemes if p.startswith("macro fear_greed.json")]
 
 
 # --- fraicheur -------------------------------------------------------------------------------
@@ -172,3 +234,17 @@ def test_dxy_hebdomadaire_tolere_dix_jours(isole):
     assert not lignes["FRED dxy"]["en_retard"]
     tard = {f["serie"]: f for f in maj.fraicheur(pd.Timestamp("2026-10-20", tz="UTC"))}
     assert tard["FRED dxy"]["en_retard"]
+
+
+def test_fred_en_retard_au_dela_de_5_jours_ouvres(isole):
+    """Derniere observation vendredi 16/10 : ok jusqu'au vendredi 23/10 (5 j ouvres), en retard
+    le lundi 26/10 (6). Le week-end ne compte pas."""
+    _ecrire(config.MACRO_GLOBAL / "vix.csv", "observation_date,VIXCLS\n2026-10-16,17.1\n")
+
+    def vix(jour):
+        lignes = {f["serie"]: f for f in maj.fraicheur(pd.Timestamp(jour, tz="UTC"))}
+        return lignes["FRED vix"]["en_retard"]
+
+    assert not vix("2026-10-23 00:23")
+    assert not vix("2026-10-25 00:23")                    # dimanche : toujours 5
+    assert vix("2026-10-26 00:23")
