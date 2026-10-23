@@ -1,0 +1,28 @@
+Tu implementes et evalues deux modeles de prevision de volatilite pour la voie VC6 d'ARIT : HAR-RV et EGARCH, puis leur combinaison. C'est le module de gestion du risque base sur la volatilite.
+
+## Contexte
+La voie C actuelle utilise une vol realisee glissante simple (30j). VC6 teste si des modeles de vol propres (HAR-RV + EGARCH) font mieux. La question centrale : HAR+EGARCH bat-il la vol glissante simple ?
+
+## Donnees
+6 paires (BTC, ETH, SOL, BNB, LINK, XRP), OHLC quotidien via `beta.lake.lecture.load(pair, '1d')` (colonnes open/high/low/close). Pour la variance realisee (RV), utilise Parkinson (high-low) ou Garman-Klass (OHLC) — pas besoin d'intraday pour cette premiere passe.
+
+## Modeles
+1. **HAR-RV** (Corsi 2009) : RV_{t+1} = beta0 + beta1*RV_t + beta2*(moyenne 5j de RV) + beta3*(moyenne 22j de RV). Estimation MCO.
+2. **EGARCH** (Nelson 1991) : log(sigma2_t) = omega + alpha*(|z_{t-1}| - E|z|) + gamma*z_{t-1} + beta*log(sigma2_{t-1}). Estimation MLE (scipy.optimize, ou le package `arch` si dispo).
+3. **Combinaison** : prevision = w*HAR + (1-w)*EGARCH, en log-variance. Poids 50/50 par defaut, puis inversement proportionnels a la QLIKE sur fenetre glissante 250j.
+
+## Evaluation (PAS le MSE)
+- **QLIKE** (perte de Patton) pour chaque modele.
+- **Test de Diebold-Mariano** : HAR vs EGARCH vs combinaison vs vol glissante 30j.
+- **Couverture** des intervalles de prevision (ex. 95 %).
+- **Benchmark** : vol realisee glissante 30j (la voie C actuelle).
+
+## Sortie attendue
+Un tableau : QLIKE de chaque modele (HAR, EGARCH, combinaison, vol glissante), les p-values du test DM, la couverture des intervalles. Et la reponse a la question : HAR+EGARCH bat-il la vol glissante simple ?
+
+## Contraintes
+- Code et docstrings SANS accents.
+- Causalite stricte : toute prevision au jour t n'utilise que des donnees <= t-1 (shift(1) partout).
+- Train/OOS : train <= 2024-06-30, test OOS apres.
+- Ecris le script dans /root/BETA-/beta/strategies/voie_c6_vol.py, execute-le, rapporte le tableau + la reponse.
+- Ne modifie aucun fichier existant du lake ni d'ARIT.

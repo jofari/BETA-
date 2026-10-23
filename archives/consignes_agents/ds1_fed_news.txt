@@ -1,0 +1,15 @@
+Tu corriges le collecteur de news de la Fed dans /opt/ds1, qui renvoie 404.
+
+Contexte : le flux `press_all.xml` de la Fed renvoie 404 (38 echecs en 3 jours, l'URL a probablement change). C'est dans /opt/ds1/ds1/news.py.
+
+Tache :
+1. Lis /opt/ds1/ds1/news.py et trouve la source "fed" et son URL actuelle.
+2. Verifie d'abord que la source fed est bien encore en 404 (ne corrige pas un truc deja corrige).
+3. Trouve la NOUVELLE URL du flux de presse de la Fed (cherche sur le web, ou verifie le site federalreserve.gov). La Fed a plusieurs flux RSS/presse.
+4. Corrige l'URL dans news.py.
+5. Teste : lance le collecteur news (ou un test cible) pour verifier que la source fed repond.
+6. NE TOUCHE A RIEN D'AUTRE. Ne modifie que la source fed. Ne redemarre aucun service systemd.
+
+Rapporte : l'ancienne URL, la nouvelle URL, ce que tu as change, et le resultat du test (la source fed repond-elle ?).
+
+Contraintes : code et docstrings SANS accents (convention du projet). Ne touche pas aux autres sources (sec, theblock, decrypt, coingape). Ne redemarre pas les services systemd. Ne modifie pas .env.

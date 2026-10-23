@@ -1,0 +1,15 @@
+Tu prepares un venv dedie pour BETA, SANS l'appliquer (ne repointe AUCUN timer).
+
+Contexte : BETA tourne sur /root/venvs/arit (le venv d'ARIT). Une mise a jour ARIT peut casser les 5 timers BETA. Il faut un venv propre /root/venvs/beta.
+
+Tache :
+1. Lis /root/BETA-/pyproject.toml pour la liste des dependances.
+2. Cree /root/venvs/beta (python3 -m venv /root/venvs/beta).
+3. Installe les dependances (versions compatibles, pas forcement epinglees).
+4. Lance la suite de tests BETA sur le nouveau venv : cd /root/BETA- && /root/venvs/beta/bin/python -m pytest -q
+5. Fais un dry-run de build_lake.py sur le nouveau venv pour verifier qu'il tourne : cd /root/BETA- && /root/venvs/beta/bin/python scripts/build_lake.py
+6. NE REPOINTE AUCUN TIMER. Ne modifie aucun fichier deploy/*.service. Tu prepares seulement le venv et tu rapportes s'il est pret.
+
+Rapporte : les dependances installees, le resultat des tests (combien passent), le resultat du dry-run, et si le venv est pret a etre utilise.
+
+Contraintes : ne touche PAS a /root/venvs/arit. Ne modifie pas les fichiers deploy/*.service. Ne redemarre rien. Ne supprime rien.

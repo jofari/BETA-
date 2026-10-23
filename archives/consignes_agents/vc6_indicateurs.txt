@@ -1,0 +1,17 @@
+Tu codes deux fonctions d'indicateur de volatilite, en standalone (PAS en production) : HAR-RV et EGARCH.
+
+## Ce que tu codes
+1. **HAR-RV** (Corsi 2009) : une fonction qui prend l'OHLC quotidien (ou les rendements) et rend la prevision de variance realisee. RV via Parkinson (high-low) ou Garman-Klass (OHLC). HAR : RV_{t+1} = beta0 + beta1*RV_t + beta2*(moyenne 5j de RV) + beta3*(moyenne 22j de RV), estimation MCO.
+2. **EGARCH** (Nelson 1991) : une fonction qui prend les rendements et rend la prevision de variance conditionnelle. log(sigma2_t) = omega + alpha*(|z_{t-1}| - E|z|) + gamma*z_{t-1} + beta*log(sigma2_{t-1}), estimation MLE (scipy.optimize, ou le package `arch` si dispo).
+
+## Contraintes
+- Causalite stricte : la prevision au jour t n'utilise que des donnees <= t-1 (shift(1) partout).
+- Standalone : deux fonctions propres, testables, PAS de cablage production.
+- Code et docstrings SANS accents.
+- Une petite demo : sur BTC quotidien (via beta.lake.lecture.load('BTC','1d')), imprime ou trace la prevision HAR, la prevision EGARCH, et la vol glissante 30j, pour comparer visuellement.
+
+## Sortie
+Le fichier avec les deux fonctions + la demo. PAS de backtest complet, PAS de combinaison, PAS de couche liquidation — juste les deux indicateurs.
+
+## Emplacement
+Ecris dans /root/BETA-/beta/strategies/voie_c6_indicateurs.py. Ne modifie rien d'existant.

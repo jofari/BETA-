@@ -1,0 +1,34 @@
+Tu analyses les THESES DE POSITIONNEMENT des fonds institutionnels en crypto, et leur evolution temporelle, pour en tirer une conclusion sur les INDICATEURS DIRECTIONNELS.
+
+Contexte : Jonas developpe ARIT (trading algo crypto long-only). Il cherche le « socle directionnel » : quels indicateurs DRIVENT vraiment le marche crypto. Sa conclusion du 22/09 : pas d'alpha dans les indicateurs macro lents. Il veut verifier si les drivers du marche changent de nature.
+
+Materiau deja collecte (a partir de recherches web, sources reelles) :
+
+Theses recurrentes (stables 2024-2026) :
+1. Digital gold / reserve de valeur / couverture inflation (WisdomTree, Sygnum 2024)
+2. Diversification / actif non correle (EY 2024 : 79 % des institutionnels ; Sygnum 2025 : « la diversification remplace la speculation »)
+3. Adoption institutionnelle / ETF (approbation ETF spot janv. 2024, thèse dominante)
+
+Theses montantes :
+4. Tokenisation / RWA (State Street 2025 « double down on tokenization » ; Pantera « The Great Onchain Migration » ; Citrini 2026)
+5. IA + crypto / agent economy (Citrini 2026 : les agents IA gerent le capital, blockchain 24/7)
+6. Stablecoins / paiements (Fidelity FIDD 2026 ; Visa/Mastercard pilote -> commercial)
+
+Theses declinantes :
+7. Speculation (EY 2024 : 44 % ; Sygnum 2025 : remplacee par diversification)
+8. « Nouvelle classe d'actifs » (Sygnum : 44 % -> 31 % en un an)
+
+TA TACHE (creuse et analyse, ne te contente pas de reformuler) :
+
+1. CREUSE : complete ce tableau avec ce que tu sais de plus (autres theses, nuances, sources). Y a-t-il des theses que j'ai ratees ? Des sous-theses importantes (ex. « bitcoin treasury » des entreprises, « strategic reserve » souveraine, « yield/staking ») ?
+
+2. ANALYSE LE META-MOUVEMENT : la these « digital gold / macro » (inflation, debasement, taux) est-elle en train de CEDER la place a la these « utilite / adoption » (tokenisation, stablecoins, IA) ? Est-ce un vrai changement structurel ou juste un cycle narratif ?
+
+3. LA QUESTION CLE POUR ARIT : si les drivers passent du macro (taux, DXY, inflation) vers l'adoption (flux ETF, offre de stablecoins, tokenisation, activite on-chain), alors :
+   - les indicateurs macro (DFII10, T10YIE, DXY) deviennent-ils MOINS pertinents pour la direction ?
+   - les indicateurs d'adoption/flux (ETF flows, stablecoin supply, on-chain) deviennent-ils PLUS pertinents ?
+   - est-ce MESURABLE (des donnees, des etudes) ou juste du recit ?
+
+4. VERDICT : pour un socle directionnel crypto en 2026, quels indicateurs faut-il privilegier ? Macro ou adoption/flux ? Donne une reponse tranchee et argumentee.
+
+Reponds en francais, structure, avec des sources quand tu en as. Sois critique : si le « meta-mouvement » est du recit sans preuve, dis-le.

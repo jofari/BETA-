@@ -1,0 +1,18 @@
+Tu es le red team. Critique ce rapport de reflexion, sans complaisance. Ton role est de trouver ce qui est FAUX, EXAGERE, ou MANQUANT — pas de le valider.
+
+Le rapport est dans /root/rapports/2026-10-19_reflexion-vc6-audit.md. Lis-le entierement.
+
+Contexte : Jonas developpe ARIT (trading algo crypto). VC6 est une strategie a specifier (perpetuels, levier x2, regime qui module la taille, HAR pour la vol). Le rapport audite les 5 votes du regime BTC et specifie VC6 comme ecart vs VC5.
+
+Le code reel est dans /root/BETA-/beta/strategies/voie_c2.py (les votes) et /root/BETA-/scripts/preenregistrer_vc2.py (la config). Verifie que le rapport decrit CORRECTEMENT le code — lis ces fichiers si besoin.
+
+Points a attaquer en priorite :
+1. Les 5 votes sont-ils decrits exactement (regles, seuils, sens) ? Toute erreur factuelle est grave.
+2. Le verdict « 1 vote solide + 4 douteux » est-il exagere ? Le momentum est-il vraiment le seul solide ?
+3. L'argument « la conclusion du 22/09 a deja mesure sans alpha les indicateurs lents » est-il applique correctement ? Les votes (seuils, non-lineaire) sont-ils reellement couverts par cette conclusion lineaire ?
+4. Le recoupement DFII10/T10YIE est-il vraiment un doublon structurel ?
+5. La spec VC6 (section 4) est-elle correcte et complete ? Manque-t-il une modification ?
+6. La recommandation sur la date (garder 15/11, sortir HAR) est-elle saine ?
+7. Qu'est-ce qui MANQUE dans ce rapport — une question importante non traitee ?
+
+Rends un verdict structure : pour chaque point, soit « OK », soit « FAUX/EXAGERE/MANQUANT + pourquoi + correction ». Sois precis et cite le passage du rapport que tu attaques. Pas de flatterie.

@@ -1,0 +1,14 @@
+Tu bascules les services BETA du venv ARIT (/root/venvs/arit) vers le nouveau venv BETA (/root/venvs/beta).
+
+Contexte : le venv /root/venvs/beta est pret (tests passent, build_lake tourne). Il faut repointé les 11 services beta-* dans /root/BETA-/deploy/*.service, dont l'ExecStart pointe sur /root/venvs/arit/bin/python.
+
+Tache (PRUDEMMENT) :
+1. Pour CHAQUE service beta-* (beta-maj, beta-suivi, beta-suivi-vc2, beta-suivi-vc3, beta-suivi-vc4, beta-suivi-vc5, beta-paper, beta-paper-direct, beta-vision, beta-vc4-sessions, beta-web) : change l'ExecStart de /root/venvs/arit/bin/python vers /root/venvs/beta/bin/python.
+2. systemctl daemon-reload.
+3. Verifie en lancant beta-maj manuellement (systemctl start beta-maj.service) et en lisant son journal (journalctl -u beta-maj -n 30) : le lake doit se completer sans erreur.
+4. Si beta-maj passe, les autres suivront a leur prochain declenchement de timer. Verifie au moins que chaque service demarre sans erreur immediate (systemctl start + status).
+5. Si un service echoue, remets son ExecStart sur /root/venvs/arit et signale-le.
+
+Rapporte : la liste des services bascules, leur etat (actif/echoue), et toute anomalie.
+
+Contraintes : ne touche PAS a /root/venvs/arit (ne le supprime pas). Ne modifie que les ExecStart. Ne touche pas aux services DS1 (ds1-*).

@@ -1,0 +1,14 @@
+Tu corriges le biais des indicateurs HAR-RV et EGARCH dans /root/BETA-/beta/strategies/voie_c6_indicateurs.py.
+
+Probleme : les previsions surestiment la vol de ~15 points (HAR 73,7 %, EGARCH 75,0 % vs realise 57,4 %), et ne descendent jamais sous ~47 % meme quand la vol reelle tombe a 5-17 %. Cause : la fenetre CROISSANTE (expanding) n'oublie jamais 2019-2020 (tres volatil), donc l'intercept reste cale sur un regime de vol qui n'existe plus.
+
+Correction : passer a une fenetre GLISSANTE (rolling) pour l'estimation des coefficients, pour que les coefficients suivent le regime de vol courant.
+- HAR : MCO sur une fenetre glissante (~250 jours) au lieu de la fenetre croissante.
+- EGARCH : re-estimation sur une fenetre glissante (~250 jours) au lieu de croissante.
+
+Contraintes :
+- Causalite stricte preservee : la prevision au jour t n'utilise que des donnees <= t-1, coefficients compris.
+- Garde l'epreuve f(x[:t]) == f(x)[:t].
+- Re-lance la demo et verifie que la moyenne HAR/EGARCH se rapproche du realise (R30/RV_GK), et que le min descend sous 47 % quand la vol reelle est basse.
+
+Rapporte : la nouvelle moyenne/min de HAR et EGARCH vs le realise, et si le biais est corrige.

@@ -1,0 +1,20 @@
+Tu fais une relecture CRITIQUE des mesures de recherche faites cette nuit sur VC6 (trading crypto long-only, vol-cible a levier borne). Ton role : valider ou casser chaque conclusion, pas les accepter.
+
+Le rapport est dans /root/rapports/2026-10-19_reflexion-vc6-audit.md — lis les sections 12 a 20 (les mesures empiriques). Les scripts qui ont produit ces mesures sont dans /tmp/vc6_*.py (marge_croisee.py, ponderation.py, portfolio.py, surexpo.py, filtre.py, oi_iso.py, funding.py, mesure.py, voltarget.py).
+
+Ces mesures ont ete faites par un agent DeepSeek Light (pas fiable a 100 %) qui a ecrit et lance les scripts. Les chiffres bruts ont ete verifies reels ; ce qui n'a PAS ete verifie, c'est la LOGIQUE et les CONCLUSIONS.
+
+Pour CHAQUE script (lis son code, relance-le si besoin) :
+1. La logique est-elle correcte ? (pas de look-ahead, formule juste, donnees bien chargees via le lake)
+2. La conclusion qu'en tire le rapport est-elle juste ?
+3. Y a-t-il un biais, une erreur de calcul, une interpretation abusive ?
+
+Les conclusions a attaquer en priorite (sections 14-20) :
+- « la cible de vol est LE parametre, pas le modele (EWMA ~= SD30) »
+- « le vol-cible n'est jamais liquide, meme a 35 % » (marge croisee)
+- « l'inverse-vol de VC5 est pire que l'equiponderation »
+- « aucun modulateur (funding, OI, momentum 30j) ne bat la cible de vol seule »
+- « le funding reel est ~6 %/an, pas 22 % »
+- « le surexposer (momentum 30j) ne paie pas »
+
+Rends un verdict structure : pour chaque conclusion, « VALIDE » ou « CASSE + pourquoi + correction ». Cite le passage du script ou du rapport que tu attaques. Pas de flatterie. Si un script est incorrect, dis exactement ce qui cloche et relance-le corrige pour montrer le bon chiffre.
