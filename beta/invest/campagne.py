@@ -233,8 +233,8 @@ def _journaliser(rid: str, cfg: Config, statut: str, verdict: str | None) -> Non
 
 
 def _finaliser(res: dict, rid: str, statut: str) -> dict:
-    """DSR au N du compteur, puis ecriture (le N vit dans le resultat)."""
-    n = experiences.compteur()
+    """DSR au N du compteur invest, puis ecriture (le N vit dans le resultat)."""
+    n = experiences.n_essais_pour(ID_EXP)
     r = np.diff(np.asarray(res["series"]["v_s"], dtype=float)) / np.asarray(
         res["series"]["v_s"][:-1], dtype=float)
     dsr = multitest.sharpe_degonfle(r, n)["dsr"]
@@ -316,7 +316,8 @@ def lancer_campagne(d: dn.Donnees, b: int = 1000, periodes: dict | None = None,
         a_faire.append((rid, res))
     for rid, res in a_faire:
         resultats[rid] = _finaliser(res, rid, "campagne")
-    synthese = {"experience": ID_EXP, "runs": list(resultats), "compteur": experiences.compteur(),
+    synthese = {"experience": ID_EXP, "runs": list(resultats),
+                "compteur": experiences.n_essais_pour(ID_EXP),
                 "code": _code(), "calcule_le": datetime.now(UTC).isoformat(timespec="seconds"),
                 "donnees": {"empreinte": d.empreinte, "pit": d.pit, "fin": f"{d.fin:%Y-%m-%d}",
                             "trous_acceptes": d.trous_acceptes},

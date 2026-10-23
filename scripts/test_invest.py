@@ -134,7 +134,7 @@ def main() -> int:
     m = res["metriques"]["strategie"]
     print(f"{res['run_id']} {res['libelle']} ({cfg.periode}) — Ulcer {m['ulcer']:.3f}, "
           f"MDD {m['mdd']:.1%}, protection {m['protection']}, verdict {res['verdict']} "
-          f"(exploratoire, compteur {experiences.compteur()})")
+          f"(exploratoire, compteur invest {experiences.n_essais_pour(ca.ID_EXP)})")
     return 0
 
 

@@ -143,10 +143,11 @@ def donnees_strategie(inclure_holdout: bool = False) -> dict:
 def donnees_protocole() -> dict:
     try:
         etat = experiences.etat()
-        compteur = experiences.compteur()
+        compteurs = {f: experiences.compteur(famille=f) for f in experiences.FAMILLES}
     except experiences.ProtocoleError as exc:
         return {"erreur": str(exc)}
-    return {"compteur": compteur, "dette_initiale": experiences.ESSAIS_INITIAUX,
+    return {"compteur": compteurs["trading"], "compteurs": compteurs,
+            "dette_initiale": experiences.ESSAIS_INITIAUX,
             "experiences": [{"id": i, "statut": e.get("statut"), "date": e.get("date"),
                              "hypothese": e.get("hypothese"), "verdict": e.get("verdict")}
                             for i, e in etat.items()]}

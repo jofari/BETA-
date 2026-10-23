@@ -357,17 +357,16 @@ def cmd_doctor(_args) -> int:
           f"{'' if config.ARIT.exists() else '   <- INTROUVABLE'}")
     print(f"hold-out      scelle au {holdout.DEBUT.date()} pour le moteur ; consomme pour "
           "l'allocation quotidienne (voies A/B/C, VC — DECISIONS 13/10)")
-    print(f"essais cumules {experiences.compteur()} "
-          f"(dont {experiences.ESSAIS_INITIAUX} de dette initiale)")
-
-    # Depuis A1 (20/08), l'ecart entre les deux nombres n'est plus une alerte : le compteur
-    # PORTE les mesures. Les deux restent affiches parce qu'ils ne disent pas la meme chose
-    # — combien de tests ont ete faits, et sous combien d'hypotheses distinctes.
-    mesures = experiences.compteur_runs()
-    hypotheses = len(experiences.etat())
-    en_attente = experiences.compteur() - experiences.ESSAIS_INITIAUX - mesures
-    print(f"runs mesures  {mesures} sous {hypotheses} hypothese(s) declaree(s)"
-          f"  ·  {en_attente} hypothese(s) comptee(s) d'avance, jamais mesuree(s)")
+    # Deux compteurs depuis le 23/10 (Jonas) : trading actif et invest, chacun sa dette. Depuis
+    # A1 (20/08), un compteur PORTE les mesures ; les hypotheses restent affichees parce
+    # qu'elles ne disent pas la meme chose — combien de tests, sous combien d'idees.
+    for famille in experiences.FAMILLES:
+        d = experiences.detail_compteur(famille=famille)
+        print(f"essais {famille:<7} {d['total']} (dette initiale {d['dette']} · "
+              f"{d['mesures']} run(s) mesure(s) · {d['en_attente']} hypothese(s) "
+              "comptee(s) d'avance, jamais mesuree(s))")
+    print(f"hypotheses    {len(experiences.etat())} declaree(s) · total des deux compteurs "
+          f"{experiences.compteur_total()}")
 
     etat = catalogue.etat()
     if etat.empty:

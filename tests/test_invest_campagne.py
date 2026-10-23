@@ -118,21 +118,23 @@ def registre(tmp_path, monkeypatch):
     monkeypatch.setattr(experiences, "REGISTRE", reg)
     monkeypatch.setattr(experiences, "JOURNAL_RUNS", runs)
     monkeypatch.setattr(ca, "DOSSIER", tmp_path / "test_invest")
-    experiences.preenregistrer("TI1", "h", "ulcer", {"reel": "p < 0,05"}, chemin=reg)
+    experiences.preenregistrer("TI1", "h", "ulcer", {"reel": "p < 0,05"}, chemin=reg,
+                               famille_compteur="invest")
     return reg
 
 
 def test_une_mesure_compte_une_fois_et_se_rejoue_sans_recompter(registre):
     d = _donnees()
-    avant = experiences.compteur()
+    avant = experiences.compteur(famille="invest")
     res = ca.mesurer(_cfg(), d)
-    assert experiences.compteur() == avant              # TI1 passe de « preenregistree » a 1 run
-    assert res["compteur"] == experiences.compteur()
+    assert experiences.compteur(famille="invest") == avant  # TI1 : « preenregistree » -> 1 run
+    assert res["compteur"] == experiences.compteur(famille="invest") == 1
+    assert experiences.compteur(famille="trading") == 30   # l'invest ne touche pas au trading
     assert res["metriques"]["strategie"]["dsr"] is not None
     ca.mesurer(_cfg(), d)                               # rejoue : meme run_id, rien de plus
-    assert experiences.compteur() == avant
+    assert experiences.compteur(famille="invest") == avant
     ca.mesurer(_cfg(kappa_pb=20.0), d)                  # une autre config : +1
-    assert experiences.compteur() == avant + 1
+    assert experiences.compteur(famille="invest") == avant + 1
     assert (ca.DOSSIER / f"{res['run_id']}.json").exists()
     lignes = experiences.runs_journalises()
     assert [x["experience"] for x in lignes] == ["TI1", "TI1"]

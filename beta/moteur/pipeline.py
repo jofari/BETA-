@@ -242,7 +242,7 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
     synthetiques = _resultats_synthetiques(run, series, generateur_synthetique, n_chemins) \
         if n_chemins else []
 
-    n = experiences.compteur() if n_essais is None else int(n_essais)
+    n = experiences.n_essais_pour(run.id_experience) if n_essais is None else int(n_essais)
     resultat = batterie.evaluer(
         sequence, equity=courbe, series_marche=series,
         n_essais=n, cout_aller_retour_pct=run.cout_aller_retour_pct,
@@ -358,12 +358,20 @@ def cribler(candidates: dict[str, Candidate], paires: tuple[str, ...], timeframe
     donnerait des resultats faux dans le sens flatteur — chaque candidate se croirait seule
     au monde.
 
-    **N est fige avant le premier passage** (A1) : `compteur() + taille du lot`. Le lot est
-    donc paye d'avance, avant qu'aucun resultat ne soit connu, et les dix candidates d'un
-    meme lot sont jugees au meme seuil. Sur-estimer legerement N quand une candidate est
-    re-criblee a l'identique est le sens conservateur : cela durcit, cela ne flatte pas.
+    **N est fige avant le premier passage** (A1) : compteur de la famille du lot + taille du
+    lot. Le lot est donc paye d'avance, avant qu'aucun resultat ne soit connu, et les dix
+    candidates d'un meme lot sont jugees au meme seuil. Sur-estimer legerement N quand une
+    candidate est re-criblee a l'identique est le sens conservateur : cela durcit, cela ne
+    flatte pas. Un lot ne melange pas trading actif et invest (deux compteurs depuis le
+    23/10) : il n'aurait pas de N unique.
     """
-    n_lot = experiences.compteur() + len(candidates)
+    familles = {experiences.famille_de(options.get("id_experience") or c.hypothese)
+                for c in candidates.values()}
+    if len(familles) > 1:
+        raise experiences.ProtocoleError(
+            f"un lot ne melange pas les familles de compteur : {sorted(familles)}")
+    famille_compteur = familles.pop() if familles else "trading"
+    n_lot = experiences.compteur(famille=famille_compteur) + len(candidates)
     log.info("criblage de %d candidate(s) a N = %d essais cumules figes",
              len(candidates), n_lot)
 

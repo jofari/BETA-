@@ -164,14 +164,14 @@ def main() -> int:
                        "quotidienne depuis le 13/10) et stress (2020-09-15 -> 2026-10-19), "
                        "rapportees separement, jamais agregees",
         issue_attendue=json.dumps(ISSUE_ATTENDUE, ensure_ascii=False), famille_taille=12,
-        deja_connu=DEJA_CONNU,
+        deja_connu=DEJA_CONNU, famille_compteur="invest",
         decide_par="Jonas, 2026-10-20 : cahier des charges « Test invest », puis « oui pour "
                    "tout » aux decisions D1-D6 et aux choix par defaut de la Phase 0",
         campagne=CAMPAGNE, compteur="+1 par (config x periode) mesuree (D5, enregistrer_run)",
         config=cfg, empreinte=c2.empreinte(cfg))
     log.info("%s preenregistree — empreinte %s, essai cumule n° %s",
              ID_EXP, entree["empreinte"], entree["n_essais_cumules"])
-    log.info("compteur courant : %d", experiences.compteur())
+    log.info("compteur invest courant : %d", experiences.n_essais_pour(ID_EXP))
     return 0
 
 

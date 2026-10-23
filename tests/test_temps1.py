@@ -220,15 +220,17 @@ def test_quatorze_essais_journalises_avant_le_calcul_et_jamais_recomptes(tmp_pat
     registre, runs = tmp_path / "EXPERIMENTS.jsonl", tmp_path / "RUNS.jsonl"
     monkeypatch.setattr(experiences, "REGISTRE", registre)
     monkeypatch.setattr(experiences, "JOURNAL_RUNS", runs)
-    avant = experiences.compteur()
-    experiences.preenregistrer(ca.ID_EXP, "h", "Ulcer", {"r": "x"}, split_autorise="labo")
-    assert experiences.compteur() == avant + 1
+    assert experiences.compteur(famille="invest") == 0
+    experiences.preenregistrer(ca.ID_EXP, "h", "Ulcer", {"r": "x"}, split_autorise="labo",
+                               famille_compteur="invest")
+    assert experiences.compteur(famille="invest") == 1
     cfgs = ca.configs(pd.Timestamp("2026-10-20"), b=1000)
     assert len(cfgs) == 14
     ca.journaliser(cfgs, "abc")
-    assert experiences.compteur() == avant + 14
+    assert experiences.compteur(famille="invest") == 14
     ca.journaliser(cfgs, "abc")                                  # rejouer ne compte rien
-    assert experiences.compteur() == avant + 14
+    assert experiences.compteur(famille="invest") == 14
+    assert experiences.compteur(famille="trading") == 30         # le trading n'a pas bouge
 
 
 def test_aucune_donnee_crypto_n_entre_dans_le_labo():
@@ -250,18 +252,19 @@ def test_campagne_et_rapport_de_bout_en_bout_sur_donnees_synthetiques(tmp_path, 
     monkeypatch.setattr(ca, "DEBUT_INFORMATIVE", "1992-01-01")
     monkeypatch.setattr(rapport, "DOSSIER_RAPPORT", tmp_path / "temps1")
     experiences.preenregistrer(ca.ID_EXP, "h", "Ulcer", {"r": "x"}, split_autorise="labo",
-                               compteur={"avant": experiences.compteur()})
+                               famille_compteur="invest",
+                               compteur={"avant": experiences.compteur(famille="invest")})
     d = _donnees()
     syn = ca.lancer_campagne(d, b=20)
-    assert syn["compteur"]["avant_t1a"] == 30 and syn["compteur"]["apres_preenregistrement"] == 31
-    assert syn["compteur"]["apres"] == 44 and experiences.compteur() == 44
+    assert syn["compteur"]["avant_t1a"] == 0 and syn["compteur"]["apres_preenregistrement"] == 1
+    assert syn["compteur"]["apres"] == 14 and experiences.compteur(famille="invest") == 14
     assert len(syn["labo"]) == 14 and len(syn["informative"]) == 14
     assert syn["verdict"]["verdict"] in ("candidat retenu", "SMA200 retenue",
                                          "aucun timing demontre")
     mesures = [x for x in experiences._lignes() if x.get("statut") == "mesure"]
     assert len(mesures) == 1
     ca.lancer_campagne(d, b=20)                                   # rejeu : rien de plus
-    assert experiences.compteur() == 44
+    assert experiences.compteur(famille="invest") == 14
     assert len([x for x in experiences._lignes() if x.get("statut") == "mesure"]) == 1
     chemin = rapport.ecrire(syn, ["ecart de test"])
     texte = chemin.read_text(encoding="utf-8")

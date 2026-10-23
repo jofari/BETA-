@@ -166,7 +166,7 @@ def main() -> int:
         log.info("%s deja preenregistree (empreinte %s) : rien a ecrire",
                  ID_EXP, deja[ID_EXP].get("empreinte"))
         return 0
-    avant = experiences.compteur()
+    avant = experiences.compteur(famille="invest")
     cfg = config_t1a()
     entree = experiences.preenregistrer(
         ID_EXP, HYPOTHESE, METRIQUE, REGLE,
@@ -174,7 +174,7 @@ def main() -> int:
                        "derniere seance (deja vue, ne decide rien) ; actions = laboratoire, "
                        "aucune donnee crypto, hold-out crypto de BETA non concerne",
         issue_attendue=json.dumps(ISSUE_ATTENDUE, ensure_ascii=False), famille_taille=14,
-        deja_connu=DEJA_CONNU,
+        deja_connu=DEJA_CONNU, famille_compteur="invest",
         decide_par="Jonas, 2026-10-21 : prompt « BETA / Temps 1, etape A (laboratoire) » "
                    "(valeurs par defaut du preenregistrement du 21/10/2026) ; Nasdaq-100 ^NDX et "
                    "or LBMA PM via le World Gold Council (questions du 21/10 ~17:30 UTC)",
@@ -184,7 +184,7 @@ def main() -> int:
         config=cfg,
         empreinte=hashlib.sha256(json.dumps(cfg, sort_keys=True).encode()).hexdigest()[:16])
     log.info("%s preenregistree — empreinte %s, compteur %d -> %d (hypothese sans mesure)",
-             ID_EXP, entree["empreinte"], avant, experiences.compteur())
+             ID_EXP, entree["empreinte"], avant, experiences.compteur(famille="invest"))
     return 0
 
 

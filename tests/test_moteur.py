@@ -445,3 +445,33 @@ def test_le_registre_decouvre_les_candidates_du_paquet():
     toutes = registre.toutes()
     assert "r2_mean_reversion" in toutes
     assert toutes["r2_mean_reversion"].hypothese == "R2"
+
+
+def test_un_lot_invest_est_juge_au_compteur_invest(tmp_path, monkeypatch):
+    """N du lot = compteur de SA famille + taille du lot, pas les 30 de dette du trading."""
+    from beta.moteur import pipeline
+    monkeypatch.setattr(experiences, "REGISTRE", tmp_path / "exp.jsonl")
+    monkeypatch.setattr(experiences, "JOURNAL_RUNS", tmp_path / "RUNS.jsonl")
+    experiences.preenregistrer("I1", "h", "m", {"confirmee": "x"}, famille_compteur="invest")
+    vus = []
+
+    def faux_executer(run, **options):
+        vus.append(options["n_essais"])
+        raise RuntimeError("arret apres lecture de N")
+
+    monkeypatch.setattr(pipeline, "executer", faux_executer)
+    candidate = Candidate(nom="x", hypothese="I1", signaux=lambda df: df)
+    pipeline.cribler({"x": candidate}, ("BTC",), "4h")
+    assert vus == [2]          # 0 de dette invest + I1 non mesuree + 1 candidate du lot
+
+
+def test_un_lot_qui_melange_les_familles_est_refuse(tmp_path, monkeypatch):
+    from beta.moteur import pipeline
+    monkeypatch.setattr(experiences, "REGISTRE", tmp_path / "exp.jsonl")
+    monkeypatch.setattr(experiences, "JOURNAL_RUNS", tmp_path / "RUNS.jsonl")
+    experiences.preenregistrer("I1", "h", "m", {"confirmee": "x"}, famille_compteur="invest")
+    experiences.preenregistrer("T1", "h", "m", {"confirmee": "x"})
+    lot = {"a": Candidate(nom="a", hypothese="I1", signaux=lambda df: df),
+           "b": Candidate(nom="b", hypothese="T1", signaux=lambda df: df)}
+    with pytest.raises(experiences.ProtocoleError, match="famille"):
+        pipeline.cribler(lot, ("BTC",), "4h")

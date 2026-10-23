@@ -219,6 +219,91 @@ def test_compteur_part_de_la_dette_et_ne_redescend_pas(registre):
     assert experiences.compteur(registre) == experiences.ESSAIS_INITIAUX + 1
 
 
+# --- deux compteurs : trading actif et invest (Jonas, 23/10) ------------------------------
+
+def _preenregistrer(id_exp, registre, **options):
+    return experiences.preenregistrer(id_exp, hypothese="H", metrique_primaire="R",
+                                      regle_de_decision={"ok": "x"}, chemin=registre,
+                                      **options)
+
+
+def test_un_test_invest_ne_touche_pas_au_compteur_du_trading_actif(registre):
+    _preenregistrer("I1", registre, famille_compteur="invest")
+    assert experiences.compteur(registre, famille="invest") == 1
+    assert experiences.compteur(registre, famille="trading") == 30
+
+
+def test_un_test_sans_famille_declaree_compte_en_trading_actif(registre):
+    _preenregistrer("T1", registre)
+    assert experiences.compteur(registre, famille="trading") == 31
+    assert experiences.compteur(registre, famille="invest") == 0
+
+
+def test_une_mesure_compte_dans_la_famille_de_son_experience(registre):
+    _preenregistrer("I1", registre, famille_compteur="invest")
+    runs = registre.parent / "RUNS.jsonl"
+    for rid in ("r1", "r2", "r3"):
+        experiences.enregistrer_run(rid, "I1", "c", "e", chemin=runs)
+    assert experiences.compteur(registre, famille="invest") == 3
+    assert experiences.compteur(registre, famille="trading") == 30
+
+
+def test_l_historique_sans_famille_range_ti1_et_t1a_en_invest(registre):
+    """Les lignes d'avant le 23/10 n'ont pas de famille : TI1 et T1A sont de l'invest, tout
+    le reste (les 93 de Jonas) du trading actif."""
+    lignes = [{"id": i, "statut": "preenregistre", "hypothese": "H", "metrique_primaire": "R",
+               "regle_de_decision": {"ok": "x"}, "split_autorise": "train"}
+              for i in ("R7", "VC3", "TI1", "T1A")]
+    registre.write_text("".join(json.dumps(x) + "\n" for x in lignes), encoding="utf-8")
+    assert experiences.compteur(registre, famille="invest") == 2
+    assert experiences.compteur(registre, famille="trading") == 32
+
+
+def test_le_total_additionne_les_deux_familles(registre):
+    _preenregistrer("I1", registre, famille_compteur="invest")
+    _preenregistrer("T1", registre)
+    assert experiences.compteur_total(registre) == 32
+
+
+def test_le_preenregistrement_porte_sa_famille_et_son_rang_dans_la_famille(registre):
+    _preenregistrer("T1", registre)
+    entree = _preenregistrer("I1", registre, famille_compteur="invest")
+    assert entree["famille_compteur"] == "invest"
+    assert entree["n_essais_cumules"] == 1
+
+
+def test_une_famille_inconnue_est_refusee(registre):
+    with pytest.raises(experiences.ProtocoleError, match="famille"):
+        _preenregistrer("X1", registre, famille_compteur="swing")
+    with pytest.raises(experiences.ProtocoleError, match="famille"):
+        experiences.compteur(registre, famille="swing")
+
+
+def test_n_essais_pour_lit_le_compteur_de_la_famille_de_l_experience(registre):
+    _preenregistrer("T1", registre)
+    _preenregistrer("I1", registre, famille_compteur="invest")
+    assert experiences.n_essais_pour("I1", registre) == 1
+    assert experiences.n_essais_pour("T1", registre) == 31
+
+
+def test_le_detail_d_une_famille_separe_dette_mesures_et_attente(registre):
+    _preenregistrer("I1", registre, famille_compteur="invest")
+    _preenregistrer("I2", registre, famille_compteur="invest")
+    _preenregistrer("T1", registre)
+    for rid in ("r1", "r2"):
+        experiences.enregistrer_run(rid, "I1", "c", "e", chemin=registre.parent / "RUNS.jsonl")
+    assert experiences.detail_compteur(registre, famille="invest") == {
+        "famille": "invest", "dette": 0, "mesures": 2, "en_attente": 1, "total": 3}
+
+
+def test_marquer_mesuree_note_le_compteur_de_la_famille(registre):
+    _preenregistrer("T1", registre)
+    _preenregistrer("I1", registre, famille_compteur="invest")
+    experiences.enregistrer_run("r1", "I1", "c", "e", chemin=registre.parent / "RUNS.jsonl")
+    entree = experiences.marquer_mesuree("I1", "r1", "mesure", registre)
+    assert entree["n_essais_cumules"] == 1
+
+
 # --- statistiques descriptives ------------------------------------------------------------
 
 def _trades(rs):

@@ -48,9 +48,14 @@ d'edge.
 4. **Rien ne se mesure sans préenregistrement.** Verrou matériel depuis le 18/08 :
    `contrats.Run` appelle `protocole.exiger()` dans son constructeur, donc aucun chiffre ne
    sort du moteur sans que l'hypothèse ait été écrite avant, dans `EXPERIMENTS.jsonl`.
-   Compteur d'essais cumulatif **initialisé à 30** — la dette déjà consommée sur les mêmes
-   8,5 ans. Jamais remis à zéro. ⚠️ Les ~7 150 configurations essayées HORS protocole par les
-   voies A, B et C (sept.-oct.) n'y figurent pas : arbitrage **A3** ouvert (`DECISIONS.md`).
+   **Deux compteurs d'essais cumulatifs** depuis le 23/10 (Jonas), un par famille déclarée
+   au préenregistrement (`famille_compteur`) : le **trading actif**, initialisé à 30 (la
+   dette déjà consommée sur les mêmes 8,5 ans ; 93 au 23/10 : R1-R12, VC2-VC5), et
+   l'**invest**, parti de 0 (38 au 23/10 : TI1, T1A). Chaque candidate est jugée au N de SA
+   famille (`experiences.n_essais_pour`). Par défaut un essai compte en trading actif : un
+   test invest le déclare (`famille_compteur="invest"`). Jamais remis à zéro. Les ~7 150
+   configurations essayées HORS protocole par les voies A, B et C (sept.-oct.) ne sont
+   comptées dans aucun des deux : **A3 tranchée par Jonas le 23/10** (`DECISIONS.md`).
 5. **Hold-out scellé.** Aucune donnée postérieure à la date de scellement ne sert à choisir
    quoi que ce soit. Le regarder, c'est le brûler. ⚠️ Depuis le 13/10 : **consommé** pour
    l'allocation quotidienne (voies A/B/C, VC2-VC5 l'ont regardé hors moteur), qui ne se juge

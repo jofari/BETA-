@@ -302,9 +302,9 @@ def lancer_campagne(d: dn.Donnees, b: int = 1000, recalculer: bool = False) -> d
     pre = [x for x in experiences._lignes() if x.get("id") == ID_EXP
            and x.get("statut") == "preenregistre"][-1]
     cfgs = configs(d.fin, b)
-    compteur_avant = experiences.compteur()
+    compteur_avant = experiences.n_essais_pour(ID_EXP)          # compteur invest
     rids = journaliser(cfgs, d.empreinte)
-    compteur_apres = experiences.compteur()
+    compteur_apres = experiences.n_essais_pour(ID_EXP)
     log.info("compteur d'essais : %d -> %d (%d couples)", compteur_avant, compteur_apres,
              len(rids))
     DOSSIER.mkdir(parents=True, exist_ok=True)

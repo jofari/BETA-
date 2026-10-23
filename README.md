@@ -74,8 +74,9 @@ Sept onglets, port **7474** (ALPHA occupe 7373) :
   passé le contrôle statique **et** l'épreuve de causalité.
 - **Données** — les séries du lake, leur couverture réelle, et la **borne commune** : un run
   multi-paires ne peut pas aller plus loin que la série qui s'arrête le plus tôt.
-- **Protocole** — le compteur d'essais cumulés, le registre d'expériences, et la **boîte à
-  idées** : noter est gratuit, seule la promotion avance le compteur.
+- **Protocole** — les deux compteurs d'essais cumulés (trading actif, invest), le registre
+  d'expériences, et la **boîte à idées** : noter est gratuit, seule la promotion avance le
+  compteur.
 
 Zéro dépendance front, zéro CDN : les graphiques sont dessinés au canvas. Même palette
 qu'ALPHA, accent vert au lieu de bleu pour distinguer les deux onglets d'un coup d'œil.
@@ -317,8 +318,8 @@ ne relit ce que le modèle a écrit. Chaque refus nomme sa raison de protocole e
 permet à S1 (Benjamini-Hochberg), S7 (reality check) et S9 (corrélation) d'exister : les
 trois portes comparent les candidates entre elles, et les lancer une par une donnerait à
 chacune l'illusion d'être seule au monde — dans le sens flatteur. **N est figé avant le
-premier passage** (`compteur() + taille du lot`) : le lot est payé d'avance, et ses
-candidates sont jugées au même seuil.
+premier passage** (compteur de la famille du lot + taille du lot) : le lot est payé
+d'avance, et ses candidates sont jugées au même seuil.
 
 ⚠️ Ce que le modèle a écrit et que la boucle a déposé est **à relire**. Le sas attrape des
 erreurs, pas un adversaire.
@@ -452,8 +453,9 @@ décale la série et fabrique du look-ahead en silence).
 - **Il ne rend pas de verdict portefeuille depuis le criblage.** Un chiffre issu de
   `espace_r` se lit en R par trade : ni frais de financement, ni slots concurrents, ni
   compounding. L'autre verdict vient du pont freqtrade, et de lui seul.
-- Il ne mesure rien sans préenregistrement, et le compteur d'essais (**36**, parti de 30)
-  n'est jamais remis à zéro — voir `CLAUDE.md`.
+- Il ne mesure rien sans préenregistrement, et ses deux compteurs d'essais (au 23/10 :
+  trading actif **93**, parti de 30 ; invest **38**) ne sont jamais remis à zéro — voir
+  `CLAUDE.md`.
 - **L'atelier n'est pas un bac à sable, et il ne raccourcit rien.** Il abaisse le coût
   d'écrire une candidate ; préenregistrement, compteur et batterie restent devant elle.
 - ⚠️ **Le compteur compte les hypothèses, pas les mesures.** Tant qu'il y a une candidate

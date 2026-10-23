@@ -665,6 +665,34 @@ soir, posées avant tout code :
 
   Rapport : `temps1/RAPPORT_ETAPE_A.md`, CSV `temps1/RAPPORT_ETAPE_A.csv` et `_episodes.csv`.
 
+## 2026-10-23 — Deux compteurs d'essais (trading actif, invest) ; A3 tranchée
+
+Jonas, 23/10 : « supprime ces 7150 configurations et j'aimerais deux compteurs différents :
+un pour les combinaisons de type invest et les 92 ou 93 qui sont du trading actif à part ».
+
+- **Deux familles de compteur** (`experiences.FAMILLES`), aucune mesure partagée entre elles
+  (93 + 38 = 131, l'ancien compteur unique) :
+  - **trading actif** : dette initiale 30. Au 23/10, 93 = 30 + 58 mesures (R2, R4, R7 à R11,
+    VC2, VC2T, VC3 à VC5) + 5 hypothèses jamais mesurées (R1, R3, R5, R6, R12) ;
+  - **invest** : dette initiale 0. Au 23/10, 38 = TI1 (24 mesures) + T1A (14).
+- **Classement** : chaque préenregistrement écrit désormais `famille_compteur`. Le défaut est
+  `trading` ; un test invest déclare `invest`. Les lignes d'avant le 23/10 n'ont pas ce champ :
+  TI1 et T1A sont classées invest (`FAMILLES_HISTORIQUES`), tout le reste en trading actif.
+  C'est le classement de Jonas : VC2 à VC5, bien que long uniquement, sont dans ses 93.
+- **N de la batterie** : chaque candidate est jugée au compteur de SA famille
+  (`experiences.n_essais_pour`). Un lot du moteur ne mélange pas les deux familles (refusé :
+  il n'aurait pas de N unique). Le dashboard et `beta.py doctor` affichent les deux.
+- **Rien n'est réécrit** : les verdicts passés gardent le N de leur jour. TI1 a été mesurée à
+  N = 117 et T1A notée 117 → 131 ; aucun de leurs verdicts n'en dépendait (TI1 se juge aux
+  p-values contre les deux nulls, son DSR n'était qu'informatif). Les journaux restent en
+  ajout seul.
+- **A3 tranchée** : les ~7 150 configurations essayées hors protocole (voie A 216, voie B
+  1 176, optimisation de la voie C 5 760, `/root/arit_funding`) **ne sont comptées dans aucun
+  des deux compteurs**, par décision de Jonas. Aucun fichier n'a été effacé. Conséquence
+  assumée : le compteur du trading actif sous-estime les essais réellement faits sur
+  l'allocation quotidienne, qui ne se juge déjà plus qu'en forward (hold-out consommé, § du
+  13/10).
+
 ---
 
 ## En attente de Jonas
@@ -676,5 +704,5 @@ soir, posées avant tout code :
 | ~~**B-b**~~ | ~~R4 (macro seule) : mesurer, ou classer ?~~ | ✅ **tranchée dans les faits** : R4 mesurée le 08/09 et le 19/09, INFIRMÉE, close (constaté par l'audit du 13/10) | 11/09 |
 | **B-c** | I16 (momentum 14-60 j) : la promouvoir en **candidate n° 2** du banc, lookback 30 j figé ? | 🔴 ouverte | 11/09 |
 | ~~**A2**~~ | ~~Nature de l'edge : alpha vs ARP (options A/B/C)~~ | ✅ **tranchée — (A)**, suivi forward depuis le 03/10 | 22/09 |
-| **A3** | Compteur : ajouter les ~7 150 configurations testées hors protocole (voie A 216, voie B 1 176, optimisation de la voie C 5 760, + `/root/arit_funding`), ou écrire qu'elles forment une famille à part et pourquoi | 🔴 ouverte | 13/10 |
+| ~~**A3**~~ | ~~Compteur : ajouter les ~7 150 configurations testées hors protocole, ou en faire une famille à part~~ | ✅ **tranchée 23/10** : non comptées, et deux compteurs (trading actif 93, invest 38) — § du 23/10 | 13/10 |
 | **TI1** | Clore TI1 : « aucun vote ne protège mieux que le hasard ; socle, DFII10, NASDAQ, F&G non concluants en stress test » (revérifié le 21/10, 0 écart) | 🟠 ouverte | 21/10 |

@@ -237,3 +237,13 @@ def test_monte_carlo_compte_la_ruine_a_part_sans_toucher_au_reste():
     assert sain["p_ruine"] == 0.0
     # Le drawdown du moteur n'est pas plafonne : seul l'affichage l'est.
     assert res["drawdown_max_reel_pct"] < -100.0
+
+
+def test_le_dashboard_recoit_les_deux_compteurs(tmp_path, monkeypatch):
+    from beta.protocole import experiences
+    monkeypatch.setattr(experiences, "REGISTRE", tmp_path / "exp.jsonl")
+    monkeypatch.setattr(experiences, "JOURNAL_RUNS", tmp_path / "RUNS.jsonl")
+    experiences.preenregistrer("I1", "h", "m", {"ok": "x"}, famille_compteur="invest")
+    d = serveur.donnees_protocole()
+    assert d["compteurs"] == {"trading": 30, "invest": 1}
+    assert d["compteur"] == 30                 # la tuile historique reste celle du trading actif

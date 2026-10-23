@@ -261,7 +261,7 @@ def _backtest(module: str, paires: list | None = None, timeframe: str = "4h",
 def _publier(id: str, verdict: str, resultat: str, **_) -> dict:  # noqa: A002
     from beta.protocole import experiences
     entree = experiences.clore(id, verdict, resultat)
-    return {**entree, "n_essais_cumules_apres": experiences.compteur()}
+    return {**entree, "n_essais_cumules_apres": experiences.n_essais_pour(id)}
 
 
 # --- boucle JSON-RPC --------------------------------------------------------------------

@@ -289,13 +289,16 @@ function rendreProtocole() {
   $("#carte-protocole").innerHTML = `
     <h2>Protocole expérimental</h2>
     <div class="kpis">
-      ${tuile(entier(d.compteur), "essais cumulés", "warning",
+      ${tuile(entier(d.compteur), "essais · trading actif", "warning",
               `dont ${d.dette_initiale} de dette initiale`)}
+      ${tuile(entier(d.compteurs ? d.compteurs.invest : 0), "essais · invest", "warning",
+              "compteur à part depuis le 23/10")}
       ${tuile(entier(d.experiences.length), "expériences déclarées")}
     </div>
-    <p class="sous" style="margin-top:12px">Le compteur n'est jamais remis à zéro : il doit
-      compter <em>tous</em> les essais, y compris ceux qu'on n'a jamais rapportés. C'est la
-      seule base honnête d'une correction de tests multiples.</p>`;
+    <p class="sous" style="margin-top:12px">Deux compteurs, jamais remis à zéro : chaque
+      famille (trading actif, invest) doit compter <em>tous</em> ses essais, y compris ceux
+      qu'on n'a jamais rapportés. C'est la seule base honnête d'une correction de tests
+      multiples.</p>`;
   $("#experiences").innerHTML = d.experiences.length
     ? tableau(d.experiences, ["id", "statut", "date", "verdict", "hypothese"])
     : '<p class="vide">Aucune expérience déclarée. Rien ne se mesure avant.</p>';
