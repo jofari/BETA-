@@ -254,6 +254,64 @@ def rattraper_dukascopy(nom: str = "XAU_SPOT", limite: int | None = None,
     return {"statut": statut, "jours_lus": len(lus), "jours_restants": restants}
 
 
+def _mois_chemin(nom: str):
+    return collecte.DOSSIER / f"{nom}-mois.json"
+
+
+def mois_manquants(nom: str, maintenant: pd.Timestamp) -> list[pd.Timestamp]:
+    """Les mois UTC TERMINES jamais lus en bougies horaires, du plus recent au plus ancien."""
+    p = _mois_chemin(nom)
+    vus = set(json.loads(p.read_text(encoding="utf-8"))) if p.exists() else set()
+    fin = maintenant.tz_convert(None).normalize().replace(day=1) - pd.Timedelta(days=1)
+    tous = pd.date_range(pd.Timestamp(INTRADAY[nom]["depuis"]).replace(day=1), fin, freq="MS")
+    return [m for m in reversed(tous) if f"{m:%Y-%m}" not in vus]
+
+
+def rattraper_mois(nom: str = "XAU_SPOT", limite: int | None = None,
+                   maintenant: pd.Timestamp | None = None, pause_s: float | None = None) -> dict:
+    """Le 1h et le 1d de l'histoire par les bougies horaires d'un mois entier (1 requete par
+    mois). Le 5m reste au rattrapage jour par jour ; un jour deja lu a la minute garde ses
+    bougies (elles priment), les heures d'un mois ne remplissent que les jours encore absents."""
+    maintenant = maintenant or pd.Timestamp.now(tz="UTC")
+    pause_s = PAUSE_RATTRAPAGE_S if pause_s is None else pause_s
+    a_lire = mois_manquants(nom, maintenant)[:limite]
+    heures, lus, echecs, statut = [], [], 0, "ok"
+    for i, mois in enumerate(a_lire):
+        if i:
+            time.sleep(pause_s)
+        try:
+            h = sources.dukascopy_heures_mois(INTRADAY[nom]["identifiant"], mois)
+            echecs = 0
+        except sources.SourceError as exc:
+            echecs += 1
+            log.warning("%s %s : %s (%d/%d)", nom, f"{mois:%Y-%m}", exc, echecs, ECHECS_MAX)
+            if echecs >= ECHECS_MAX:
+                statut = "bride"
+                break
+            time.sleep(ATTENTE_BRIDE_S * echecs if pause_s else 0)
+            continue
+        heures.append(h)
+        lus.append(f"{mois:%Y-%m}")
+    resume = {}
+    pleins = [h for h in heures if not h.empty]
+    if pleins:
+        lot = pd.concat(pleins).sort_index()
+        deja = _jours_vus(nom)
+        lot = lot[~lot.index.strftime("%Y-%m-%d").isin(deja)]
+        if not lot.empty:
+            resume = {tf: integrer(nom, tf, agreger(lot, tf)) for tf in ("1h", "1d")}
+    if lus:
+        with verrou(f"mois_{nom}"):
+            p = _mois_chemin(nom)
+            tous = (set(json.loads(p.read_text(encoding="utf-8"))) if p.exists() else set())
+            p.write_text(json.dumps(sorted(tous | set(lus))), encoding="utf-8")
+    restants = len(mois_manquants(nom, maintenant))
+    log.info("%s : %d mois lu(s), %d restant(s), statut %s", nom, len(lus), restants, statut)
+    _noter(nom, {"rattrapage_mois": {"statut": statut, "mois_lus": len(lus),
+                                     "mois_restants": restants}, **resume})
+    return {"statut": statut, "mois_lus": len(lus), "mois_restants": restants}
+
+
 def _heures_chemin(nom: str):
     return collecte.DOSSIER / f"{nom}-heures.json"
 

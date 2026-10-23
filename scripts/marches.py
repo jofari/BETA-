@@ -8,7 +8,8 @@ Usage :
   python scripts/marches.py --direct           intraday : SPX, NDX (Yahoo 5m/1h), XAU_SPOT
                                                (ticks Dukascopy du jour) ; timer 5 min
   python scripts/marches.py --dukascopy-histo [--limite N]
-                                               or intraday depuis 2003, une requete a la fois
+                                               or intraday depuis 2003, une requete a la fois :
+                                               1h/1d par mois d'abord, puis 5m jour par jour
                                                (timer beta-marches-histo, toutes les heures)
 
 Sur le VPS, lance chaque jour par deploy/beta-marches.timer (23:10 UTC, apres la cloture de New
@@ -70,6 +71,11 @@ def main() -> int:
         intraday.passage_direct()      # une panne passagere se journalise ; le passage quotidien
         return 0                       # juge la fraicheur et alerte, une fois par jour
     if a.dukascopy_histo:
+        m = intraday.rattraper_mois()  # 1h/1d de l'histoire d'abord : ~280 requetes en tout
+        print(f"XAU_SPOT : {m['mois_lus']} mois lu(s), {m['mois_restants']} restant(s), "
+              f"statut {m['statut']}")
+        if m["statut"] != "ok":
+            return 0
         r = intraday.rattraper_dukascopy(limite=a.limite)
         print(f"XAU_SPOT : {r['jours_lus']} jour(s) lu(s), {r['jours_restants']} restant(s), "
               f"statut {r['statut']}")

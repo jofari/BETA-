@@ -37,6 +37,11 @@ URL_FRED = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"
 # 503 se retente plus tard (constate le 20/10). Prix entiers : diviser par l'echelle.
 URL_DUKASCOPY_JOUR = ("https://datafeed.dukascopy.com/datafeed/{instrument}/{a:04d}/{m:02d}/"
                       "{j:02d}/BID_candles_min_1.bi5")
+# Bougies BID a l'HEURE d'un mois entier (secondes depuis le debut du mois) : 1 requete par mois
+# au lieu d'une par jour. Sert au rattrapage du 1h/1d quand la bride rend le jour par jour
+# interminable (21/10 : 429 sur notre IP, 0 jour lu en 2 h).
+URL_DUKASCOPY_MOIS = ("https://datafeed.dukascopy.com/datafeed/{instrument}/{a:04d}/{m:02d}/"
+                      "BID_candles_hour_1.bi5")
 URL_DUKASCOPY_HEURE = ("https://datafeed.dukascopy.com/datafeed/{instrument}/{a:04d}/{m:02d}/"
                        "{j:02d}/{h:02d}h_ticks.bi5")
 ECHELLE_DUKASCOPY = {"XAUUSD": 1000.0}
@@ -140,6 +145,21 @@ def dukascopy_minutes(instrument: str, jour: pd.Timestamp) -> pd.DataFrame:
                                 + pd.to_timedelta(df["s"], unit="s"), name="date")
     df[["open", "high", "low", "close"]] = df[["open", "high", "low", "close"]] / echelle
     return _propre(df.loc[df["volume"] > 0, COLONNES].astype(float), f"Dukascopy {jour:%F}")
+
+
+def dukascopy_heures_mois(instrument: str, mois: pd.Timestamp) -> pd.DataFrame:
+    """Les bougies BID a l'heure du mois UTC de `mois` ; heures sans echange retirees."""
+    debut = pd.Timestamp(year=mois.year, month=mois.month, day=1, tz="UTC")
+    brut = _dukascopy(URL_DUKASCOPY_MOIS.format(instrument=instrument, a=debut.year,
+                                                m=debut.month - 1))
+    if not brut:
+        return pd.DataFrame(columns=COLONNES, index=pd.DatetimeIndex([], tz="UTC", name="date"))
+    echelle = ECHELLE_DUKASCOPY[instrument]
+    rec = list(struct.iter_unpack(">5if", brut))           # s, open, close, low, high, volume
+    df = pd.DataFrame(rec, columns=["s", "open", "close", "low", "high", "volume"])
+    df.index = pd.DatetimeIndex(debut + pd.to_timedelta(df["s"], unit="s"), name="date")
+    df[["open", "high", "low", "close"]] = df[["open", "high", "low", "close"]] / echelle
+    return _propre(df.loc[df["volume"] > 0, COLONNES].astype(float), f"Dukascopy {debut:%Y-%m}")
 
 
 def dukascopy_ticks(instrument: str, heure: pd.Timestamp) -> pd.DataFrame:

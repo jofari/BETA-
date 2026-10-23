@@ -126,3 +126,48 @@ def test_direct_ticks_une_fois_par_heure_sans_1d_partiel_puis_remplaces(isole, m
     intraday.rattraper_dukascopy(maintenant=pd.Timestamp("2026-10-22 06:00", tz="UTC"),
                                  pause_s=0)
     assert intraday.lire("XAU_SPOT", "1h").loc["2026-10-21 01:00", "close"] < 3100
+
+
+def _heures(mois: str, base: float = 2000.0) -> pd.DataFrame:
+    idx = pd.date_range(mois, pd.Timestamp(mois) + pd.offsets.MonthEnd(1)
+                        + pd.Timedelta(hours=23), freq="h", tz="UTC", name="date")
+    close = base + np.arange(len(idx)) / 10
+    return pd.DataFrame({"open": close, "high": close + 1, "low": close - 1,
+                         "close": close, "volume": 1.0}, index=idx)
+
+
+def test_rattrapage_par_mois_remplit_1h_et_1d_sans_toucher_aux_jours_lus_a_la_minute(
+        isole, monkeypatch):
+    monkeypatch.setitem(intraday.INTRADAY["XAU_SPOT"], "depuis", "2026-08-15")
+    monkeypatch.setattr(sources, "dukascopy_minutes", lambda i, j: _minutes(f"{j:%F}", 3000.0))
+    maintenant = pd.Timestamp("2026-10-21 12:00", tz="UTC")
+    intraday.rattraper_dukascopy(limite=1, maintenant=maintenant, pause_s=0)   # le 20/10
+    lus = []
+
+    def mois(instrument, m):
+        lus.append(f"{m:%Y-%m}")
+        return _heures(f"{m:%Y-%m}-01") if m.month == 9 else _heures("2026-08-01", 1000.0)
+    monkeypatch.setattr(sources, "dukascopy_heures_mois", mois)
+    r = intraday.rattraper_mois(maintenant=maintenant, pause_s=0)
+    assert lus == ["2026-09", "2026-08"]                 # mois termines, le plus recent d'abord
+    assert r == {"statut": "ok", "mois_lus": 2, "mois_restants": 0}
+    h1, d1 = intraday.lire("XAU_SPOT", "1h"), intraday.lire("XAU_SPOT", "1d")
+    assert h1.index.min() == pd.Timestamp("2026-08-01", tz="UTC")
+    assert d1.loc[pd.Timestamp("2026-09-30", tz="UTC"), "close"] == _heures("2026-09-01")[
+        "close"].iloc[-1]
+    assert d1.loc[pd.Timestamp("2026-10-20", tz="UTC"), "close"] >= 3000.0   # la minute garde
+    assert intraday.rattraper_mois(maintenant=maintenant, pause_s=0)["mois_lus"] == 0
+
+
+def test_rattrapage_par_mois_bride_garde_les_mois_lus(isole, monkeypatch):
+    monkeypatch.setitem(intraday.INTRADAY["XAU_SPOT"], "depuis", "2026-05-01")
+    n = []
+
+    def mois(instrument, m):
+        if n:
+            raise sources.SourceError("HTTP 429")
+        n.append(m)
+        return _heures(f"{m:%Y-%m}-01")
+    monkeypatch.setattr(sources, "dukascopy_heures_mois", mois)
+    r = intraday.rattraper_mois(maintenant=pd.Timestamp("2026-10-21", tz="UTC"), pause_s=0)
+    assert r == {"statut": "bride", "mois_lus": 1, "mois_restants": 4}
