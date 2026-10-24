@@ -272,6 +272,25 @@ def test_le_preenregistrement_porte_sa_famille_et_son_rang_dans_la_famille(regis
     assert entree["n_essais_cumules"] == 1
 
 
+def test_un_diagnostic_est_journalise_sans_avancer_le_compteur(registre):
+    """T1F (Jonas 24/10) : ecrit au registre, aucune hypothese en attente comptee."""
+    entree = _preenregistrer("D1", registre, famille_compteur="invest", diagnostic=True)
+    assert entree["diagnostic"] is True and entree["n_essais_cumules"] == 0
+    assert experiences.etat(registre)["D1"]["statut"] == "preenregistre"
+    assert experiences.compteur(registre, famille="invest") == 0
+    experiences.marquer_mesuree("D1", "x", "diagnostic", chemin=registre)
+    assert experiences.etat(registre)["D1"]["diagnostic"] is True     # la fusion le garde
+    assert experiences.compteur(registre, famille="invest") == 0
+    _preenregistrer("I1", registre, famille_compteur="invest")
+    assert experiences.compteur(registre, famille="invest") == 1
+
+
+def test_une_mesure_journalisee_sous_un_diagnostic_compte_quand_meme(registre):
+    _preenregistrer("D1", registre, famille_compteur="invest", diagnostic=True)
+    experiences.enregistrer_run("r1", "D1", "c", "e", chemin=registre.parent / "RUNS.jsonl")
+    assert experiences.compteur(registre, famille="invest") == 1
+
+
 def test_une_famille_inconnue_est_refusee(registre):
     with pytest.raises(experiences.ProtocoleError, match="famille"):
         _preenregistrer("X1", registre, famille_compteur="swing")

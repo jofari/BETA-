@@ -706,3 +706,14 @@ un pour les combinaisons de type invest et les 92 ou 93 qui sont du trading acti
 | ~~**A2**~~ | ~~Nature de l'edge : alpha vs ARP (options A/B/C)~~ | ✅ **tranchée — (A)**, suivi forward depuis le 03/10 | 22/09 |
 | ~~**A3**~~ | ~~Compteur : ajouter les ~7 150 configurations testées hors protocole, ou en faire une famille à part~~ | ✅ **tranchée 23/10** : non comptées, et deux compteurs (trading actif 93, invest 38) — § du 23/10 | 13/10 |
 | **TI1** | Clore TI1 : « aucun vote ne protège mieux que le hasard ; socle, DFII10, NASDAQ, F&G non concluants en stress test » (revérifié le 21/10, 0 écart) | 🟠 ouverte | 21/10 |
+
+## 2026-10-24 — Diagnostics journalisés sans essai (T1F)
+
+**Jonas (24/10, prompt « Temps 1 – fiabilité du test de justesse »)** : T1F ne crée aucune
+configuration de détecteur et n'ajoute **aucun essai**, mais il est journalisé dans
+`EXPERIMENTS.jsonl` (id `T1F`, famille invest). Le code comptait jusqu'ici +1 pour toute
+expérience préenregistrée sans mesure, ce qui rendait les deux exigences incompatibles.
+`preenregistrer(..., diagnostic=True)` écrit désormais la ligne sans compter d'hypothèse en
+attente (`detail_compteur`). Une mesure journalisée sous un diagnostic dans `RUNS.jsonl`
+compterait quand même : la marque ne peut pas servir à cacher un essai. Compteurs inchangés
+par T1F : global 147, invest 54, trading actif 93.

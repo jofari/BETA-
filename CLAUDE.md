@@ -56,6 +56,8 @@ d'edge.
    test invest le déclare (`famille_compteur="invest"`). Jamais remis à zéro. Les ~7 150
    configurations essayées HORS protocole par les voies A, B et C (sept.-oct.) ne sont
    comptées dans aucun des deux : **A3 tranchée par Jonas le 23/10** (`DECISIONS.md`).
+   Un **diagnostic** (`diagnostic=True`, Jonas 24/10, T1F) est journalisé au registre sans
+   avancer le compteur : il re-mesure contre un modèle nul des signaux déjà comptés.
 5. **Hold-out scellé.** Aucune donnée postérieure à la date de scellement ne sert à choisir
    quoi que ce soit. Le regarder, c'est le brûler. ⚠️ Depuis le 13/10 : **consommé** pour
    l'allocation quotidienne (voies A/B/C, VC2-VC5 l'ont regardé hors moteur), qui ne se juge

@@ -20,6 +20,11 @@ Deux raisons, toutes deux mesurees plutot que supposees :
    l'**invest** (TI1, T1A : exposition long terme, survie aux krachs). Chaque famille paie
    ses propres essais ; aucun des deux n'est remis a zero.
 
+   Depuis le 24/10 (Jonas, T1F) : un **diagnostic** (`diagnostic=True`) est journalise
+   ici comme toute experience, mais ne compte pas comme une hypothese en attente : il ne
+   cree aucune configuration, il re-mesure contre un modele nul des signaux deja comptes.
+   Une mesure qu'on journaliserait sous lui dans RUNS.jsonl compterait quand meme.
+
 Format : JSONL append-only. On ne modifie jamais une ligne existante ; on en ajoute une
 nouvelle avec le meme `id` et un statut mis a jour, et c'est la derniere qui fait foi.
 """
@@ -155,7 +160,8 @@ def detail_compteur(chemin: pathlib.Path | None = None,
     mesures = {e["run_id"] for e in runs
                if e.get("run_id") and de_la_famille(e.get("experience"))}
     deja_mesurees = {e.get("experience") for e in runs if e.get("experience")}
-    en_attente = {i for i in registre if de_la_famille(i)} - deja_mesurees
+    en_attente = {i for i in registre
+                  if de_la_famille(i) and not registre[i].get("diagnostic")} - deja_mesurees
     dette = DETTE_INITIALE[famille]
     return {"famille": famille, "dette": dette, "mesures": len(mesures),
             "en_attente": len(en_attente), "total": dette + len(mesures) + len(en_attente)}
@@ -284,7 +290,7 @@ def preenregistrer(id_exp: str, hypothese: str, metrique_primaire: str,
                    regle_de_decision: dict, *, split_autorise: str = "train",
                    issue_attendue: str = "", mde_attendu: float | None = None,
                    famille_taille: int | None = None, deja_connu: str = "",
-                   famille_compteur: str = "trading",
+                   famille_compteur: str = "trading", diagnostic: bool = False,
                    chemin: pathlib.Path | None = None, **extra) -> dict:
     """Ajoute une experience au registre. Refuse d'ecraser un id deja preenregistre.
 
@@ -294,6 +300,9 @@ def preenregistrer(id_exp: str, hypothese: str, metrique_primaire: str,
 
     `famille_compteur` dit quel compteur l'essai fait monter : `trading` par defaut, `invest`
     pour un test d'exposition long terme (TI1, T1A). Il est ecrit dans la ligne, toujours.
+
+    `diagnostic=True` (Jonas 24/10, T1F) : la ligne est ecrite et datee comme les autres,
+    mais l'experience n'avance pas le compteur — elle ne cree aucune configuration.
     """
     _verifier_famille(famille_compteur)
     chemin = chemin or REGISTRE
@@ -307,9 +316,9 @@ def preenregistrer(id_exp: str, hypothese: str, metrique_primaire: str,
               "regle_de_decision": regle_de_decision, "split_autorise": split_autorise,
               "issue_attendue": issue_attendue, "mde_attendu": mde_attendu,
               "famille_taille": famille_taille, "deja_connu": deja_connu,
-              "famille_compteur": famille_compteur,
+              "famille_compteur": famille_compteur, "diagnostic": diagnostic,
               "n_essais_cumules": (compteur(chemin, famille=famille_compteur)
-                                   + (0 if existant else 1)), **extra}
+                                   + (0 if existant or diagnostic else 1)), **extra}
     _ajouter(entree, chemin)
     log.info("experience '%s' preenregistree (%s, essai cumule n° %s)",
              id_exp, famille_compteur, entree["n_essais_cumules"])
