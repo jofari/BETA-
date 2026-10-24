@@ -42,7 +42,7 @@ ANNEE_WGC_DEBUT = 1970
 PAUSE_WGC_S = 1.0
 # Au-dela, la serie est EN RETARD et la collecte sort en 1 (alerte Discord par le timer).
 # Yahoo : 4 jours de fermeture au plus (Paques) ; WGC : Paques a Londres ; H.10 : hebdomadaire.
-RETARD_MAX_J = {"yahoo": 5, "wgc": 6, "fred": 12}
+RETARD_MAX_J = {"yahoo": 5, "wgc": 6, "fred": 12, "ds1": 3}   # ds1 : lot DS1 de 00:15 UTC
 
 
 def chemin(nom: str, tf: str = "1d") -> pathlib.Path:
@@ -162,6 +162,8 @@ def telecharger(serie: Serie, construire: bool = False,
                 df["publie_le"] = pd.NaT
                 notes["alfred"] = {"indisponible": str(exc)}
                 log.warning("%s : %s", serie.nom, exc)
+    elif serie.source == "ds1":
+        df = sources.ds1_bougies_1d(serie.identifiant)
     else:
         raise ValueError(f"source inconnue : {serie.source}")
     if df.index.has_duplicates or not df.index.is_monotonic_increasing:

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Serie:
     nom: str                       # slug de fichier et cle de l'etat : SPX-1d.parquet
-    source: str                    # 'yahoo' | 'wgc' | 'fred'
+    source: str                    # 'yahoo' | 'wgc' | 'fred' | 'ds1'
     identifiant: str               # ticker Yahoo, identifiant FRED, ou libelle WGC
     description: str
     fuseau: str                    # fuseau de la seance (cloture de la bougie du jour)
@@ -35,6 +35,12 @@ SERIES: tuple[Serie, ...] = (
     Serie("DEXJPUS", "fred", "DEXJPUS",
           "USD/JPY, yens pour 1 dollar, H.10 (cours acheteur de midi a New York), publie chaque "
           "semaine", "America/New_York", "1971-01-04", publication="alfred"),
+    Serie("VIXCLS", "fred", "VIXCLS",
+          "CBOE VIX, cloture, telle que publiee par FRED (Jonas 24/10, test de justesse : « FRED, "
+          "serie VIXCLS ») ; ^VIX Yahoo reste a cote", "America/Chicago", "1990-01-02"),
+    Serie("BTC_DS1", "ds1", "bitstamp",
+          "BTC/USD spot, cloture du jour civil UTC (Bitstamp), lue dans la base souveraine DS1 "
+          "(table bougies_1d, Jonas 24/10)", "UTC", "2011-08-18"),
 )
 
 

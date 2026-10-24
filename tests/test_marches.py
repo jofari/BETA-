@@ -181,3 +181,40 @@ def test_dexjpus_fred_en_panne_valeurs_prises_a_la_fed_board(isole, monkeypatch)
                                maintenant=pd.Timestamp("2026-10-14", tz="UTC"))
     assert e["statut"] == "ok" and e["source_effective"].startswith("frb_h10")
     assert list(collecte.lire("DEXJPUS")["close"]) == [150.0, 151.0]
+
+
+# ----------------------------------------------------------------------------- DS1 (24/10)
+
+class _Fini:
+    def __init__(self, stdout):
+        self.stdout = stdout
+
+
+def test_btc_ds1_lu_depuis_la_base_souveraine(isole, monkeypatch):
+    csv = ("jour,ouverture,haut,bas,cloture,volume\n"
+           "2026-10-22,1,2,0.5,1.5,10\n2026-10-23,1.5,3,1,2.5,20\n")
+    appels = []
+
+    def run(commande, **k):
+        appels.append(commande)
+        return _Fini(csv)
+    monkeypatch.setattr(sources.subprocess, "run", run)
+    e = collecte.mettre_a_jour(par_nom("BTC_DS1"), maintenant=pd.Timestamp("2026-10-24", tz="UTC"))
+    assert e["statut"] == "ok" and e["source"] == "ds1"
+    assert "source = 'bitstamp'" in appels[0][-1] and appels[0][:3] == ["docker", "exec", "ds1-db"]
+    df = collecte.lire("BTC_DS1")
+    assert list(df["close"]) == [1.5, 2.5] and str(df.index.tz) == "UTC"
+
+
+def test_btc_ds1_injoignable_garde_la_copie(isole, monkeypatch):
+    def run(commande, **k):
+        raise sources.subprocess.CalledProcessError(1, commande)
+    monkeypatch.setattr(sources.subprocess, "run", run)
+    e = collecte.mettre_a_jour(par_nom("BTC_DS1"), maintenant=pd.Timestamp("2026-10-24", tz="UTC"))
+    assert e["statut"] == "echec" and "DS1" in e["erreur"]
+    with pytest.raises(sources.SourceError):
+        sources.ds1_bougies_1d("binance")
+
+
+def test_vixcls_est_la_serie_fred():
+    assert (par_nom("VIXCLS").source, par_nom("VIXCLS").identifiant) == ("fred", "VIXCLS")

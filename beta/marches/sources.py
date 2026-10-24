@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import logging
+import subprocess
 import lzma
 import re
 import struct
@@ -50,6 +51,11 @@ ECHELLE_DUKASCOPY = {"XAUUSD": 1000.0}
 URL_FRB_H10 = "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H10&filetype=zip"
 SERIES_FRB = {"DEXJPUS": "RXI_N.B.JA"}
 COLONNES = ["open", "high", "low", "close", "volume"]
+# DS1 (base souveraine, conteneur Timescale sur la meme machine) : lue par `docker exec psql`,
+# en lecture seule, sans mot de passe dans BETA et sans pilote PostgreSQL dans son venv.
+DS1_CONTENEUR = "ds1-db"
+DS1_SQL = ("COPY (SELECT jour, ouverture, haut, bas, cloture, volume FROM bougies_1d "
+           "WHERE source = '{source}' AND symbole = 'BTCUSD' ORDER BY jour) TO STDOUT WITH CSV HEADER")
 
 
 class SourceError(RuntimeError):
@@ -255,6 +261,27 @@ def frb_h10(sid: str) -> pd.Series:
     if s.empty:
         raise SourceError(f"FRB H.10 : serie {nom} vide")
     return _propre(s, f"FRB H.10 {nom}")
+
+
+def ds1_bougies_1d(source: str) -> pd.DataFrame:
+    """Les bougies 1d BTC/USD d'une source de DS1 (jours UTC clos), colonnes OHLCV."""
+    if source not in ("bitstamp", "coinbase"):
+        raise SourceError(f"DS1 : source inconnue {source!r}")
+    commande = ["docker", "exec", DS1_CONTENEUR, "sh", "-c",
+                'psql -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-ds1}" -X -q -c "'
+                + DS1_SQL.format(source=source) + '"']
+    try:
+        texte = subprocess.run(commande, capture_output=True, text=True, timeout=TIMEOUT_S,
+                               check=True).stdout
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise SourceError(f"DS1 bougies_1d {source} : {type(exc).__name__}: {exc}") from exc
+    df = pd.read_csv(io.StringIO(texte), parse_dates=["jour"])
+    if df.empty:
+        raise SourceError(f"DS1 bougies_1d {source} : aucune bougie")
+    df = df.rename(columns={"jour": "date", "ouverture": "open", "haut": "high", "bas": "low",
+                            "cloture": "close"}).set_index("date")
+    df.index = pd.DatetimeIndex(df.index).normalize()
+    return _propre(df[COLONNES].astype(float), f"DS1 {source}")
 
 
 def premieres_publications(sid: str) -> pd.Series:
