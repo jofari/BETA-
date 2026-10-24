@@ -178,7 +178,8 @@ demander un `4h` sur un indice est une `DataError`, pas un resampling.
 **Les vrais marchés** (Jonas, 20-21/10 : « pas la version de Binance », « sortir de freqtrade »).
 Le paquet `beta/marches` est une structure **parallèle** au lake, comme `vision`. Fichiers dans
 `data/marches/` : `<NOM>-<tf>.parquet`, plus `etat.json` et `etat_intraday.json`. Rien de ce
-qui tourne ne la lit ; seul le labo `beta/temps1` (T1A) l'utilise. Noms **neufs**, sans collision
+qui tourne ne la lit ; seuls les labos `beta/temps1` (T1A) et `beta/temps1_justesse` (T1J,
+test de justesse du 24/10) l'utilisent. Noms **neufs**, sans collision
 avec le lake (test) : `SP500`, `NASDAQ` et `XAUUSD` gardent leur sens ci-dessus.
 - Quotidien (`collecte.lire("SPX")`, timer `beta-marches`, 23:10 UTC) :
   - `SPX` : S&P 500 `^GSPC`, Yahoo, depuis 1927 ;
@@ -188,6 +189,9 @@ avec le lake (test) : `SP500`, `NASDAQ` et `XAUUSD` gardent leur sens ci-dessus.
     **par année** (une plage courte rend un autre prix, 7 jours sur 7), depuis 1970 ;
   - `DEXJPUS` : USD/JPY H.10, FRED, hebdomadaire ; colonne `publie_le` = première publication
     ALFRED.
+  - `VIXCLS` : le VIX tel que publié par FRED (T1J, 24/10), à côté de `^VIX` ;
+  - `BTC_DS1` : clôture journalière BTC/USD Bitstamp, lue dans la base souveraine DS1 (table
+    `bougies_1d`, lot DS1 de 00:15 UTC) par `docker exec psql`, en lecture seule, depuis 2011.
   - Règles : la séance du jour n'est jamais écrite avant sa clôture, et une réécriture du passé
     par la source part dans `revisions.jsonl`.
 - Intraday (`intraday.lire("SPX", "5m")`, avec un 4h dérivé du 1h sur la grille UTC) :

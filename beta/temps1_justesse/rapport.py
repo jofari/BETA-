@@ -156,7 +156,8 @@ def _section_couverture(s: dict) -> list[str]:
                        f"{x['n']:,}".replace(",", " "), str(x["trous_plus_de_5_seances"]),
                        comblees])
     md = ["## 2. Couverture des données", ""]
-    md += _table(["série", "source", "début", "fin", "observations", "trous > 5 séances",
+    md += _table(["série", "série `beta.marches`", "début", "fin", "observations",
+                  "trous > 5 séances",
                   "séances US comblées (labo + préchauffe / 2024 → fin)"], lignes)
     md += ["", f"Empreinte des données : `{s['donnees']['empreinte']}`. Les séances US comblées "
            "sont celles où la série n'a pas d'observation du jour : la couche 1 y lit la dernière "
@@ -473,15 +474,16 @@ def resume(s: dict) -> str:
     res = s["resultats"]
     c = s["compteur"]
     a, b = c["avant_journalisation"], c["apres_journalisation"]
+    # Pastille mecanique : etat du calcul et solidite, jamais un jugement sur le resultat.
     if res is None:
-        etat = "🔴 Arrêt : épreuve de causalité échouée, aucun chiffre"
-        ligne = etat
+        pastille, ligne = "🔴", "Arrêt : épreuve de causalité échouée, aucun chiffre"
     elif res["verdict"] is None:
-        ligne = "🟠 INDÉCIDABLE : " + "; ".join(res["indecidable"])
+        pastille, ligne = "🟠", "INDÉCIDABLE : " + "; ".join(res["indecidable"])
     else:
-        ligne = "🟢 Verdict mécanique : " + _ligne_verdict(res["verdict"], [])
-    md = [f"# Test de justesse T1J — rapport du programme — {s['calcule_le'][:10]}", "",
-          f"**{ligne}.**"]
+        pastille = "🟢" if res["solide"] else "🟡"
+        ligne = "Verdict mécanique : " + _ligne_verdict(res["verdict"], [])
+    md = [f"# {pastille} Test de justesse T1J — rapport du programme — {s['calcule_le'][:10]}",
+          "", f"**{ligne}.**"]
     if res is not None and res["verdict"] is not None:
         md += [f"**Résultat solide (variantes du juge) : "
                f"{ {True: 'oui', False: 'non', None: 'indécidable'}[res['solide']] }.**"]

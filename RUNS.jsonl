@@ -105,3 +105,19 @@
 {"run_id": "86660eafc435", "experience": "T1A", "candidate": "temps1:MOM126:NDX", "empreinte": "e0e90e4037b99071", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.794755+00:00"}
 {"run_id": "56ec32a5a3e6", "experience": "T1A", "candidate": "temps1:COUCHE1:SPX", "empreinte": "f884aef20e95e484", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.794903+00:00"}
 {"run_id": "aa0043d81178", "experience": "T1A", "candidate": "temps1:COUCHE1:NDX", "empreinte": "bbae4827b234c19f", "issue": "lance (labo + informative)", "date": "2026-10-21T18:27:41.795095+00:00"}
+{"run_id": "ff1ec8b373a0", "experience": "T1J", "candidate": "temps1_justesse:SMA200:SPX", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.761334+00:00"}
+{"run_id": "3223af628d54", "experience": "T1J", "candidate": "temps1_justesse:SMA200:NDX", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.761699+00:00"}
+{"run_id": "306f1be3bd00", "experience": "T1J", "candidate": "temps1_justesse:SMA200:OR", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.761948+00:00"}
+{"run_id": "360bdb208f5b", "experience": "T1J", "candidate": "temps1_justesse:MOM126:SPX", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.763560+00:00"}
+{"run_id": "4d4c5a958f28", "experience": "T1J", "candidate": "temps1_justesse:MOM126:NDX", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.763762+00:00"}
+{"run_id": "3fa093ab737a", "experience": "T1J", "candidate": "temps1_justesse:MOM126:OR", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.763989+00:00"}
+{"run_id": "53d5f1d4aa38", "experience": "T1J", "candidate": "temps1_justesse:C1_V1:SPX", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.764591+00:00"}
+{"run_id": "473202ce8fc9", "experience": "T1J", "candidate": "temps1_justesse:C1_V1:NDX", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.764760+00:00"}
+{"run_id": "6ce59822a8d8", "experience": "T1J", "candidate": "temps1_justesse:C1_V1:OR", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.764961+00:00"}
+{"run_id": "27ca4b85493f", "experience": "T1J", "candidate": "temps1_justesse:C1_V2:SPX", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.765659+00:00"}
+{"run_id": "b92667b0cc80", "experience": "T1J", "candidate": "temps1_justesse:C1_V2:NDX", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.765875+00:00"}
+{"run_id": "ab6c15154154", "experience": "T1J", "candidate": "temps1_justesse:C1_V2:OR", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.767379+00:00"}
+{"run_id": "db5133552767", "experience": "T1J", "candidate": "temps1_justesse:SMA200:BTC", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.767916+00:00"}
+{"run_id": "d53a33a79a87", "experience": "T1J", "candidate": "temps1_justesse:MOM126:BTC", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.768115+00:00"}
+{"run_id": "65c03058dcea", "experience": "T1J", "candidate": "temps1_justesse:C1_V1:BTC", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.769112+00:00"}
+{"run_id": "726d71ce72e6", "experience": "T1J", "candidate": "temps1_justesse:C1_V2:BTC", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.769536+00:00"}
