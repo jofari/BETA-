@@ -209,8 +209,13 @@ const INVEST = (() => {
           Greed du 26/10/2024 comblé par la règle de péremption du socle (D6). Sharpe en
           racine de 365 : non comparable aux mesures VC (racine de 252).</p>
       </div>
+      <div class="kpis" style="margin-top:12px">
+        ${(etat.vue.compteurs || []).map((k) =>
+          tuile(entier(k.valeur), echapper(k.nom), "warning", k.portee)).join("")}
+      </div>
       ${c ? `<div class="kpis" style="margin-top:12px">
-        ${tuile(entier(c.compteur), "essais cumulés", "warning", "compteur après la campagne")}
+        ${tuile(entier(c.compteur), "Test invest 1 – compteur au 20/10/2026", "warning",
+                "compteur après la campagne")}
         ${tuile(entier(c.runs.length), "mesures de la campagne")}
         ${tuile(p ? entier(p.n_episodes) : "—", `épisodes ≥ 20 % (${etat.periode})`,
                 p && p.puissance_faible ? "critical" : "")}

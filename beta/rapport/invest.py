@@ -12,6 +12,7 @@ import json
 import re
 
 from beta.invest import campagne
+from beta.protocole import experiences
 
 COMMANDE = ("ARIT_HOME=/root/ARIT2.0 /root/venvs/beta/bin/python scripts/test_invest.py "
             "--periode {periode} --indicateurs {indicateurs} --mapping {mapping} "
@@ -50,6 +51,15 @@ def _resume_en_cache(chemin) -> dict:
     return garde[1]
 
 
+def compteurs() -> list[dict]:
+    """Les deux compteurs du back-end, sous leur nom exact (Jonas, 25/10) : relus, jamais
+    recalcules ici."""
+    return [{"nom": "experiences.compteur_total", "portee": "global",
+             "valeur": experiences.compteur_total()},
+            {"nom": 'experiences.compteur(famille="invest")', "portee": "invest",
+             "valeur": experiences.compteur(famille="invest")}]
+
+
 def vue() -> dict:
     dossier = campagne.DOSSIER
     runs, synthese = [], None
@@ -60,7 +70,8 @@ def vue() -> dict:
             elif IDENTIFIANT.match(chemin.stem):
                 runs.append(_resume_en_cache(chemin))
     return {"runs": runs, "campagne": synthese, "commande": COMMANDE,
-            "periodes": campagne.PERIODES, "experience": campagne.ID_EXP}
+            "periodes": campagne.PERIODES, "experience": campagne.ID_EXP,
+            "compteurs": compteurs()}
 
 
 def run(params: dict) -> dict:
