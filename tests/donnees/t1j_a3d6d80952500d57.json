@@ -1,0 +1,40 @@
+{
+ "empreinte": "a3d6d80952500d57",
+ "fins": {
+  "BTC": "2026-10-23",
+  "NDX": "2026-10-23",
+  "OR": "2026-10-22",
+  "SPX": "2026-10-23",
+  "USDJPY": "2026-10-16",
+  "VIX": "2026-10-22"
+ },
+ "series_source": {
+  "BTC": "BTC_DS1",
+  "NDX": "NDX",
+  "OR": "XAU_LBMA",
+  "SPX": "SPX",
+  "USDJPY": "DEXJPUS",
+  "VIX": "VIXCLS"
+ },
+ "n": {
+  "BTC": 5546,
+  "NDX": 10346,
+  "OR": 14742,
+  "SPX": 24821,
+  "USDJPY": 13984,
+  "VIX": 9301
+ },
+ "mesure_t1j_le": "2026-10-24T13:21:08+00:00",
+ "revisions_annulees": [
+  {
+   "serie": "NDX",
+   "journalisee_le": "2026-10-24T23:11:13+00:00",
+   "date": "2026-10-23",
+   "remise_a": 28957.52734375,
+   "valeur_vivante": 28957.529296875
+  }
+ ],
+ "source": "data/marches (collecte.lire) + data/marches/revisions.jsonl",
+ "script": "scripts/figer_donnees_t1j.py",
+ "fige_le": "2026-10-25T16:44:05+00:00"
+}

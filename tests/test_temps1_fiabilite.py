@@ -9,6 +9,9 @@ f_entree diagnostic ; la regle de verdict. Aucun tirage n'est fait sur les vraie
 
 from __future__ import annotations
 
+import json
+import pathlib
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -18,7 +21,12 @@ from beta.temps1_fiabilite import campagne as ca
 from beta.temps1_fiabilite import nulls
 from beta.temps1_fiabilite import regles as R
 from beta.temps1_justesse import detecteurs as det
+from beta.temps1_justesse import donnees as dn
 from beta.temps1_justesse import juge as jg
+
+# Copie figee des donnees de T1J (scripts/figer_donnees_t1j.py, Jonas 25/10) : un test ne lit
+# jamais la source vivante, que la source peut reecrire (revision NDX du 24/10 23:11 UTC).
+INSTANTANE_T1J = pathlib.Path(__file__).parent / "donnees" / f"t1j_{R.EMPREINTE_DONNEES_T1J}"
 
 B, U, N = det.BEAR, det.BULL, det.NEUTRE
 
@@ -131,10 +139,27 @@ def test_verdict_fiable_non_concluant_agitation():
     assert ca.verdict(t(0.01, 0.20))["C1_V2"]["verdict"] == "du a l'agitation"
 
 
-def test_donnees_de_t1j_reconstituees_a_l_identique():
-    if not ca.JSON_T1J.exists():
-        pytest.skip("mesure de T1J absente de data/ (jetable)")
-    d = ca.donnees_t1j(ca.synthese_t1j())
+def _instantane_t1j() -> tuple[dict[str, pd.Series], dict]:
+    long = pd.read_parquet(INSTANTANE_T1J.with_suffix(".parquet"))
+    series = {nom: pd.Series(g["close"].to_numpy(dtype=float), index=pd.DatetimeIndex(g["date"]),
+                             name="close")
+              for nom, g in long.groupby("serie", sort=True)}
+    meta = json.loads(INSTANTANE_T1J.with_suffix(".json").read_text(encoding="utf-8"))
+    return series, meta
+
+
+def test_donnees_de_t1j_reconstituees_a_l_identique(monkeypatch):
+    """Sur la copie figee : `donnees_t1j` coupe aux dates de fin de T1J et retrouve l'empreinte."""
+    series, meta = _instantane_t1j()
+    prix = {nom: s for nom, s in series.items() if nom not in ("VIX", "USDJPY")}
+    fige = dn.Donnees(prix=prix, vix=series["VIX"], usdjpy=series["USDJPY"],
+                      usdjpy_utilisable=dn.dates_utilisables(series["USDJPY"].index),
+                      seances_us=prix["SPX"].index, empreinte=dn._empreinte(series),
+                      couverture={})
+    monkeypatch.setattr(ca.dn, "charger", lambda: fige)
+    t1j = {"donnees": {"couverture": {nom: {"fin": fin} for nom, fin in meta["fins"].items()}}}
+    d = ca.donnees_t1j(t1j)
+    assert meta["empreinte"] == R.EMPREINTE_DONNEES_T1J
     assert d.empreinte == R.EMPREINTE_DONNEES_T1J
 
 

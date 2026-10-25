@@ -217,6 +217,11 @@ avec le lake (test) : `SP500`, `NASDAQ` et `XAUUSD` gardent leur sens ci-dessus.
 - `logging`, jamais `print`, hors sortie de rapport destinée à être lue.
 - Tests : `& C:\Users\jofar\venvs\arit\Scripts\python.exe -m pytest -q` (PC) ;
   `/root/venvs/arit/bin/python -m pytest -q` (VPS).
+- **Chaque test lit une copie figée de ses données, jamais la source vivante** (Jonas,
+  25/10/2026). Une source peut réécrire le passé : Yahoo a révisé la clôture NDX du 23/10 le
+  24/10 à 23:11 UTC, et un test de T1F a échoué sans qu'aucun code ait changé. Les copies figées
+  vivent dans `tests/donnees/`, nommées par leur empreinte, avec un `.json` qui dit d'où elles
+  viennent. Le script qui les produit est dans `scripts/` (`figer_donnees_t1j.py`).
 - Pont MCP : déclaré dans `.mcp.json` (Claude Code voit les 7 outils en ouvrant le dossier)
   et dans `~/.lmstudio/mcp.json`. L'éprouver **pour de vrai** :
   `python scripts/epreuve_mcp.py` — un vrai sous-processus, un vrai JSON-RPC. Les tests en
