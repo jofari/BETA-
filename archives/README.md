@@ -13,7 +13,8 @@ l'arbre de travail. Ils restent dans l'historique git ; le dernier commit qui le
 
 Scripts de recherche **hors protocole** : ni préenregistrement, ni compteur, ni batterie S1-S9
 (chacun le dit dans son en-tête). C'est de cette exploration, et des scripts de
-`/root/arit_funding` (hors dépôt), qu'est sortie la décision A2 et la voie C (`DECISIONS.md`).
+`/root/arit_funding` (archivés le 25/10 dans `arit_funding/`, ci-dessous), qu'est sortie la
+décision A2 et la voie C (`DECISIONS.md`).
 
 - `voie_a_allocation.py` — allocation inverse-vol multi-actifs avec bascule de régime :
   **216 combinaisons** essayées sur le train (≤ 2023-12-31), test 2024+.
@@ -29,6 +30,26 @@ Pour en retrouver un (rien ne l'exige) :
 
     git show 92b53cb:archives/recherche_2026-09/voie_a_allocation.py > voie_a_allocation.py
     git show 92b53cb:archives/recherche_2026-09/voie_b_trading.py > voie_b_trading.py
+
+## `arit_funding/` — la recherche de septembre hors dépôt (05/09 → 24/09)
+
+Copie, faite le 25/10/2026 à la demande de Jonas (« ménage des runs »), de ce que contenait
+`/root/arit_funding` sur le VPS. Ce dossier a été supprimé ensuite. Ce sont les études et backtests
+de septembre pilotés par Hermès, hors protocole : ni préenregistrement, ni compteur.
+
+- 37 scripts `.py`, parmi lesquels les briques de la voie C (22-24/09) : `inverse_vol.py`,
+  `btc_seul_voltarget.py`, `balayage_briques.py`, `verif_carry.py`, `mesure_levier.py`.
+- `collect_daily.sh` : la copie du script de la tâche Hermès `arit-collecte-quotidienne`, mise
+  en pause le 25/10.
+- `RAPPORT.md`, `ADDENDUM_donnees.md`, `ETAT_DES_LIEUX.md` et `b1_line.jsonl`.
+- Les 19 CSV de données publiques (Binance, blockchain.info, FRED) et `oi_history/` : l'open
+  interest relevé chaque jour par Hermès, du 08/09 au 25/10.
+- `requirements.txt` : le `pip freeze` du `.venv` du dossier (Python 3.11, créé par uv).
+
+19 des 38 scripts (`.py` et `.sh`) citent en dur le chemin `/root/arit_funding/`, qui n'existe
+plus : ils ne tournent pas tels quels. 15 importent `beta`. `RAPPORT.md`, `ADDENDUM_donnees.md`,
+`b1_line.jsonl` et 9 scripts existent aussi, identiques, dans ARIT2.0
+(`research/pertinence_donnees_2026-09-05/`).
 
 ## `consignes_agents/` — les cahiers des charges donnés à des agents
 
