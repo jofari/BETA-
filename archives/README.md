@@ -2,9 +2,14 @@
 
 Rangées le 13/10/2026 après l'audit du code (accord de Jonas). Rien ici n'est importé par BETA,
 lancé par un timer ou relu par un test. On ne les supprime pas : ils expliquent d'où viennent des
-décisions encore en vigueur.
+décisions encore en vigueur. Seule exception : les deux scripts des voies A et B, supprimés le
+25/10/2026 à la demande de Jonas (ci-dessous).
 
 ## `recherche_2026-09/` — les voies A et B (25/09)
+
+**Supprimés le 25/10/2026** (Jonas, « ménage des runs ») : les deux scripts ne sont plus dans
+l'arbre de travail. Ils restent dans l'historique git ; le dernier commit qui les contient est
+`92b53cb`.
 
 Scripts de recherche **hors protocole** : ni préenregistrement, ni compteur, ni batterie S1-S9
 (chacun le dit dans son en-tête). C'est de cette exploration, et des scripts de
@@ -20,10 +25,10 @@ configurations de l'optimisation de la voie C : la question de les y ajouter est
 (`DECISIONS.md`, « En attente de Jonas »). Leurs fenêtres de test couvrent le hold-out
 (2025+) : voir la déclaration du 13/10 dans `DECISIONS.md`.
 
-Pour en relancer un (rien ne l'exige) :
+Pour en retrouver un (rien ne l'exige) :
 
-    ARIT_HOME=/root/ARIT2.0 PYTHONPATH=/root/BETA- \
-        /root/venvs/arit/bin/python archives/recherche_2026-09/voie_a_allocation.py
+    git show 92b53cb:archives/recherche_2026-09/voie_a_allocation.py > voie_a_allocation.py
+    git show 92b53cb:archives/recherche_2026-09/voie_b_trading.py > voie_b_trading.py
 
 ## `consignes_agents/` — les cahiers des charges donnés à des agents
 
