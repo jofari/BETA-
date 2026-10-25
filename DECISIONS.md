@@ -717,3 +717,25 @@ expérience préenregistrée sans mesure, ce qui rendait les deux exigences inco
 attente (`detail_compteur`). Une mesure journalisée sous un diagnostic dans `RUNS.jsonl`
 compterait quand même : la marque ne peut pas servir à cacher un essai. Compteurs inchangés
 par T1F : global 147, invest 54, trading actif 93.
+
+## 2026-10-25 — Ménage des runs (Jonas)
+
+- **25/10/2026** — Tâche Hermès arit-collecte-quotidienne mise en pause (open interest = doublon
+  de la collecte BETA, macro ARIT du VPS lue par aucun processus planifié). Travaux de recherche
+  de septembre pilotés par Hermès (voies A, B, arit_funding) archivés dans
+  `archives/arit_funding/`. Boucle VC6 terminée le 20/10. Objectif : ni ARIT ni BETA ne
+  dépendent d'Hermès.
+- **25/10/2026** — Origine de la configuration de la voie C (faits) : `CONFIG_FIGEE` de
+  `scripts/voie_c_suivi.py` (cible 20 %, σ glissante 30 j, levier [0,25 ; 2], hystérésis 0,25,
+  quotidien, bande 20 % ; empreinte `d0a971b8c4261d60`), figée le 03/10 (`f4d355c`). Les mêmes
+  briques figurent dans les scripts de `/root/arit_funding` datés du 22 au 24/09, aujourd'hui
+  dans `archives/arit_funding/` : inverse-vol sur 180 j, carry de funding, vol-ciblage à levier
+  borné [0,33 ; 2] avec les cibles 25/45/70 %, coupure au 30/06/2024, 5 pb. Elles ont été
+  reprises dans `beta/strategies/voie_c_voltarget.py` (commité le 25/09, `f674686`). Le README
+  des archives (13/10) fait de cette recherche l'origine de la décision A2 et de la voie C. La
+  grille de `voie_c_optim.py` du 03/10 (5 760 configurations sur le TRAIN, règle commitée avant
+  lancement : `9eb1e94`) a retenu 20 % / glissant 30 j / L[0 ; 3] / pas 3 / bande 20 %
+  (`e9b28c9`). Le même jour, hors de la grille : pas 1, levier [0,25 ; 3] et hystérésis 0,25
+  (`voie_c_verif.py`, `19be8be`), puis levier max 2 (`f4d355c`). D'après les notes de session
+  de Claude, Jonas avait demandé 3 et le 2 a été retenu sur recommandation de Claude. La config
+  figée n'est pas un point de la grille, qui n'a ni hystérésis ni levier min 0,25.
