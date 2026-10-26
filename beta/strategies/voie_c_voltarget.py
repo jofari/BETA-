@@ -400,10 +400,17 @@ def controle_inverse_vol() -> None:
 # Main
 # =========================================================================================
 
-def main() -> None:
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+def preparer(fin: str | None = None) -> dict:
+    """Donnees, jambes, leviers et fenetre d'evaluation, tels que `main()` les construit.
 
+    `fin` (AAAA-MM-JJ, incluse) coupe le calendrier : rien n'est lu au-dela. La chaine est
+    causale (epreuve de `main()`), donc couper ne change aucun jour anterieur. Sert aussi au
+    diagnostic PBOR (`beta/pbo_passe`, 26/10), qui rejoue la selection de `main()` avec ce
+    code-ci plutot qu'avec une copie.
+    """
     index = calendrier_commun(PAIRES)
+    if fin is not None:
+        index = index[index <= pd.Timestamp(fin, tz="UTC")]
     closes = clotures(PAIRES, index)
     rendements = closes.pct_change()
     funding_j = funding_quotidien(PAIRES, index)
@@ -439,6 +446,48 @@ def main() -> None:
               & sigmas[max(FENETRES_CIBLE)].shift(1).notna())
     depart = index[causal.to_numpy()][0]
     fenetre = index[index >= depart]
+    return {"index": index, "closes": closes, "rendements": rendements,
+            "funding_j": funding_j, "jambes": jambes, "comp": comp,
+            "r_composite": r_composite, "leviers": leviers, "sigmas": sigmas,
+            "depart": depart, "fenetre": fenetre}
+
+
+def lancer_variante(ctx: dict, poids: pd.DataFrame, pas: int,
+                    levier: pd.Series | None = None,
+                    bps: float = BPS_TAKER) -> tuple[pd.DataFrame, pd.Series | None]:
+    """Poids bruts -> positions cibles causales et levierees -> `derouler` sur la fenetre."""
+    fenetre = ctx["fenetre"]
+    cible = poids.shift(1).reindex(fenetre)
+    if levier is not None:
+        cible = cible.mul(levier.shift(1).reindex(fenetre), axis=0)
+    sortie = derouler(cible, ctx["rendements"].reindex(fenetre),
+                      ctx["funding_j"].reindex(fenetre), pas, bps)
+    lev = None if levier is None else levier.shift(1).reindex(fenetre)
+    if lev is not None and pas > 1:
+        # A l'hebdo le levier n'est rafraichi qu'au reequilibrage : le levier EN FORCE
+        # est celui du dernier jour de rebalancement, pas celui du jour courant.
+        grille = pd.Series(np.nan, index=fenetre)
+        grille.iloc[::pas] = lev.iloc[::pas]
+        lev = grille.ffill()
+    return sortie, lev
+
+
+def variantes_selection(ctx: dict) -> dict[str, pd.DataFrame]:
+    """Les 6 variantes vol-cible QUOTIDIENNES entre lesquelles `main()` choisit sur le TRAIN."""
+    return {f"vt {cible:.0%} / {fen}j / quotidien":
+            lancer_variante(ctx, ctx["comp"], REBALANCEMENTS["quotidien"],
+                            ctx["leviers"][(cible, fen)])[0]
+            for fen in FENETRES_CIBLE for cible in CIBLES}
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+
+    ctx = preparer()
+    index, closes, rendements = ctx["index"], ctx["closes"], ctx["rendements"]
+    funding_j, jambes, comp = ctx["funding_j"], ctx["jambes"], ctx["comp"]
+    r_composite, leviers, sigmas = ctx["r_composite"], ctx["leviers"], ctx["sigmas"]
+    depart, fenetre = ctx["depart"], ctx["fenetre"]
 
     masque_train = pd.Series(fenetre <= pd.Timestamp(FIN_TRAIN, tz="UTC"), index=fenetre)
     masque_oos = pd.Series(fenetre >= pd.Timestamp(DEBUT_TEST, tz="UTC"), index=fenetre)
@@ -478,28 +527,9 @@ def main() -> None:
     # ---------------------------------------------------------------------------------
     # Les variantes
     # ---------------------------------------------------------------------------------
-    def cibles_de(poids: pd.DataFrame, levier: pd.Series | None = None) -> pd.DataFrame:
-        """Passe des poids bruts a une matrice de positions cibles causale et leviere."""
-        decale = poids.shift(1).reindex(fenetre)
-        if levier is not None:
-            decale = decale.mul(levier.shift(1).reindex(fenetre), axis=0)
-        return decale
-
-    rend_f = rendements.reindex(fenetre)
-    fund_f = funding_j.reindex(fenetre)
-
     def lancer(poids: pd.DataFrame, pas: int, levier: pd.Series | None = None,
                bps: float = BPS_TAKER) -> tuple[pd.DataFrame, pd.Series | None]:
-        cible = cibles_de(poids, levier)
-        sortie = derouler(cible, rend_f, fund_f, pas, bps)
-        lev = None if levier is None else levier.shift(1).reindex(fenetre)
-        if lev is not None and pas > 1:
-            # A l'hebdo le levier n'est rafraichi qu'au reequilibrage : le levier EN FORCE
-            # est celui du dernier jour de rebalancement, pas celui du jour courant.
-            grille = pd.Series(np.nan, index=fenetre)
-            grille.iloc[::pas] = lev.iloc[::pas]
-            lev = grille.ffill()
-        return sortie, lev
+        return lancer_variante(ctx, poids, pas, levier, bps)
 
     # Reference : BTC buy-and-hold, dans le meme moteur (donc il paie SON funding).
     btc_poids = pd.DataFrame(0.0, index=index, columns=list(PAIRES))
