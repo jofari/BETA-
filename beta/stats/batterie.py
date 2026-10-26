@@ -1,4 +1,4 @@
-"""La batterie complete : S1 a S9 appliquees a une candidate, et le verdict qui en sort.
+"""La batterie complete : S1 a S10 appliquees a une candidate, et le verdict qui en sort.
 
 Ordre d'execution volontaire, du moins cher au plus cher, mais surtout du plus decisif au
 plus fin :
@@ -11,6 +11,7 @@ plus fin :
     S6  walk-forward — l'edge tient-il hors echantillon, purge et embargo poses ?
     S5  synthetique  — gagne-t-il PLUS que sur un marche sans structure ?
     S9  correlation  — apporte-t-il autre chose que ce qu'on a deja ?
+    S10 PBO          — choisir la meilleure du lot, est-ce du surapprentissage ? (26/10)
     S1  BH           — et une fois la famille de tests declaree, en reste-t-il ?
 
 **Aucune de ces portes ne peut ameliorer un resultat.** Elles ne savent que le degrader.
@@ -29,7 +30,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from beta.stats import (bootstrap, descriptif, diversification, montecarlo, multitest,
+from beta.stats import (bootstrap, descriptif, diversification, montecarlo, multitest, pbo,
                         reference, synthetique, walkforward)
 
 log = logging.getLogger("beta.stats.batterie")
@@ -43,10 +44,11 @@ SEUIL_EFFICACITE_WF = 0.50
 SEUIL_CHEMINS_PERDANTS = 0.35
 CENTILE_SYNTHETIQUE = 95.0
 N_MIN_TRADES = 30
+SEUIL_PBO = 0.20           # S10, Jonas 26/10/2026 : la PBO du lot doit etre < 20 %
 
 PORTES = ("S1_benjamini_hochberg", "S2_sharpe_degonfle", "S3_bootstrap",
           "S4_monte_carlo", "S5_synthetique", "S6_walk_forward",
-          "S7_reality_check", "S8_buy_and_hold", "S9_diversification")
+          "S7_reality_check", "S8_buy_and_hold", "S9_diversification", "S10_pbo")
 
 
 def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
@@ -58,12 +60,16 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
             equities_voisines: dict[str, pd.DataFrame] | None = None,
             nom: str = "candidate", famille: pd.DataFrame | None = None,
             univers_candidates: dict[str, np.ndarray] | None = None,
+            trades_lot: dict[str, pd.DataFrame] | None = None,
             graine: int = 0) -> dict:
     """Passe une candidate a la batterie. Rend metriques, portes et reserves.
 
     Tout argument absent desactive sa porte plutot que de la faire passer : une porte non
     executee vaut `None`, jamais `True`. La difference entre « verifie » et « pas verifie »
     est precisement ce qu'un rapport de backtest ordinaire perd.
+
+    `trades_lot` ({nom: trades}, la candidate comprise) nourrit S10 : la PBO se calcule sur
+    le lot entier, donc elle est la meme pour toutes les candidates d'un meme lot.
 
     `spread` et `funding` ne servent qu'a S8 : ils disent a la reference de payer les memes
     couts de detention que la candidate. Les trades, eux, arrivent ici deja nets — c'est le
@@ -171,6 +177,18 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
         portes["S7_reality_check"] = bool(np.isfinite(rc["p_value"])
                                           and rc["p_value"] <= SEUIL_P
                                           and rc.get("meilleure") == nom)
+
+    # --- S10 : PBO de la selection dans le lot (CSCV, Jonas 26/10/2026) ----------------
+    if trades_lot and len(trades_lot) > 1 and nom in trades_lot:
+        res = pbo.calculer(pbo.rendements_lot(trades_lot), SEUIL_PBO)
+        detail["S10_pbo"] = res
+        portes["S10_pbo"] = res["passe"]
+        if res["passe"] is None:
+            reserves.append(f"S10 non executee : {res['raison']}")
+        elif not res["passe"]:
+            reserves.append(f"PBO du lot {res['pbo']:.1%} (seuil < {SEUIL_PBO:.0%}) : la "
+                            "meilleure du lot en apprentissage finit trop souvent dans la "
+                            "moitie basse hors echantillon")
 
     # --- S1 : Benjamini-Hochberg sur la famille declaree ------------------------------
     if famille is not None and not famille.empty:

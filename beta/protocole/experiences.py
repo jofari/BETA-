@@ -291,6 +291,7 @@ def preenregistrer(id_exp: str, hypothese: str, metrique_primaire: str,
                    issue_attendue: str = "", mde_attendu: float | None = None,
                    famille_taille: int | None = None, deja_connu: str = "",
                    famille_compteur: str = "trading", diagnostic: bool = False,
+                   n_configurations: int = 1,
                    chemin: pathlib.Path | None = None, **extra) -> dict:
     """Ajoute une experience au registre. Refuse d'ecraser un id deja preenregistre.
 
@@ -303,8 +304,17 @@ def preenregistrer(id_exp: str, hypothese: str, metrique_primaire: str,
 
     `diagnostic=True` (Jonas 24/10, T1F) : la ligne est ecrite et datee comme les autres,
     mais l'experience n'avance pas le compteur — elle ne cree aucune configuration.
+
+    `n_configurations` > 1 (Jonas 26/10, S10) : l'experience choisira un reglage parmi
+    plusieurs. Sa regle de decision doit alors contenir une cle `pbo` — la PBO de ce choix
+    (`beta.stats.pbo`, seuil `batterie.SEUIL_PBO`) — sinon le preenregistrement est refuse.
     """
     _verifier_famille(famille_compteur)
+    if n_configurations > 1 and "pbo" not in regle_de_decision:
+        raise ProtocoleError(
+            f"'{id_exp}' choisit parmi {n_configurations} reglages : la regle de decision "
+            "doit contenir la PBO de ce choix (cle 'pbo' ; S10, Jonas 26/10/2026 : CSCV, "
+            "16 blocs, Sharpe, PBO < 20 %)")
     chemin = chemin or REGISTRE
     existant = etat(chemin).get(id_exp)
     if existant and existant.get("statut") == "preenregistre":
@@ -318,7 +328,9 @@ def preenregistrer(id_exp: str, hypothese: str, metrique_primaire: str,
               "famille_taille": famille_taille, "deja_connu": deja_connu,
               "famille_compteur": famille_compteur, "diagnostic": diagnostic,
               "n_essais_cumules": (compteur(chemin, famille=famille_compteur)
-                                   + (0 if existant or diagnostic else 1)), **extra}
+                                   + (0 if existant or diagnostic else 1)),
+              **({"n_configurations": n_configurations} if n_configurations > 1 else {}),
+              **extra}
     _ajouter(entree, chemin)
     log.info("experience '%s' preenregistree (%s, essai cumule n° %s)",
              id_exp, famille_compteur, entree["n_essais_cumules"])

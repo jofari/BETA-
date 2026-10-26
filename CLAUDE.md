@@ -68,7 +68,7 @@ d'edge.
 7. **Une candidate écrite vite est une source d'HYPOTHÈSES, jamais d'edge** — qu'elle
    vienne d'un modèle local, d'une vidéo ou d'une intuition de fin de soirée. L'atelier
    abaisse le coût d'**écrire** une candidate ; il ne touche à rien de ce qui permet d'en
-   **confirmer** une. Préenregistrement, compteur d'essais, batterie S1-S9 : inchangés,
+   **confirmer** une. Préenregistrement, compteur d'essais, batterie S1-S10 : inchangés,
    devant elle, dans cet ordre.
    ⚠️ **Le sas de l'atelier n'est pas un bac à sable.** Qui peut écrire dans
    `beta/candidates/` peut déjà exécuter du code ici. Il attrape des **erreurs** — look-ahead,
@@ -99,6 +99,14 @@ d'edge.
     ⚠️ **AritV1 est la seconde référence imposée, à côté du buy-and-hold** — mais par sa
     COURBE seulement, jamais par son R par trade : ses sorties sont les siennes, celles des
     candidates viennent de la triple barrière du moteur.
+13. **Choisir parmi plusieurs se paie d'une PBO** (S10, Jonas 26/10/2026). Dans un lot de
+    `cribler()`, la PBO par CSCV du choix (`beta/stats/pbo.py` : somme des R clôturés chaque
+    jour, du premier au dernier jour de clôture du lot, 16 blocs, Sharpe) est la **dixième
+    porte**, franchie si PBO < 20 % (`batterie.SEUIL_PBO`). Incalculable (historique trop
+    court, candidate sans trade sur une moitié) = non exécutée = INDÉCIDABLE au mieux. Côté
+    invest, un préenregistrement qui choisira un réglage parmi plusieurs déclare
+    `n_configurations` et met la PBO dans sa règle de décision, sinon `preenregistrer()`
+    refuse.
 
 ## Ce qui distingue BETA d'un backtester de plus
 
@@ -106,7 +114,7 @@ Un banc d'essai est une **machine à multiplier les tests** : il produira d'auta
 faux gagnants qu'il est efficace. Les garde-fous ne sont donc pas des compléments, ce sont
 les fonctionnalités principales — MDE affiché avant toute p-value, Benjamini-Hochberg sur la
 famille déclarée, Sharpe dégonflé, bootstrap par blocs stationnaire, walk-forward avec purge
-et embargo, corrélation des courbes d'équity entre candidates.
+et embargo, corrélation des courbes d'équity entre candidates, PBO du choix dans un lot.
 
 > Ces outils ne peuvent que rendre un résultat **pire**, jamais meilleur. Leur seul usage
 > honnête est de **tuer** un candidat, pas de le sacrer.

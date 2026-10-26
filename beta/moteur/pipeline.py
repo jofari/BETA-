@@ -215,6 +215,7 @@ def _resultats_synthetiques(run: Run, series: dict[str, pd.DataFrame],
 def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = None,
              univers_candidates: dict[str, np.ndarray] | None = None,
              famille: pd.DataFrame | None = None, n_essais: int | None = None,
+             trades_lot: dict[str, pd.DataFrame] | None = None,
              generateur_synthetique: str = "phase",
              n_chemins: int = N_CHEMINS_SYNTHETIQUES,
              enregistrer: bool = True) -> tuple[Verdict, dict]:
@@ -222,9 +223,10 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
 
     `famille` ferme la dette T9. Sans elle, `batterie.evaluer` laissait
     `portes["S1_benjamini_hochberg"]` a `None`, et comme `issue()` n'accorde CONFIRMEE que
-    si les NEUF portes ont tourne, le plafond du banc etait INDECIDABLE : aucune candidate
-    ne pouvait etre confirmee, jamais. Elle se construit dans `cribler()`, parce qu'une
-    correction de tests multiples sur une famille d'un seul element ne corrige rien.
+    si TOUTES les portes ont tourne (dix depuis S10, le 26/10), le plafond du banc etait
+    INDECIDABLE : aucune candidate ne pouvait etre confirmee, jamais. Elle se construit dans
+    `cribler()`, parce qu'une correction de tests multiples sur une famille d'un seul
+    element ne corrige rien. `trades_lot` (S10) aussi : la PBO juge le choix dans le lot.
 
     `n_essais` fige N pour tout un lot. Depuis A1, chaque run journalise fait monter le
     compteur ; laisser chaque candidate lire `compteur()` a son tour jugerait la derniere
@@ -249,7 +251,7 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
         spread=run.spread, funding=run.funding, spread_modele=run.spread_modele,
         resultats_synthetiques=synthetiques, equities_voisines=equities_voisines,
         nom=run.candidate.nom, univers_candidates=univers_candidates,
-        famille=famille, graine=run.graine)
+        famille=famille, trades_lot=trades_lot, graine=run.graine)
 
     reserves = list(resultat["reserves"])
     reserves.append(f"chemins synthetiques rejoues sur {next(iter(series))} seulement "
@@ -260,6 +262,9 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
     if famille is None:
         reserves.append("S1 non executee : run hors lot, donc sans famille declaree — "
                         "l'issue ne peut pas depasser INDECIDABLE")
+    if trades_lot is None:
+        reserves.append("S10 non executee : run hors lot, la PBO juge un choix entre "
+                        "plusieurs candidates — l'issue ne peut pas depasser INDECIDABLE")
 
     verdict = Verdict(
         run=run, issue=batterie.issue(resultat["portes"], len(sequence)),
@@ -350,13 +355,13 @@ def _famille_du_lot(premiers: dict[str, tuple[Verdict, dict]]) -> pd.DataFrame:
 
 def cribler(candidates: dict[str, Candidate], paires: tuple[str, ...], timeframe: str,
             **options) -> dict[str, Verdict]:
-    """Passe un lot de candidates a la batterie, puis leur applique S1, S7 et S9 ENSEMBLE.
+    """Passe un lot de candidates a la batterie, puis leur applique S1, S7, S9 et S10 ENSEMBLE.
 
-    Le second passage n'est pas une elegance : les trois portes qui comparent les candidates
+    Le second passage n'est pas une elegance : les quatre portes qui comparent les candidates
     entre elles (correction BH sur la famille, reality check du maximum, correlation des
-    equity) n'ont aucun sens candidate par candidate. Les calculer au premier passage
-    donnerait des resultats faux dans le sens flatteur — chaque candidate se croirait seule
-    au monde.
+    equity, PBO du choix dans le lot) n'ont aucun sens candidate par candidate. Les calculer
+    au premier passage donnerait des resultats faux dans le sens flatteur — chaque candidate
+    se croirait seule au monde.
 
     **N est fige avant le premier passage** (A1) : compteur de la famille du lot + taille du
     lot. Le lot est donc paye d'avance, avant qu'aucun resultat ne soit connu, et les dix
@@ -388,6 +393,8 @@ def cribler(candidates: dict[str, Candidate], paires: tuple[str, ...], timeframe
                for nom, (_, art) in premiers.items()
                if not art["sequence"].empty}
     famille = _famille_du_lot(premiers)
+    # S10 : toutes les candidates mesurees, meme sans trade — elles faisaient partie du choix.
+    trades_lot = {nom: art["sequence"] for nom, (_, art) in premiers.items()}
 
     verdicts = {}
     for nom, (verdict, _) in premiers.items():
@@ -396,7 +403,7 @@ def cribler(candidates: dict[str, Candidate], paires: tuple[str, ...], timeframe
             final, _ = executer(run, equities_voisines={k: v for k, v in equities.items()
                                                         if k != nom},
                                 univers_candidates=univers, famille=famille,
-                                n_essais=n_lot)
+                                n_essais=n_lot, trades_lot=trades_lot)
             verdicts[nom] = final
         except Exception as exc:                     # noqa: BLE001
             log.error("second passage de '%s' echoue : %s", nom, exc)

@@ -1,4 +1,4 @@
-"""La batterie S1-S9. Ces tests verifient surtout qu'elle sait TUER — c'est son seul role."""
+"""La batterie S1-S10. Ces tests verifient surtout qu'elle sait TUER — c'est son seul role."""
 
 from __future__ import annotations
 

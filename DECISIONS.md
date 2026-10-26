@@ -739,3 +739,38 @@ par T1F : global 147, invest 54, trading actif 93.
   (`voie_c_verif.py`, `19be8be`), puis levier max 2 (`f4d355c`). D'après les notes de session
   de Claude, Jonas avait demandé 3 et le 2 a été retenu sur recommandation de Claude. La config
   figée n'est pas un point de la grille, qui n'a ni hystérésis ni levier min 0,25.
+
+## 2026-10-26 — S10 : la PBO devient la dixième porte de la batterie (Jonas)
+
+**Demande de Jonas (26/10, 10:13 UTC)** : « intègre le pbo de façon systématique et lance le
+dans ta session tmux ». Brancher la PBO change la règle de verdict de toutes les candidates :
+trois questions lui ont été posées, puis deux de méthode. Ses réponses du 26/10 au soir
+(options choisies, avec le texte qu'il avait sous les yeux) :
+
+1. **« Porte obligatoire »** : « S10 devient la 10e porte. Une candidate n'est confirmée que si
+   elle passe aussi S10. Si la PBO ne peut pas se calculer (historique trop court, candidate
+   sans aucun trade sur une moitié), S10 compte « non exécutée » : la candidate reste
+   indécidable, comme pour les 9 autres portes. Côté invest, tout préenregistrement qui choisit
+   un réglage parmi plusieurs inclut la même PBO. »
+2. **« PBO < 20 % »** : « Le seuil que tu as fixé pour la voie C le 25/10. »
+3. **« Recalculer le passé »** : « PBO des 3 lots de trading de septembre (à partir des courbes
+   déjà enregistrées, sans relancer de backtest) et des variantes de la voie C du 22/09.
+   Préenregistré avant calcul comme PBOC, compteur inchangé, rapport seul : aucun verdict déjà
+   rendu n'est modifié. »
+4. Période des variantes de la voie C du 22/09 : **« Comme PBOC »** : « Du premier jour où les
+   6 variantes existent jusqu'au 05/09/2026, fin de la fenêtre de PBOC. Contient l'OOS et une
+   partie du hold-out, déjà vus : diagnostic, pas validation. Les jours les plus anciens sont
+   retirés pour avoir 16 blocs égaux. »
+5. Lots de trading : le rendement quotidien d'une candidate est la somme des R des trades
+   clôturés ce jour-là (0 sans clôture), pas la variation en % de l'equity, qui est à risque
+   fixe et passe sous zéro chez les candidates très perdantes. Période : **« Clôtures du
+   lot »** : « Du premier au dernier jour où une candidate du lot clôture un trade. Les jours
+   les plus anciens sont retirés pour avoir 16 blocs égaux, comme PBOC. »
+
+**Appliqué** : `beta/stats/pbo.py` ; `batterie.PORTES` compte dix portes et
+`batterie.SEUIL_PBO = 0,20` ; `cribler()` passe à S10 les trades de toutes les candidates
+mesurées du lot ; `preenregistrer(..., n_configurations=k)` refuse une règle de décision sans
+clé `pbo` quand k > 1. Les verdicts déjà rendus ne sont pas recalculés : ils l'ont été à neuf
+portes. ⚠️ R12, préenregistrée le 12/10 avec « neuf portes S1-S9 franchies » et jamais
+mesurée : si elle l'était un jour, la batterie exigerait dix portes. Son texte n'est pas
+modifié.

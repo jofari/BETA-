@@ -37,6 +37,7 @@ const FICHE = (() => {
     S7_reality_check: "S7 · reality check",
     S8_buy_and_hold: "S8 · buy-and-hold",
     S9_diversification: "S9 · diversification",
+    S10_pbo: "S10 · PBO (CSCV)",
   };
 
   /* ---------- dessin ------------------------------------------------------------------- */

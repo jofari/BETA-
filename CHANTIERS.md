@@ -23,7 +23,7 @@
 d'autres**, et depuis ce soir **les comparer entre elles** — classement, matrice de
 corrélation, reality check du maximum, et AritV1 en référence à côté du buy-and-hold. Une
 boîte à idées gratuite est apparue devant le préenregistrement, parce que noter une idée ne
-doit pas coûter un cran de compteur. Le moteur et la batterie S1-S9 sont en place, le pont MCP est
+doit pas coûter un cran de compteur. Le moteur et la batterie S1-S10 sont en place, le pont MCP est
 **branché et éprouvé** (Claude Code + LM Studio), et l'**atelier** permet d'écrire une
 candidate à la main ou avec un modèle local — derrière un sas statique et une épreuve de
 causalité en sous-processus. Trois hypothèses sont passées à la batterie et **aucune n'a
@@ -106,7 +106,7 @@ ils ne la redécouvrent pas.
 | ~~S7~~ | ~~**Reality Check de White / SPA de Hansen** — bootstrap sur la statistique du **maximum** d'un univers de N candidates~~ | ✅ fermé 19/08 | L | `budget de tests et sharpe degonfle.md` |
 | ~~S8~~ | ~~**Buy-and-hold** comme référence imposée de toute candidate, même période~~ | ✅ fermé 19/08 | S | ex-Q9 d'ARIT · `DECISIONS.md` |
 | ~~S9~~ | ~~**Corrélation des courbes d'équity** entre candidates — deux stratégies rentables corrélées à 0,9 n'apportent rien~~ | ✅ fermé 19/08 | M | `DECISIONS.md`, critère de diversification |
-| S10 | **PBO par CSCV** (probabilité de surapprentissage du backtest) — sur la grille de variantes d'UNE stratégie, probabilité que la meilleure en apprentissage tombe sous la médiane hors échantillon ; systématique dès qu'une candidate est choisie parmi plusieurs configs | ouvert 26/10 (Jonas) — contrôles fixés par Jonas le 26/10 ; 1re application : PBOC (`pbo_voie_c/PREENREGISTREMENT.md`) ; reste à brancher dans la batterie | M | Bailey, Borwein, López de Prado & Zhu (2017) · `beta/stats/cscv.py` + 16 tests (`tests/test_cscv.py`) · outil de la batterie, n'avance pas le compteur |
+| S10 | **PBO par CSCV** (probabilité de surapprentissage du backtest) — sur la grille de variantes d'UNE stratégie, probabilité que la meilleure en apprentissage tombe sous la médiane hors échantillon ; systématique dès qu'une candidate est choisie parmi plusieurs configs | ✅ **branchée 26/10** (Jonas) : **dixième porte obligatoire**, PBO < 20 %, calculée sur le lot de `cribler()` ; côté invest, `preenregistrer(n_configurations=k)` exige la PBO dans la règle (`DECISIONS.md` § 26/10) ; 1re application : PBOC (`pbo_voie_c/PREENREGISTREMENT.md`) ; le passé : diagnostic PBOR (`pbo_passe/`) | M | Bailey, Borwein, López de Prado & Zhu (2017) · `beta/stats/cscv.py` + 16 tests (`tests/test_cscv.py`) · `beta/stats/pbo.py` + `tests/test_pbo.py` · n'avance pas le compteur |
 
 **Ordre imposé** : S1, S2 et S8 **avant** la première comparaison de candidates. Sans elles,
 le premier gagnant du banc sera un artefact, et on l'aura cru. — *Respecté : les neuf portes
@@ -131,7 +131,7 @@ Une boucle, toujours la même, et **jamais dans un autre ordre** :
 hypothèse falsifiable
   → préenregistrement (protocole/experiences.py : hypothèse, métrique, règle de décision, MDE attendu)
   → candidate isolée (moteur/contrats.py)
-  → criblage espace-R (M2)  →  batterie S1-S9
+  → criblage espace-R (M2)  →  batterie S1-S10
   → verdict : confirmée / infirmée / INDÉCIDABLE
   → si elle survit : confirmation freqtrade (M3), puis hold-out — une seule fois
 ```
@@ -230,7 +230,7 @@ vite, entre dans le banc en emportant du look-ahead avec lui**.
 
 > **Une candidate écrite par une machine est une source d'HYPOTHÈSES, jamais d'edge.**
 > Même règle que P4 (YouTube). Elle entre au banc par la même porte que les autres :
-> préenregistrement, compteur d'essais, batterie S1-S9. L'atelier abaisse le coût
+> préenregistrement, compteur d'essais, batterie S1-S10. L'atelier abaisse le coût
 > d'**écrire** une candidate, jamais le seuil pour en **confirmer** une.
 
 | # | Chantier | Statut | Effort | Ce que ça fait |

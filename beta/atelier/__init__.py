@@ -10,7 +10,7 @@ une candidate, jamais le seuil pour en CONFIRMER une :
 
     gabarit / modele local  ->  sas (statique, sans importer)  ->  epreuve (sous-processus)
                             ->  beta/candidates/  ->  protocole inchange (preenregistrement,
-                                compteur d'essais, batterie S1-S9)
+                                compteur d'essais, batterie S1-S10)
 
 Trois idees portees par le code plutot que par la discipline :
 

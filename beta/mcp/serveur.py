@@ -221,7 +221,7 @@ def _deposer(module: str, code: str, ecraser: bool = False, **_) -> dict:
 
 
 @outil("beta_run_backtest",
-       "Crible une candidate : triple barriere en espace-R, puis la batterie S1-S9. "
+       "Crible une candidate : triple barriere en espace-R, puis la batterie S1-S10. "
        "REFUSE de tourner si l'hypothese de la candidate n'est pas preenregistree. "
        "Rend un verdict confirmee / infirmee / indecidable, avec ses reserves.",
        {"type": "object",

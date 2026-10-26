@@ -17,7 +17,7 @@ competence, il manque de la contrainte qu'on ne lui a pas dite.
 
 > Une candidate ecrite par une machine est une source d'HYPOTHESES, jamais d'edge. Elle
 > entre au banc par la meme porte que les autres : preenregistrement, compteur d'essais,
-> batterie S1-S9. L'atelier abaisse le cout d'ecrire, jamais le seuil de confirmer.
+> batterie S1-S10. L'atelier abaisse le cout d'ecrire, jamais le seuil de confirmer.
 """
 
 from __future__ import annotations

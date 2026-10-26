@@ -465,6 +465,37 @@ def test_un_lot_invest_est_juge_au_compteur_invest(tmp_path, monkeypatch):
     assert vus == [2]          # 0 de dette invest + I1 non mesuree + 1 candidate du lot
 
 
+def test_le_criblage_donne_a_s10_les_trades_du_lot_entier(tmp_path, monkeypatch):
+    """S10 juge le choix DANS le lot : le second passage recoit les trades de toutes."""
+    from types import SimpleNamespace
+
+    from beta.moteur import pipeline
+    monkeypatch.setattr(experiences, "REGISTRE", tmp_path / "exp.jsonl")
+    monkeypatch.setattr(experiences, "JOURNAL_RUNS", tmp_path / "RUNS.jsonl")
+    experiences.preenregistrer("T1", "h", "m", {"confirmee": "x"})
+    sequences = {nom: pd.DataFrame({"ts_sortie": pd.date_range("2024-01-01", periods=3,
+                                                                tz="UTC"),
+                                    "r": [k, -k, k]})
+                 for k, nom in enumerate(("a", "b"), start=1)}
+    seconds = []
+
+    def faux_executer(run, **options):
+        if "trades_lot" in options:
+            seconds.append((run.candidate.nom, options["trades_lot"]))
+        art = {"equity": pd.DataFrame({"ts": [], "equity": []}),
+               "sequence": sequences[run.candidate.nom], "detail": {}}
+        return SimpleNamespace(run=run), art
+
+    monkeypatch.setattr(pipeline, "executer", faux_executer)
+    lot = {nom: Candidate(nom=nom, hypothese="T1", signaux=lambda df: df)
+           for nom in ("a", "b")}
+    pipeline.cribler(lot, ("BTC",), "4h")
+    assert [nom for nom, _ in seconds] == ["a", "b"]
+    for _, trades_lot in seconds:
+        assert set(trades_lot) == {"a", "b"}
+        assert trades_lot["b"] is sequences["b"]
+
+
 def test_un_lot_qui_melange_les_familles_est_refuse(tmp_path, monkeypatch):
     from beta.moteur import pipeline
     monkeypatch.setattr(experiences, "REGISTRE", tmp_path / "exp.jsonl")

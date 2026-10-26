@@ -4,7 +4,7 @@ Un endroit où l'on teste **plusieurs** hypothèses de trading sur les mêmes do
 l'outillage statistique qui les tue quand elles ne valent rien.
 
 **État au 2026-08-19** : complet et en service. Données, protocole, dashboard, **moteur de
-criblage**, **batterie statistique S1-S9**, **pont freqtrade** et **serveur MCP**.
+criblage**, **batterie statistique S1-S10**, **pont freqtrade** et **serveur MCP**.
 Trois hypothèses sont passées à la batterie ; **aucune n'a survécu** — une infirmée, deux
 indécidables. Ce qui manque maintenant, ce sont des **données** : funding, macro et spot
 (chantiers D5-D7), sans lesquelles trois hypothèses préenregistrées restent à l'arrêt.
@@ -25,7 +25,7 @@ En ligne de commande :
 | `python beta.py etat` | le catalogue, dans le terminal |
 | `python beta.py doctor` | ce qui est en place et ce qui manque |
 | `python beta.py candidates` | l'inventaire du registre de candidates |
-| `python beta.py cribler` | passe des candidates à la batterie S1-S9 |
+| `python beta.py cribler` | passe des candidates à la batterie S1-S10 |
 | `python beta.py comparer` | compare les stratégies déjà mesurées entre elles |
 | `python beta.py idee note "..."` | note une idée — **gratuit**, le compteur ne bouge pas |
 | `python beta.py idee liste` | les idées notées, promues, écartées |
@@ -398,7 +398,7 @@ beta/lake/        univers · telechargement · construction · catalogue · lect
                   maj (mise à jour quotidienne) · vision (historique public Binance)
 beta/protocole/   experiences (le verrou) · idees (l'étage gratuit) · holdout  <- dont tout dépend
 beta/stats/       descriptif · bootstrap · multitest · montecarlo · synthetique
-                  walkforward · reference · diversification · batterie   (S1-S9)
+                  walkforward · reference · diversification · cscv · pbo · batterie   (S1-S10)
                   comparaison (le banc COMPARATIF : classement, S7, matrice, vs AritV1)
 beta/moteur/      contrats (les 3 contrats gelés) · espace_r · registre · pipeline
                   pont_freqtrade (le seul verdict portefeuille — jamais lancé à ce jour)
