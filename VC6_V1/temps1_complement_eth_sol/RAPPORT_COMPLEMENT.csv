@@ -1,0 +1,3 @@
+actif,statut,p_justesse_test1,lecture_justesse_test1,p_latence_test1,lecture_latence_test1,p_justesse_test1bis,p_latence_test1bis,justesse_observee,f_entree_mediane_observee,bears_complets_mesures,debut_juge,mesuree_debut,mesuree_fin,annees,donnees_debut,donnees_fin,raison
+ETH,suit la SMA 200 du BTC,0.313,hasard,0.637,hasard,0.491,0.694,0.563188244047619,0.2690580407644588,2,2022-01-01,2022-01-02,2025-08-22,3.6358658453114305,2019-11-27,2026-10-31,
+SOL,indecidable,,,,,,,,,,2022-10-01,,,,2020-09-14,2026-10-31,aucun bear complet du juge entre 2022-10-01 et 2026-10-31
