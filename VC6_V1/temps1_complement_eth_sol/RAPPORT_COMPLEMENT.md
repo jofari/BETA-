@@ -1,6 +1,6 @@
-# Temps 1 – complément ETH et SOL (T1C)
+# Temps 1 – complément ETH et SOL
 
-Calculé le 2026-11-01T17:19:40+00:00 UTC. Rapport écrit par `scripts/temps1_complement.py`, sans interprétation au-delà de la conclusion mécanique. Les verdicts de T1J et de T1F ne sont pas modifiés. Préenregistrement : `PREENREGISTREMENT.md` (même dossier).
+Calculé le 2026-11-01T17:19:40+00:00 UTC. Rapport écrit par `scripts/temps1_complement.py`, sans interprétation au-delà de la conclusion mécanique. Les verdicts du « Temps 1 – justesse » et du « Temps 1 – fiabilité » ne sont pas modifiés. Préenregistrement : `PREENREGISTREMENT.md` (même dossier).
 
 ## 1. Résultat par actif
 
@@ -24,9 +24,9 @@ Retenu si p_justesse du test 1 < 0,05 (règle 7 du préenregistrement) ; sinon, 
 
 ## 2. Empreintes et données
 
-- **Code** : `54092e7`. Modules de T1J (commit `8afdbe7`) et de T1F (commit `590688e`) réutilisés, vérifiés identiques octet pour octet.
-- **Règles** : `56f2183129b16e66` ; préenregistrement `PREENREGISTREMENT.md` `de688a640c05caf9` ; règles de T1J `c0959f429d9dcf8f`, de T1F `77b7f85b49132d77` ; registre : `EXPERIMENTS.jsonl`, id `T1C`, diagnostic.
-- **σ_S&P_ref** (juge de T1J) : 18,3 % (0.18257135761750884), recalculé sur la copie figée de T1J et égal à la valeur de sa mesure.
+- **Code** : `54092e7`. Modules du « Temps 1 – justesse » (commit `8afdbe7`) et du « Temps 1 – fiabilité » (commit `590688e`) réutilisés, vérifiés identiques octet pour octet.
+- **Règles** : `56f2183129b16e66` ; préenregistrement `PREENREGISTREMENT.md` `de688a640c05caf9` ; règles du « Temps 1 – justesse » `c0959f429d9dcf8f`, du « Temps 1 – fiabilité » `77b7f85b49132d77` ; registre : `EXPERIMENTS.jsonl`, diagnostic.
+- **σ_S&P_ref** (juge du « Temps 1 – justesse ») : 18,3 % (0.18257135761750884), recalculé sur la copie figée du « Temps 1 – justesse » et égal à la valeur de sa mesure.
 - **Compteur** (aucun essai) : global 147 → 147, invest 54 → 54, trading actif 93 → 93.
 - **Tirages** : 1000 par actif et par test, graine 0.
 - **Empreinte des clôtures lues** : `04a0c7a84b4094ae` ; date de fin figée : 2026-10-31.
@@ -38,7 +38,7 @@ Retenu si p_justesse du test 1 < 0,05 (règle 7 du préenregistrement) ; sinon, 
 
 ## 3. Les bears du juge
 
-Juge principal de T1J : baisse de référence 20 %, σ de l'actif sur les 2 années civiles avant chaque trimestre (× √252), σ_S&P_ref constante. Il démarre au premier trimestre précédé de 2 ans de données. Un bear n'est mesuré que si ses deux bornes sont dans la période mesurée [premier pivot, dernier pivot[.
+Juge principal du « Temps 1 – justesse » : baisse de référence 20 %, σ de l'actif sur les 2 années civiles avant chaque trimestre (× √252), σ_S&P_ref constante. Il démarre au premier trimestre précédé de 2 ans de données. Un bear n'est mesuré que si ses deux bornes sont dans la période mesurée [premier pivot, dernier pivot[.
 
 ### ETH
 
@@ -61,7 +61,7 @@ Dernier pivot : pic du 2025-01-18 ; le cycle qui suit est en cours, exclu.
 
 Bear en cours depuis le pic du 2025-01-18 (−63,6 % à la dernière date), exclu.
 
-## 4. Mesures observées de la SMA 200 (fonctions de T1J)
+## 4. Mesures observées de la SMA 200 (fonctions du « Temps 1 – justesse »)
 
 f_entrée : 0 = bascule bear au pic, 1 = au creux ; un raté compte 1. f_sortie : 0 = bascule bull au creux, 1 = au pic suivant ; un raté compte 1.
 
@@ -84,7 +84,7 @@ f_entrée : 0 = bascule bear au pic, 1 = au creux ; un raté compte 1. f_sortie 
 | 2022-06-18 | 2024-03-11 | 0,14 | 2023-01-12 |
 | 2025-04-08 | 2025-08-22 | 0,36 | 2025-06-09 |
 
-## 5. Tests contre le hasard de même agitation (fonctions de T1F)
+## 5. Tests contre le hasard de même agitation (fonctions du « Temps 1 – fiabilité »)
 
 Test 1 (décide) : la suite des états est gardée, les durées sont permutées entre épisodes du même état. Test 1 bis (rapporté) : décalage circulaire dans [90, N − 90]. p_latence = part des tirages de médiane f_entrée ≤ observée ; p_justesse = part des tirages de justesse ≥ observée. Lecture D4 : p < 0,05 réel ; 0,05 ≤ p < 0,20 non concluant ; p ≥ 0,20 indistinguable du hasard.
 
@@ -106,13 +106,13 @@ Plages des tirages (périodes mesurées) : ETH 2022-01-02 → 2025-08-22 (1328 s
 
 ## 7. Épreuve de causalité
 
-SMA 200 recalculée avec les seules clôtures connues à chaque date de coupure de T1J postérieure au début de l'actif, comparée au signal calculé sur tout l'historique.
+SMA 200 recalculée avec les seules clôtures connues à chaque date de coupure du « Temps 1 – justesse » postérieure au début de l'actif, comparée au signal calculé sur tout l'historique.
 - ETH : aucun écart.
 - SOL : aucun écart.
 
 ## 8. Écarts au prompt et leurs raisons
 
-- **Données** : ETH et SOL n'ont, dans BETA et DS1, qu'une clôture journalière : celle du perpétuel Binance USDT-M (inventaire de l'étape A). « Début disponible » = la cotation du perpétuel. Le BTC de T1J était jugé au comptant (Bitstamp).
-- **Fiabilité** : p_latence et sa lecture D4, par actif. Le verdict de fiabilité de T1F (témoin actions ET or) ne se transpose pas à un actif seul (application 8).
+- **Données** : ETH et SOL n'ont, dans BETA et DS1, qu'une clôture journalière : celle du perpétuel Binance USDT-M (inventaire de l'étape A). « Début disponible » = la cotation du perpétuel. Le BTC du « Temps 1 – justesse » était jugé au comptant (Bitstamp).
+- **Fiabilité** : p_latence et sa lecture D4, par actif. Le verdict de fiabilité du « Temps 1 – fiabilité » (témoin actions ET or) ne se transpose pas à un actif seul (application 8).
 - **Variantes du juge** (15 %, 25 %, σ unique) : non calculées (application 13).
-- **Annualisation** : celle des règles figées de T1J (√252), y compris pour des actifs cotés 7 j / 7, comme le BTC de T1J.
+- **Annualisation** : celle des règles figées du « Temps 1 – justesse » (√252), y compris pour des actifs cotés 7 j / 7, comme le BTC du « Temps 1 – justesse ».

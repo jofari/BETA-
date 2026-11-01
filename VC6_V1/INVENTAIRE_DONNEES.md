@@ -7,7 +7,7 @@ complète est dans `VC6_V1/sources_figees.json`.
 
 ## 1. Le code existant
 
-### Temps 1 – justesse (T1J, mesurée le 24/10/2026)
+### Temps 1 – justesse (mesurée le 24/10/2026)
 
 - Module `beta/temps1_justesse/` :
   - `regles.py` : règles gelées (empreinte `c0959f429d9dcf8f`) ;
@@ -17,10 +17,10 @@ complète est dans `VC6_V1/sources_figees.json`.
   - `mesures.py` : `mesurer`, qui calcule f_entrée, f_sortie, fausses alertes, bascules et justesse ;
   - `verdict.py`, `campagne.py`, `rapport.py`.
 - Commits : code `8afdbe7`, mesure `c52aa87`. Commande : `scripts/temps1_justesse.py`.
-  Préenregistrement : `scripts/preenregistrer_t1j.py`, id `T1J`. Rapport :
+  Préenregistrement : `scripts/preenregistrer_t1j.py`. Rapport :
   `temps1_justesse/RAPPORT_JUSTESSE.md`.
 
-### Temps 1 – fiabilité (T1F, diagnostic mesuré le 24/10/2026)
+### Temps 1 – fiabilité (diagnostic mesuré le 24/10/2026)
 
 - Module `beta/temps1_fiabilite/` :
   - `regles.py` : empreinte `77b7f85b49132d77` ;
@@ -43,10 +43,10 @@ complète est dans `VC6_V1/sources_figees.json`.
   - `verdict` : réel si p < 0,05, non concluant si p < 0,20, hasard sinon ;
   - `bh_q` : Benjamini-Hochberg, informatif ;
   - `flux` : graines dérivées par clé.
-- Ils sont appliqués à l'Ulcer contre le témoin d'exposition constante dans le Test invest (TI1) :
+- Ils sont appliqués à l'Ulcer contre le témoin d'exposition constante dans le Test invest :
   `beta/invest/campagne.py` (`_nulls`, `evaluer`), `beta/invest/moteur.py` (`temoin_constant`,
   `rendement`, `funding_panier`), `beta/invest/metriques.py` (`standard`, avec l'Ulcer).
-- T1F lit aussi D4 par `beta.invest.nulls.verdict`.
+- Le « Temps 1 – fiabilité » lit aussi D4 par `beta.invest.nulls.verdict`.
 
 ### Compteur d'essais de la famille invest
 
@@ -168,8 +168,8 @@ Les séries crypto du lake sont des **perpétuels Binance USDT-M**. Dates en UTC
 4. **ETH et SOL n'existent qu'en perpétuel.** Pour ces deux actifs, la seule « clôture » est
    celle du perpétuel.
 5. **Trois sources de BTC journalier** : Bitstamp au comptant (2011+), Coinbase (2015+) et le
-   perpétuel Binance (2019+). T1J a jugé le BTC sur Bitstamp. La spec ne dit pas laquelle fixe
-   le mode global.
+   perpétuel Binance (2019+). Le « Temps 1 – justesse » a jugé le BTC sur Bitstamp. La spec ne
+   dit pas laquelle fixe le mode global.
 6. **Quatre sources d'or**, et la spec ne dit pas laquelle utiliser.
 7. **Robustesse BTC depuis 2014.**
    - Il n'y a pas de 5 min avant le 08/09/2019. La spec prévoit ce cas : écart-type 30 jours.

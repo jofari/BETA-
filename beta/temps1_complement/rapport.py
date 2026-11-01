@@ -1,4 +1,5 @@
-"""T1C : le rapport, ecrit par le programme a partir de la synthese de la campagne.
+"""Temps 1 - complement ETH et SOL : le rapport, ecrit par le programme a partir de la synthese
+de la campagne. Les noms du Temps 1 s'ecrivent en entier (Jonas, 01/11/2026).
 
 Aucune interpretation au-dela de la conclusion mecanique (regle 7 du preenregistrement). Sorties,
 dans VC6_V1/temps1_complement_eth_sol/ : RAPPORT_COMPLEMENT.md, RAPPORT_COMPLEMENT.csv,
@@ -17,6 +18,7 @@ log = logging.getLogger("beta.temps1_complement.rapport")
 
 LECTURE = {"reel": "réel", "non concluant": "non concluant",
            "hasard": "indistinguable du hasard"}
+JUSTESSE, FIABILITE = "« Temps 1 – justesse »", "« Temps 1 – fiabilité »"
 
 
 def _n(x, d: int = 2) -> str:
@@ -112,14 +114,15 @@ def _section_resultat(s: dict) -> list[str]:
 def _section_donnees(s: dict) -> list[str]:
     c = s["compteur"]
     md = ["## 2. Empreintes et données", "",
-          f"- **Code** : `{s['code']}`. Modules de T1J (commit `{s['modules']['t1j']}`) et de T1F "
-          f"(commit `{s['modules']['t1f']}`) réutilisés, vérifiés identiques octet pour octet.",
+          f"- **Code** : `{s['code']}`. Modules du {JUSTESSE} (commit "
+          f"`{s['modules']['t1j']}`) et du {FIABILITE} (commit `{s['modules']['t1f']}`) "
+          "réutilisés, vérifiés identiques octet pour octet.",
           f"- **Règles** : `{s['regles']}` ; préenregistrement `PREENREGISTREMENT.md` "
-          f"`{s['preenregistrement']}` ; règles de T1J `{s['regles_t1j']}`, de T1F "
-          f"`{s['regles_t1f']}` ; registre : `EXPERIMENTS.jsonl`, id `{R.ID_EXP}`, diagnostic.",
-          f"- **σ_S&P_ref** (juge de T1J) : {_pct(s['sigma_sp_ref'])} "
-          f"({s['sigma_sp_ref']!r}), recalculé sur la copie figée de T1J et égal à la valeur de "
-          "sa mesure.",
+          f"`{s['preenregistrement']}` ; règles du {JUSTESSE} `{s['regles_t1j']}`, du "
+          f"{FIABILITE} `{s['regles_t1f']}` ; registre : `EXPERIMENTS.jsonl`, diagnostic.",
+          f"- **σ_S&P_ref** (juge du {JUSTESSE}) : {_pct(s['sigma_sp_ref'])} "
+          f"({s['sigma_sp_ref']!r}), recalculé sur la copie figée du {JUSTESSE} et égal à la "
+          "valeur de sa mesure.",
           f"- **Compteur** (aucun essai) : global {c['avant']['global']} → {c['apres']['global']}, "
           f"invest {c['avant']['invest']} → {c['apres']['invest']}, trading actif "
           f"{c['avant']['trading']} → {c['apres']['trading']}.",
@@ -138,10 +141,10 @@ def _section_donnees(s: dict) -> list[str]:
 
 def _section_juge(s: dict) -> list[str]:
     md = ["## 3. Les bears du juge", "",
-          "Juge principal de T1J : baisse de référence 20 %, σ de l'actif sur les 2 années "
-          "civiles avant chaque trimestre (× √252), σ_S&P_ref constante. Il démarre au premier "
-          "trimestre précédé de 2 ans de données. Un bear n'est mesuré que si ses deux bornes "
-          "sont dans la période mesurée [premier pivot, dernier pivot[."]
+          f"Juge principal du {JUSTESSE} : baisse de référence 20 %, σ de l'actif sur les 2 "
+          "années civiles avant chaque trimestre (× √252), σ_S&P_ref constante. Il démarre au "
+          "premier trimestre précédé de 2 ans de données. Un bear n'est mesuré que si ses deux "
+          "bornes sont dans la période mesurée [premier pivot, dernier pivot[."]
     for actif, a in s["actifs"].items():
         j = a.get("juge")
         md += ["", f"### {actif}", ""]
@@ -169,7 +172,7 @@ def _section_juge(s: dict) -> list[str]:
 
 
 def _section_mesures(s: dict) -> list[str]:
-    md = ["## 4. Mesures observées de la SMA 200 (fonctions de T1J)", "",
+    md = [f"## 4. Mesures observées de la SMA 200 (fonctions du {JUSTESSE})", "",
           "f_entrée : 0 = bascule bear au pic, 1 = au creux ; un raté compte 1. f_sortie : 0 = "
           "bascule bull au creux, 1 = au pic suivant ; un raté compte 1.", ""]
     lignes = []
@@ -205,7 +208,7 @@ def _section_mesures(s: dict) -> list[str]:
 
 
 def _section_tests(s: dict) -> list[str]:
-    md = ["## 5. Tests contre le hasard de même agitation (fonctions de T1F)", "",
+    md = [f"## 5. Tests contre le hasard de même agitation (fonctions du {FIABILITE})", "",
           "Test 1 (décide) : la suite des états est gardée, les durées sont permutées entre "
           "épisodes du même état. Test 1 bis (rapporté) : décalage circulaire dans [90, N − 90]. "
           "p_latence = part des tirages de médiane f_entrée ≤ observée ; p_justesse = part des "
@@ -260,8 +263,9 @@ def _section_test2(s: dict) -> list[str]:
 
 def _section_causalite(s: dict) -> list[str]:
     md = ["## 7. Épreuve de causalité", "",
-          "SMA 200 recalculée avec les seules clôtures connues à chaque date de coupure de T1J "
-          "postérieure au début de l'actif, comparée au signal calculé sur tout l'historique."]
+          "SMA 200 recalculée avec les seules clôtures connues à chaque date de coupure du "
+          f"{JUSTESSE} postérieure au début de l'actif, comparée au signal calculé sur tout "
+          "l'historique."]
     for actif, a in s["actifs"].items():
         md.append(f"- {actif} : " + ("aucun écart." if not a.get("causalite")
                                      else f"ÉCARTS aux coupures {a['causalite']}."))
@@ -272,19 +276,22 @@ def _section_ecarts() -> list[str]:
     return ["## 8. Écarts au prompt et leurs raisons", "",
             "- **Données** : ETH et SOL n'ont, dans BETA et DS1, qu'une clôture journalière : "
             "celle du perpétuel Binance USDT-M (inventaire de l'étape A). « Début disponible » = "
-            "la cotation du perpétuel. Le BTC de T1J était jugé au comptant (Bitstamp).",
-            "- **Fiabilité** : p_latence et sa lecture D4, par actif. Le verdict de fiabilité de "
-            "T1F (témoin actions ET or) ne se transpose pas à un actif seul (application 8).",
+            f"la cotation du perpétuel. Le BTC du {JUSTESSE} était jugé au comptant "
+            "(Bitstamp).",
+            "- **Fiabilité** : p_latence et sa lecture D4, par actif. Le verdict de fiabilité du "
+            f"{FIABILITE} (témoin actions ET or) ne se transpose pas à un actif seul "
+            "(application 8).",
             "- **Variantes du juge** (15 %, 25 %, σ unique) : non calculées (application 13).",
-            "- **Annualisation** : celle des règles figées de T1J (√252), y compris pour des "
-            "actifs cotés 7 j / 7, comme le BTC de T1J."]
+            f"- **Annualisation** : celle des règles figées du {JUSTESSE} (√252), y compris pour "
+            f"des actifs cotés 7 j / 7, comme le BTC du {JUSTESSE}."]
 
 
 def markdown(s: dict) -> str:
-    md = [f"# Temps 1 – complément ETH et SOL ({R.ID_EXP})", "",
+    md = ["# Temps 1 – complément ETH et SOL", "",
           f"Calculé le {s['calcule_le']} UTC. Rapport écrit par `scripts/temps1_complement.py`, "
-          "sans interprétation au-delà de la conclusion mécanique. Les verdicts de T1J et de T1F "
-          "ne sont pas modifiés. Préenregistrement : `PREENREGISTREMENT.md` (même dossier).", ""]
+          f"sans interprétation au-delà de la conclusion mécanique. Les verdicts du {JUSTESSE} "
+          f"et du {FIABILITE} ne sont pas modifiés. Préenregistrement : `PREENREGISTREMENT.md` "
+          "(même dossier).", ""]
     for section in (_section_resultat(s), _section_donnees(s), _section_juge(s),
                     _section_mesures(s), _section_tests(s), _section_test2(s),
                     _section_causalite(s), _section_ecarts()):
@@ -334,7 +341,7 @@ def resume(s: dict) -> str:
     pastille = ("🟢" if all(x == ca.RETENU for x in statuts)
                 else "🟠" if ca.INDECIDABLE in statuts else "🟡")
     c = s["compteur"]
-    md = [f"# {pastille} Temps 1 – complément ETH et SOL ({R.ID_EXP}) — rapport du programme — "
+    md = [f"# {pastille} Temps 1 – complément ETH et SOL — rapport du programme — "
           f"{s['calcule_le'][:10]}", ""]
     md += ["- " + conclusion(actif, a) for actif, a in s["actifs"].items()]
     md += ["", f"Règle : retenu si p_justesse (test 1) < {_n(R.SEUIL_P_JUSTESSE)} ; sinon la SMA "

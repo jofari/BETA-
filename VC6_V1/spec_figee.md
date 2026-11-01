@@ -86,3 +86,17 @@ Bornes : séries journalières jusqu'au 31/10/2026 inclus (or et ETF : dernière
 | ETF monde : iShares MSCI World ETF URTH (yfinance, lake MSCIWORLD) | `data/vc6_v1/sources_figees/URTH_1d.parquet` | 2012-01-12 00:00:00 UTC | 2026-10-30 00:00:00 UTC | 3722 | `266aec60912cf63e2cf6ef669f6d1a5849f6be8a0f66a084b1a9cfe3589bbdf4` | `f022fd5c3149c64d55c71a6223bc1e31c0d6f0877eaea31b962bbcea6e388add` |
 
 **Sources absentes, signalées sans remplacement** : marge de maintenance des perpétuels (aucune série dans BETA ni dans DS1) ; ACWI (seul l'ETF MSCI World URTH est présent).
+
+## Addendum du 01/11/2026 — décision de Jonas après le « Temps 1 – complément ETH et SOL »
+
+Inscrit le 01/11/2026 à 18:32 UTC, à la demande de Jonas. Il vient après le rapport du « Temps 1 – complément ETH et SOL » (`VC6_V1/temps1_complement_eth_sol/RAPPORT_COMPLEMENT.md`, mesure du commit `54fa777`) et avant tout code du « Contrôle HAR ». Son texte est recopié mot pour mot entre les marqueurs. La spec ci-dessus n'est pas modifiée.
+
+=== ADDENDUM DU 01/11/2026 — DÉCISION DE JONAS ===
+1. ETH : non retenu (p_justesse 0,313). SOL : indécidable, donc non retenu (règle 7 appliquée telle quelle, aucun changement du juge). ETH et SOL suivent le régime de la SMA 200 du BTC : chaque poche est investie si le mode global est haussier, sinon elle sort.
+2. Données : ETH et SOL sont valorisés sur la clôture du perpétuel Binance USDT-M (pas de comptant disponible). L'écart perpétuel/comptant est ignoré, comme prévu dans la spec.
+3. Ajout au rapport du Temps 2 (mesure seulement, aucune règle modifiée) : jours où le BTC est haussier alors qu'ETH ou SOL est sous sa propre SMA 200, avec la perte de chaque poche sur ces jours, par poche et au total.
+
+Noms : dans tous les fichiers et rapports, écris en entier « Temps 1 – justesse », « Temps 1 – fiabilité », « Temps 1 – complément ETH et SOL ». Aucune abréviation.
+=== FIN ADDENDUM ===
+
+Les clôtures du point 2 sont les copies figées `ETH_perp_1d.parquet` et `SOL_perp_1d.parquet` de la table « Données figées ».

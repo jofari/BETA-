@@ -1,4 +1,4 @@
-# 🟠 Temps 1 – complément ETH et SOL (T1C) — rapport du programme — 2026-11-01
+# 🟠 Temps 1 – complément ETH et SOL — rapport du programme — 2026-11-01
 
 - **Conclusion ETH : non retenu** (p_justesse 0,313 ≥ 0,05) : ETH suivra le régime de la SMA 200 du BTC.
 - **Conclusion SOL : indécidable** (aucun bear complet du juge entre 2022-10-01 et 2026-10-31). Aucun verdict pour cet actif : arrêt, la suite revient à Jonas.
