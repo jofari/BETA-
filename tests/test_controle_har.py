@@ -44,7 +44,8 @@ def _cloture_1d(barres: pd.DataFrame) -> pd.Series:
 def test_le_controle_har_est_un_test_de_mesure_gele_qui_ne_compte_pas():
     pre = ca.verifier_gel()
     assert pre["diagnostic"] is True and pre["famille_compteur"] == "invest"
-    assert pre["empreinte"] == R.empreinte() == "f7be9a3d4d2c0023"
+    assert pre["empreinte"] == R.empreinte() == "04fc671b86f15a5c"
+    assert "clotures journalieres" in pre["amendement"]
     assert pre["empreinte_preenregistrement"] == ca.empreinte_texte()
     assert "n_configurations" not in pre
     assert R.ID_EXP not in {x.get("experience") for x in experiences.runs_journalises()}

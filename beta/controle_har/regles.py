@@ -33,6 +33,7 @@ FENETRES_HAR = (1, 5, 22)                  # RV du jour, moyennes 5 et 22 jours 
 FENETRE_MCO = 730                          # jours de RV dans la fenetre glissante
 FENETRE_ECART_TYPE = 30                    # rendements log journaliers
 DDOF = 1
+BARRE_DE_CLOTURE = (23, 55)                # amendement du 01/11 : cloture du jour = barre 23:55
 COUPURES_CAUSALITE = ("2021-12-31", "2022-12-31", "2023-12-31", "2024-12-31", "2025-12-31")
 HAR, ECART_TYPE = "HAR", "ecart-type 30 jours"
 
@@ -43,8 +44,11 @@ REGLES: dict = {
     "statut": "test de mesure : aucun essai ajoute au compteur (diagnostic=True, famille invest)",
     "donnees": {"actifs": ACTIFS, "sha256": SHA256, "fin": FIN,
                 "jour": "barres ouvertes de D 00:00 a D 23:55 UTC ; cloture du jour D = cloture "
-                        "de la bougie 1d ouverte en D, verifiee egale a celle de la barre 5 min "
-                        "de 23:55"},
+                        "de la barre 5 min ouverte en D a 23:55 (amendement du 01/11) ; sans "
+                        "barre de 23:55, pas de cloture (aucun comblement)",
+                "controle_1d": "copies 1d lues (SHA-256) pour le controle seulement : jours ou "
+                               "leur cloture differe de la barre de 23:55 listes au rapport, "
+                               "sans arret ni effet sur le calcul"},
     "rv": {"definition": "somme des carres des rendements log 5 min des barres du jour UTC ; "
                          "rendement = ln(cloture / cloture de la barre ouverte 5 min avant), "
                          "jamais a travers un trou",
@@ -75,6 +79,9 @@ REGLES: dict = {
     "causalite": {"coupures": list(COUPURES_CAUSALITE),
                   "exigence": "previsions recalculees avec les seules donnees <= coupure = "
                               "previsions completes ; sinon arret"},
+    "amendement": "01/11/2026, avant tout calcul, decision de Jonas : clotures journalieres "
+                  "tirees des bougies 5 min (bougies 1d de BTC le 24/09/2019 et d'ETH le "
+                  "11/12/2019 saisies avant la fin du jour)",
     "non_fait": "ni comblement, ni plancher, ni troncature, ni autre modele, ni autre fenetre ; "
                 "pas de PBO (signale a Jonas)",
 }

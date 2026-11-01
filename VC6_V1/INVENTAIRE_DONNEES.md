@@ -84,6 +84,16 @@ Les séries crypto du lake sont des **perpétuels Binance USDT-M**. Dates en UTC
   (Bitstamp et Coinbase).
 - Le parquet `BTC_DS1` et la base DS1 sont identiques sur leurs 5 553 dates communes (écart
   maximal 0).
+- **Constat du 01/11/2026, pendant le Contrôle HAR : deux bougies 1d fausses dans les copies
+  des perpétuels.** Aucun jour n'y manque, mais deux bougies ont été saisies avant la fin du jour
+  et jamais rafraîchies. Le programme les a trouvées en comparant chaque clôture 1d à la barre
+  5 min de 23:55.
+  - BTC, 24/09/2019 : clôture 8 645,61 (vers 19:05 UTC) au lieu de 8 495,83.
+  - ETH, 11/12/2019 : clôture 142,76 (premières minutes du jour) au lieu de 143,35.
+  - SOL : aucun écart.
+  - Les copies figées ne sont pas modifiées. Le Contrôle HAR tire ses clôtures des barres 5 min
+    (décision de Jonas, amendement du 01/11). Le « Temps 1 – complément ETH et SOL » n'est pas
+    touché : son juge commence le 01/01/2022, et son σ ne lit que 2020 et 2021.
 
 ### Bougies 5 min BTC, ETH, SOL
 

@@ -131,3 +131,26 @@ Dossier `data/vc6_v1/sources_figees/`, hors git comme tout `data/`.
 | BTC | `BTC_perp_5m.parquet` | `42e62509f051ece9fd86f2a19848e36d53b88b0661243b9aae91320e4caf3618` | `BTC_perp_1d.parquet` | `1bd26426c4cf103bb4b19766aa0a67cefbfe18d9532fe0997592935cab25cb93` |
 | ETH | `ETH_perp_5m.parquet` | `5e1a62bff2d7a21e2971e321d03e789d074a814c3f329c327e9af7c2ce7a592f` | `ETH_perp_1d.parquet` | `19eec6a3c1882cfb484a54891c1dbf586ce519d50665b135d0c1153005cc172f` |
 | SOL | `SOL_perp_5m.parquet` | `0771ad9ed20d60bc1b5e17d16e384fda03f2b2ec447656e938c182923f4fe75d` | `SOL_perp_1d.parquet` | `58e10ba349297c52ccf30ffc5364811c4ddf95d819c6bdefab078217d9d57c42` |
+
+## Amendement du 01/11/2026, avant tout calcul — décision de Jonas
+
+- **Ce qui s'est passé.**
+  - La première campagne (code `e7c6906`) s'est arrêtée à la lecture des données, avant toute RV, tout HAR et toute QLIKE.
+  - Le contrôle de l'application 1 a échoué sur deux jours. La bougie 1d y a été saisie avant la fin du jour et jamais rafraîchie :
+    - **BTC, 24/09/2019** : la bougie 1d s'arrête vers 19:05 UTC (clôture 8 645,61, volume 29 758). Les 288 barres 5 min du jour finissent à 8 495,83 (volume 73 455).
+    - **ETH, 11/12/2019** : la bougie 1d s'arrête dans les premières minutes du jour (clôture 142,76, volume 159). Les 288 barres 5 min finissent à 143,35 (volume 206 532).
+  - SOL : aucun écart.
+- **Décision de Jonas** (01/11/2026, réponse à la question posée) : « Clôtures des 5 min ». Les termes de l'option choisie :
+  - rendement journalier = clôture de la barre 5 min de 23:55, pour BTC, ETH, SOL et tous les jours ;
+  - c'est la même donnée que la RV ;
+  - les copies 1d restent un contrôle, et les 2 défauts sont signalés ;
+  - amendement daté au préenregistrement avant tout calcul.
+- **L'application 1 est remplacée, pour les rendements journaliers, par** :
+  - La clôture du jour D est la clôture de la barre 5 min ouverte en D à 23:55 UTC (copies figées 5 min).
+  - Un jour sans barre de 23:55 n'a pas de clôture. Il n'a donc pas de rendement, ni ce jour-là ni le lendemain (aucun comblement).
+  - Les copies 1d sont lues, SHA-256 vérifié, pour le contrôle seulement. Le rapport liste les jours où leur clôture diffère de la barre de 23:55. Ces jours n'arrêtent pas la campagne et ne changent aucun calcul.
+- **Effet sur le tableau : aucun, par construction.**
+  - L'évaluation commence après 730 jours de RV, donc pas avant septembre 2021 : les cotations datent de 2019 et 2020.
+  - L'écart-type 30 jours d'un jour évalué ne lit que les 30 jours qui précèdent.
+  - Les deux jours en défaut sont de 2019.
+- Le reste du préenregistrement est inchangé.
