@@ -1,0 +1,405 @@
+{
+ "fin_figee": "2026-10-31",
+ "borne_exclue_barres": "2026-11-01 00:00:00+00:00",
+ "fige_le": "2026-11-01T17:03:25+00:00",
+ "sources": {
+  "BTC_perp_1d": {
+   "origine": "lake BETA data/lake/BTC_USDT_USDT-1d.parquet (perpetuel Binance USDT-M, bougie 1d, date = ouverture 00:00 UTC)",
+   "sha256_fichier_vivant": "8c6350fbff8d889a0d8f43fbcdd585178de48ba8a1141463bde453211d338974",
+   "debut": "2019-09-08 00:00:00+00:00",
+   "fin": "2026-10-31 00:00:00+00:00",
+   "n": 2611,
+   "valeurs_non_positives": 0,
+   "jours_attendus": 2611,
+   "jours_manquants": 0,
+   "plages_manquantes": [],
+   "volume_nul": 0,
+   "copie": "data/vc6_v1/sources_figees/BTC_perp_1d.parquet",
+   "sha256_copie": "1bd26426c4cf103bb4b19766aa0a67cefbfe18d9532fe0997592935cab25cb93",
+   "lignes_copie": 2611
+  },
+  "ETH_perp_1d": {
+   "origine": "lake BETA data/lake/ETH_USDT_USDT-1d.parquet (perpetuel Binance USDT-M, bougie 1d, date = ouverture 00:00 UTC)",
+   "sha256_fichier_vivant": "241889172daf6fa4cd189c0aa901f9dbbd4abf789b27b8c9ebd8f83f36ff2022",
+   "debut": "2019-11-27 00:00:00+00:00",
+   "fin": "2026-10-31 00:00:00+00:00",
+   "n": 2531,
+   "valeurs_non_positives": 0,
+   "jours_attendus": 2531,
+   "jours_manquants": 0,
+   "plages_manquantes": [],
+   "volume_nul": 0,
+   "copie": "data/vc6_v1/sources_figees/ETH_perp_1d.parquet",
+   "sha256_copie": "19eec6a3c1882cfb484a54891c1dbf586ce519d50665b135d0c1153005cc172f",
+   "lignes_copie": 2531
+  },
+  "SOL_perp_1d": {
+   "origine": "lake BETA data/lake/SOL_USDT_USDT-1d.parquet (perpetuel Binance USDT-M, bougie 1d, date = ouverture 00:00 UTC)",
+   "sha256_fichier_vivant": "5a47a6df6c697742c5ae3f27a698c37a93a69482e8d76a5aba88e52d505af606",
+   "debut": "2020-09-14 00:00:00+00:00",
+   "fin": "2026-10-31 00:00:00+00:00",
+   "n": 2239,
+   "valeurs_non_positives": 0,
+   "jours_attendus": 2239,
+   "jours_manquants": 0,
+   "plages_manquantes": [],
+   "volume_nul": 0,
+   "copie": "data/vc6_v1/sources_figees/SOL_perp_1d.parquet",
+   "sha256_copie": "58e10ba349297c52ccf30ffc5364811c4ddf95d819c6bdefab078217d9d57c42",
+   "lignes_copie": 2239
+  },
+  "BTC_DS1_parquet": {
+   "origine": "beta.marches data/marches/BTC_DS1-1d.parquet (DS1 bougies_1d Bitstamp, recopie a 23:10 UTC)",
+   "sha256_fichier_vivant": "3a02ed19fc2e4097a3790370bf0e3099a0c2e4af65cfe4bdb571baed2ded5c37",
+   "debut": "2011-08-18 00:00:00+00:00",
+   "fin": "2026-10-30 00:00:00+00:00",
+   "n": 5553,
+   "valeurs_non_positives": 0,
+   "jours_attendus": 5553,
+   "jours_manquants": 0,
+   "plages_manquantes": []
+  },
+  "BTC_bitstamp_1d": {
+   "origine": "DS1 table bougies_1d, source bitstamp, symbole BTCUSD (docker exec psql, lecture seule ; jour civil UTC clos)",
+   "debut": "2011-08-18 00:00:00+00:00",
+   "fin": "2026-10-31 00:00:00+00:00",
+   "n": 5554,
+   "valeurs_non_positives": 0,
+   "jours_attendus": 5554,
+   "jours_manquants": 0,
+   "plages_manquantes": [],
+   "volume_nul": 33,
+   "controle_vs_parquet_BTC_DS1": {
+    "dates_communes": 5553,
+    "ecart_max_abs_close": 0.0
+   },
+   "copie": "data/vc6_v1/sources_figees/BTC_bitstamp_1d.parquet",
+   "sha256_copie": "5cd3f419ce33e215201e9d1e8f40cba458baba9645a38df26b8403c504f435dd",
+   "lignes_copie": 5554
+  },
+  "BTC_coinbase_1d": {
+   "origine": "DS1 table bougies_1d, source coinbase, symbole BTCUSD (docker exec psql, lecture seule ; jour civil UTC clos)",
+   "debut": "2015-07-20 00:00:00+00:00",
+   "fin": "2026-10-31 00:00:00+00:00",
+   "n": 4122,
+   "valeurs_non_positives": 0,
+   "jours_attendus": 4122,
+   "jours_manquants": 0,
+   "plages_manquantes": [],
+   "volume_nul": 0,
+   "copie": "data/vc6_v1/sources_figees/BTC_coinbase_1d.parquet",
+   "sha256_copie": "38d90695d9e37909c8c864b0fd3553d1bf32a2b99b55c3704bc8e651b39970e5",
+   "lignes_copie": 4122
+  },
+  "BTC_perp_5m": {
+   "origine": "lake BETA data/lake/BTC_USDT_USDT-5m.parquet (perpetuel Binance USDT-M, date = ouverture de la bougie)",
+   "sha256_fichier_vivant": "72f2751ae48a649481b7bb5710a386778e95d9ec1050d79989ee81706b399e50",
+   "debut": "2019-09-08 17:55:00+00:00",
+   "fin": "2026-11-01 00:15:00+00:00",
+   "n": 751757,
+   "valeurs_non_positives": 0,
+   "barres": 751757,
+   "barres_attendues": 751757,
+   "barres_manquantes": 0,
+   "n_trous": 0,
+   "plus_grands_trous": [],
+   "doublons": 0,
+   "volume_nul": 86,
+   "controle_dernier_jour": {
+    "barres_5m_du_31_10": 288,
+    "volume_5m": 51187.090000000004,
+    "volume_1d": 51187.09,
+    "close_5m": 77522.6,
+    "close_1d": 77522.6,
+    "high_5m": 77753.3,
+    "high_1d": 77753.3,
+    "low_5m": 77060.0,
+    "low_1d": 77060.0
+   },
+   "copie": "data/vc6_v1/sources_figees/BTC_perp_5m.parquet",
+   "sha256_copie": "42e62509f051ece9fd86f2a19848e36d53b88b0661243b9aae91320e4caf3618",
+   "lignes_copie": 751753
+  },
+  "ETH_perp_5m": {
+   "origine": "lake BETA data/lake/ETH_USDT_USDT-5m.parquet (perpetuel Binance USDT-M, date = ouverture de la bougie)",
+   "sha256_fichier_vivant": "3aec45a799ad71bb270bfda169f48f52de9c6b98b7f3f1d418c071384f86dfe2",
+   "debut": "2019-11-27 07:45:00+00:00",
+   "fin": "2026-11-01 00:15:00+00:00",
+   "n": 728839,
+   "valeurs_non_positives": 0,
+   "barres": 728839,
+   "barres_attendues": 728839,
+   "barres_manquantes": 0,
+   "n_trous": 0,
+   "plus_grands_trous": [],
+   "doublons": 0,
+   "volume_nul": 72,
+   "controle_dernier_jour": {
+    "barres_5m_du_31_10": 288,
+    "volume_5m": 965664.2710000001,
+    "volume_1d": 965664.271,
+    "close_5m": 2254.54,
+    "close_1d": 2254.54,
+    "high_5m": 2268.0,
+    "high_1d": 2268.0,
+    "low_5m": 2234.58,
+    "low_1d": 2234.58
+   },
+   "copie": "data/vc6_v1/sources_figees/ETH_perp_5m.parquet",
+   "sha256_copie": "5e1a62bff2d7a21e2971e321d03e789d074a814c3f329c327e9af7c2ce7a592f",
+   "lignes_copie": 728835
+  },
+  "SOL_perp_5m": {
+   "origine": "lake BETA data/lake/SOL_USDT_USDT-5m.parquet (perpetuel Binance USDT-M, date = ouverture de la bougie)",
+   "sha256_fichier_vivant": "96460738d99889533b87861a131685ae1ee5a442352c226682d7bec379c5312a",
+   "debut": "2020-09-14 07:00:00+00:00",
+   "fin": "2026-11-01 00:15:00+00:00",
+   "n": 644752,
+   "valeurs_non_positives": 0,
+   "barres": 644752,
+   "barres_attendues": 644752,
+   "barres_manquantes": 0,
+   "n_trous": 0,
+   "plus_grands_trous": [],
+   "doublons": 0,
+   "volume_nul": 47,
+   "controle_dernier_jour": {
+    "barres_5m_du_31_10": 288,
+    "volume_5m": 6444986.34,
+    "volume_1d": 6444986.34,
+    "close_5m": 95.44,
+    "close_1d": 95.44,
+    "high_5m": 96.99,
+    "high_1d": 96.99,
+    "low_5m": 95.15,
+    "low_1d": 95.15
+   },
+   "copie": "data/vc6_v1/sources_figees/SOL_perp_5m.parquet",
+   "sha256_copie": "0771ad9ed20d60bc1b5e17d16e384fda03f2b2ec447656e938c182923f4fe75d",
+   "lignes_copie": 644748
+  },
+  "BTC_funding": {
+   "origine": "data/raw/futures/BTC_USDT_USDT-1h-funding_rate.feather (freqtrade, Binance USDT-M ; date = instant de reglement)",
+   "sha256_fichier_vivant": "f7efa592b132b319cedbfa12cf69a65bfe933662de1ee63558cd730e86304c6b",
+   "debut": "2019-09-10 08:00:00+00:00",
+   "fin": "2026-11-01 00:00:00+00:00",
+   "n": 7827,
+   "intervalles_heures": {
+    "8.0": 7826
+   },
+   "ecarts_plus_de_8h": [],
+   "heures_de_reglement": {
+    "0": 2609,
+    "8": 2609,
+    "16": 2609
+   },
+   "taux_nan": 0,
+   "copie": "data/vc6_v1/sources_figees/BTC_funding.parquet",
+   "sha256_copie": "bd970babd9c36149e0c6b9e295be90bd01d4cb4cc650be5a95ea0484fe0bc006",
+   "lignes_copie": 7827
+  },
+  "ETH_funding": {
+   "origine": "data/raw/futures/ETH_USDT_USDT-1h-funding_rate.feather (freqtrade, Binance USDT-M ; date = instant de reglement)",
+   "sha256_fichier_vivant": "1394939d7b5035b2112e98a1fab07c62d4eebb8563e6476b5fa2fc016a00a662",
+   "debut": "2019-11-27 08:00:00+00:00",
+   "fin": "2026-11-01 00:00:00+00:00",
+   "n": 7593,
+   "intervalles_heures": {
+    "8.0": 7592
+   },
+   "ecarts_plus_de_8h": [],
+   "heures_de_reglement": {
+    "0": 2531,
+    "8": 2531,
+    "16": 2531
+   },
+   "taux_nan": 0,
+   "copie": "data/vc6_v1/sources_figees/ETH_funding.parquet",
+   "sha256_copie": "335f28b5d669c78c354aed3a3fd0334eb86d07dff889ca3d997bc3d6b94413a6",
+   "lignes_copie": 7593
+  },
+  "SOL_funding": {
+   "origine": "data/raw/futures/SOL_USDT_USDT-1h-funding_rate.feather (freqtrade, Binance USDT-M ; date = instant de reglement)",
+   "sha256_fichier_vivant": "47f490826cfaa03f2e701191024f78874e370a5dc4ed472206473eeef88aff41",
+   "debut": "2020-09-13 16:00:00+00:00",
+   "fin": "2026-11-01 00:00:00+00:00",
+   "n": 6794,
+   "intervalles_heures": {
+    "2.0": 98,
+    "4.0": 3,
+    "8.0": 6692
+   },
+   "ecarts_plus_de_8h": [],
+   "heures_de_reglement": {
+    "0": 2240,
+    "2": 8,
+    "4": 9,
+    "6": 9,
+    "8": 2239,
+    "10": 8,
+    "12": 8,
+    "14": 8,
+    "16": 2240,
+    "18": 8,
+    "20": 9,
+    "22": 8
+   },
+   "taux_nan": 0,
+   "copie": "data/vc6_v1/sources_figees/SOL_funding.parquet",
+   "sha256_copie": "4c17b7a34a5e6a4d0730c399a2d5dc757a8b56aa461a07663618d0089bfc6757",
+   "lignes_copie": 6794
+  },
+  "XAU_LBMA": {
+   "origine": "beta.marches data/marches/XAU_LBMA-1d.parquet (fixing LBMA PM, World Gold Council)",
+   "sha256_fichier_vivant": "8f7c1cc5bffc3d76049391eb2530baf0a0c9e2215e0ab06d17651c1104dfd0bb",
+   "debut": "1970-01-01 00:00:00+00:00",
+   "fin": "2026-10-30 00:00:00+00:00",
+   "n": 14748,
+   "valeurs_non_positives": 0,
+   "jours_lun_ven": 14827,
+   "lun_ven_sans_valeur": 79,
+   "ecarts_plus_de_4_jours": 18,
+   "plus_longs_ecarts": [
+    {
+     "apres": "2022-12-22 00:00:00+00:00",
+     "avant": "2022-12-28 00:00:00+00:00",
+     "jours": 6
+    },
+    {
+     "apres": "2020-12-23 00:00:00+00:00",
+     "avant": "2020-12-29 00:00:00+00:00",
+     "jours": 6
+    },
+    {
+     "apres": "2025-12-23 00:00:00+00:00",
+     "avant": "2025-12-29 00:00:00+00:00",
+     "jours": 6
+    },
+    {
+     "apres": "2021-12-23 00:00:00+00:00",
+     "avant": "2021-12-29 00:00:00+00:00",
+     "jours": 6
+    },
+    {
+     "apres": "2023-12-21 00:00:00+00:00",
+     "avant": "2023-12-27 00:00:00+00:00",
+     "jours": 6
+    },
+    {
+     "apres": "2022-12-29 00:00:00+00:00",
+     "avant": "2023-01-03 00:00:00+00:00",
+     "jours": 5
+    },
+    {
+     "apres": "2025-04-17 00:00:00+00:00",
+     "avant": "2025-04-22 00:00:00+00:00",
+     "jours": 5
+    },
+    {
+     "apres": "2024-03-28 00:00:00+00:00",
+     "avant": "2024-04-02 00:00:00+00:00",
+     "jours": 5
+    },
+    {
+     "apres": "2023-12-28 00:00:00+00:00",
+     "avant": "2024-01-02 00:00:00+00:00",
+     "jours": 5
+    },
+    {
+     "apres": "2023-04-06 00:00:00+00:00",
+     "avant": "2023-04-11 00:00:00+00:00",
+     "jours": 5
+    }
+   ],
+   "observations_samedi_dimanche": 0,
+   "copie": "data/vc6_v1/sources_figees/XAU_LBMA_1d.parquet",
+   "sha256_copie": "8f7c1cc5bffc3d76049391eb2530baf0a0c9e2215e0ab06d17651c1104dfd0bb",
+   "lignes_copie": 14748
+  },
+  "XAU_SPOT": {
+   "origine": "beta.marches data/marches/XAU_SPOT-1d.parquet (Dukascopy BID, jour UTC agrege)",
+   "sha256_fichier_vivant": "4ec3b0f04a72f838db89177618096078c8184b2feed25497997aa718d38be542",
+   "debut": "2003-05-05 00:00:00+00:00",
+   "fin": "2026-10-30 00:00:00+00:00",
+   "n": 7316,
+   "valeurs_non_positives": 0,
+   "jours_lun_ven": 6130,
+   "lun_ven_sans_valeur": 20,
+   "ecarts_plus_de_4_jours": 0,
+   "plus_longs_ecarts": [],
+   "observations_samedi_dimanche": 1206,
+   "copie": "data/vc6_v1/sources_figees/XAU_SPOT_1d.parquet",
+   "sha256_copie": "4ec3b0f04a72f838db89177618096078c8184b2feed25497997aa718d38be542",
+   "lignes_copie": 7316
+  },
+  "XAUUSD_GCF": {
+   "origine": "lake BETA data/lake/XAUUSD-1d.parquet (yfinance GC=F, future COMEX continu)",
+   "sha256_fichier_vivant": "5633998c50f14cb6089dbabe3ddaabfc631f6334ebecc33642dcd65128c568fb",
+   "debut": "2010-01-04 00:00:00+00:00",
+   "fin": "2026-10-30 00:00:00+00:00",
+   "n": 4233,
+   "valeurs_non_positives": 0,
+   "jours_lun_ven": 4390,
+   "lun_ven_sans_valeur": 157,
+   "ecarts_plus_de_4_jours": 1,
+   "plus_longs_ecarts": [
+    {
+     "apres": "2012-10-26 00:00:00+00:00",
+     "avant": "2012-10-31 00:00:00+00:00",
+     "jours": 5
+    }
+   ],
+   "observations_samedi_dimanche": 0,
+   "volume_nul": 40,
+   "copie": "data/vc6_v1/sources_figees/XAUUSD_GCF_1d.parquet",
+   "sha256_copie": "a29a114213acee565cbc19314fc765e93a1c26263c69feb436b39faf8f3024ea",
+   "lignes_copie": 4233
+  },
+  "XAU_perp": {
+   "origine": "lake BETA data/lake/XAU_USDT_USDT-1d.parquet (perpetuel TradFi Binance XAUUSDT)",
+   "sha256_fichier_vivant": "1089ae9ba1971dc88192c22a5c1bb0a0f9358705eea47d27859d0ff8e06cd67a",
+   "debut": "2025-12-11 00:00:00+00:00",
+   "fin": "2026-10-31 00:00:00+00:00",
+   "n": 325,
+   "valeurs_non_positives": 0,
+   "jours_attendus": 325,
+   "jours_manquants": 0,
+   "plages_manquantes": [],
+   "volume_nul": 0,
+   "copie": "data/vc6_v1/sources_figees/XAU_perp_1d.parquet",
+   "sha256_copie": "5ccfff01be70ff1fc2011b38869a39bbcd9c26c226c840fc012ce51859babdcf",
+   "lignes_copie": 325
+  },
+  "URTH": {
+   "origine": "lake BETA data/lake/MSCIWORLD-1d.parquet (yfinance URTH, iShares MSCI World ETF)",
+   "sha256_fichier_vivant": "f022fd5c3149c64d55c71a6223bc1e31c0d6f0877eaea31b962bbcea6e388add",
+   "debut": "2012-01-12 00:00:00+00:00",
+   "fin": "2026-10-30 00:00:00+00:00",
+   "n": 3722,
+   "valeurs_non_positives": 0,
+   "jours_lun_ven": 3862,
+   "lun_ven_sans_valeur": 140,
+   "ecarts_plus_de_4_jours": 1,
+   "plus_longs_ecarts": [
+    {
+     "apres": "2012-10-26 00:00:00+00:00",
+     "avant": "2012-10-31 00:00:00+00:00",
+     "jours": 5
+    }
+   ],
+   "observations_samedi_dimanche": 0,
+   "volume_nul": 198,
+   "volume_nul_derniere_date": "2015-10-16 00:00:00+00:00",
+   "volume_nul_par_annee": {
+    "2012": 150,
+    "2013": 40,
+    "2014": 7,
+    "2015": 1
+   },
+   "barres_plates_ohlc_egaux": 281,
+   "copie": "data/vc6_v1/sources_figees/URTH_1d.parquet",
+   "sha256_copie": "266aec60912cf63e2cf6ef669f6d1a5849f6be8a0f66a084b1a9cfe3589bbdf4",
+   "lignes_copie": 3722
+  }
+ }
+}
