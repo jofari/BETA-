@@ -1,0 +1,4 @@
+actif,qlike_har,qlike_ecart_type_30j,p_diebold_mariano,stat_diebold_mariano,retard_diebold_mariano,jours_evalues,jours_exclus_total,jours_exclus_periode_evaluee,previsions_negatives_remplacees_jours_evalues,previsions_negatives_tous_jours_har,sigma_retenu,har_des_le,evaluation_debut,evaluation_fin
+BTC,0.2371873837468292,0.4039670915161437,0.030149476378918624,-2.1681210667099813,7,1876,1,0,0,0,HAR,2021-09-07,2021-09-07,2026-10-26
+ETH,0.27991076193616665,0.4923026648614129,0.17377233124697855,-1.3601820188102998,7,1796,1,0,0,0,HAR,2021-11-26,2021-11-26,2026-10-26
+SOL,0.36944776446619626,0.5955290582493544,0.10549992795586358,-1.6187552782537111,7,1504,1,0,0,0,HAR,2022-09-14,2022-09-14,2026-10-26

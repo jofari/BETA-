@@ -100,3 +100,17 @@ Noms : dans tous les fichiers et rapports, écris en entier « Temps 1 – juste
 === FIN ADDENDUM ===
 
 Les clôtures du point 2 sont les copies figées `ETH_perp_1d.parquet` et `SOL_perp_1d.parquet` de la table « Données figées ».
+
+## Addendum du 01/11/2026 — σ̂ retenu au « Contrôle HAR »
+
+Écrit par le programme (`scripts/controle_har.py --addendum`) à partir de la synthèse de la mesure du 2026-11-01T19:09:55+00:00 UTC : règles `04fc671b86f15a5c`, données `7005202023796717`, code `aefc6d5`. Règle 5 du prompt du « Contrôle HAR » (`VC6_V1/controle_har/PREENREGISTREMENT.md`). Rapport : `VC6_V1/controle_har/RAPPORT_CONTROLE_HAR.md`.
+
+| actif | QLIKE HAR | QLIKE écart-type 30 jours | jours évalués | σ̂ retenu |
+|---|---|---|---|---|
+| BTC | 0,2372 | 0,4040 | 1876 | HAR |
+| ETH | 0,2799 | 0,4923 | 1796 | HAR |
+| SOL | 0,3694 | 0,5955 | 1504 | HAR |
+
+- **HAR** : prévision HAR de la variance journalière moyenne des 5 jours suivants, avec ses replis (écart-type 30 jours avant 730 jours de RV et les jours de prévision ≤ 0).
+- **Écart-type 30 jours** : écart-type d'échantillon des 30 derniers rendements log journaliers, au carré.
+- La spec annualise σ̂i en √365.
