@@ -156,8 +156,11 @@ def _section_donnees(s: dict) -> list[str]:
           f"{c['avant']['trading']} → {c['apres']['trading']}.",
           f"- **Empreinte des valeurs lues** : `{s['donnees']['empreinte']}` ; date de fin figée : "
           f"{_date(s['donnees']['fin'])}.",
-          "- **Contrôle** : pour chaque jour, la clôture 1d est égale à la clôture de la barre "
-          "5 min de 23:55 (sinon la campagne s'arrête).", ""]
+          "- **Clôture du jour** : celle de la barre 5 min de 23:55 (amendement du 01/11/2026, "
+          "décision de Jonas). Les copies 1d ne servent qu'au contrôle ; jours où leur clôture "
+          "diffère : " + " ; ".join(
+              f"{actif} : " + (", ".join(_date(d) for d in a["controle_1d"]) or "aucun")
+              for actif, a in s["actifs"].items()) + ".", ""]
     lignes = []
     for actif, a in s["actifs"].items():
         cp, cv = s["donnees"]["copies"][actif], a["couverture"]
@@ -187,8 +190,9 @@ def _section_ecarts() -> list[str]:
     return ["## 9. Ce que le programme a appliqué sans que le prompt le dise mot pour mot", "",
             "Détail et raisons : applications 1 à 15 de `PREENREGISTREMENT.md`.",
             "- **Données** : perpétuels Binance USDT-M, seules bougies 5 min de BETA et DS1 ; "
-            "rendements journaliers sur le même perpétuel. Pour le BTC, la série du mode global "
-            "(Bitstamp ou perpétuel) reste à trancher en phase 3.",
+            "rendements journaliers tirés de la barre 5 min de 23:55 (amendement du 01/11, "
+            "décision de Jonas). Pour le BTC, la série du mode global (Bitstamp ou perpétuel) "
+            "reste à trancher en phase 3.",
             "- **HAR** : constante comprise (Corsi 2009) ; fenêtre = RV des 730 derniers jours, "
             "lignes entièrement dedans (704 au plus).",
             "- **Écart-type 30 jours** : écart-type d'échantillon (ddof = 1), au carré.",

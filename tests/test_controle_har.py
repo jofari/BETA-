@@ -45,7 +45,8 @@ def test_le_controle_har_est_un_test_de_mesure_gele_qui_ne_compte_pas():
     pre = ca.verifier_gel()
     assert pre["diagnostic"] is True and pre["famille_compteur"] == "invest"
     assert pre["empreinte"] == R.empreinte() == "04fc671b86f15a5c"
-    assert "clotures journalieres" in pre["amendement"]
+    assert "barre 5 min de 23:55" in pre["amendement"]
+    assert "clotures journalieres" in pre["regles"]["amendement"]
     assert pre["empreinte_preenregistrement"] == ca.empreinte_texte()
     assert "n_configurations" not in pre
     assert R.ID_EXP not in {x.get("experience") for x in experiences.runs_journalises()}
@@ -157,7 +158,7 @@ def test_un_actif_synthetique_de_bout_en_bout(monkeypatch):
     assert a["jours_evalues"] == 800 - 729 - 5                    # origines 729 a 794
     assert a["periodes"]["har_des_le"] == "2020-12-30"
     assert a["jours_exclus"]["total"] == 0 and a["causalite"] == []
-    assert a["dernier_har"]["lignes"] == 704
+    assert a["dernier_har"]["lignes"] == 704 and a["controle_1d"] == []
     assert a["diebold_mariano"]["n"] == a["jours_evalues"]
 
 
@@ -173,11 +174,25 @@ def test_un_jour_evaluable_sans_prevision_arrete_la_campagne(monkeypatch):
 def test_l_epreuve_de_causalite_attrape_un_regard_vers_le_futur(monkeypatch):
     monkeypatch.setattr(R, "COUPURES_CAUSALITE", ("2020-12-31", "2021-01-31"))
     b = _barres(800)
-    c = _cloture_1d(b)
-    assert ca.causalite(b, c, ca.previsions(b, c)) == []
+    assert ca.causalite(b, ca.previsions(b)) == []
     vrai = hr.ecart_type_30
     monkeypatch.setattr(ca.hr, "ecart_type_30", lambda s: vrai(s).shift(-1))
-    assert ca.causalite(b, c, ca.previsions(b, c)) != []
+    assert ca.causalite(b, ca.previsions(b)) != []
+
+
+def test_la_cloture_du_jour_est_la_barre_de_23h55_et_une_1d_fausse_est_rapportee(monkeypatch):
+    monkeypatch.setattr(R, "COUPURES_CAUSALITE", ())
+    b = _barres(800)
+    c = _cloture_1d(b)
+    clo = dn.clotures_5m(b)
+    assert clo.index.equals(c.index) and (clo == c).all()
+    sans = b.drop(pd.Timestamp("2019-06-01 23:55", tz="UTC"))
+    assert pd.Timestamp("2019-06-01") not in dn.clotures_5m(sans).index    # pas de comblement
+    fausse = c.copy()
+    fausse.loc[pd.Timestamp("2019-03-01")] *= 1.01
+    a, a_faux = ca.mesurer_actif(b, c), ca.mesurer_actif(b, fausse)
+    assert a_faux["controle_1d"] == ["2019-03-01"] and a["controle_1d"] == []
+    assert a_faux["qlike"] == a["qlike"]                    # la copie 1d ne change aucun calcul
 
 
 def test_les_copies_sont_verifiees_par_leur_sha256_et_coupees_a_la_fin(tmp_path, monkeypatch):

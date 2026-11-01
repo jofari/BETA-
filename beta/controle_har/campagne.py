@@ -1,9 +1,10 @@
 """Controle HAR : la campagne, de bout en bout.
 
 Ordre : gel verifie (regles, texte du preenregistrement, marque diagnostic) -> copies figees
-verifiees (SHA-256) et clotures 1d = barre 5 min de 23:55 -> par actif : RV journaliere,
-ecart-type 30 jours, HAR glissant, replis, epreuve de causalite, QLIKE sur les jours evalues,
-Diebold-Mariano (information) -> regle 5 -> rapport ecrit par le programme.
+verifiees (SHA-256) -> par actif : RV journaliere, ecart-type 30 jours sur les clotures de la barre
+5 min de 23:55 (amendement du 01/11), HAR glissant, replis, epreuve de causalite, QLIKE sur les
+jours evalues, Diebold-Mariano (information), controle des copies 1d (rapporte) -> regle 5 ->
+rapport ecrit par le programme.
 Aucun run n'est journalise : test de mesure sans essai, le compteur ne bouge pas.
 """
 
@@ -69,11 +70,11 @@ def compteurs() -> dict:
 
 # ----------------------------------------------------------------------------- un actif
 
-def previsions(barres: pd.DataFrame, close_1d: pd.Series) -> pd.DataFrame:
+def previsions(barres: pd.DataFrame) -> pd.DataFrame:
     """Jour par jour : RV, cible, prevision HAR brute et apres replis, ecart-type 30 jours."""
     rvj = hr.rv_journaliere(barres)
     rv = rvj["rv"]
-    ecart = hr.ecart_type_30(close_1d).reindex(rv.index)
+    ecart = hr.ecart_type_30(dn.clotures_5m(barres)).reindex(rv.index)
     h = hr.har(rv)
     retenue, avant, negative = hr.replis(h["prevision"], h["jours_rv"], ecart)
     return pd.DataFrame({
@@ -85,14 +86,14 @@ def previsions(barres: pd.DataFrame, close_1d: pd.Series) -> pd.DataFrame:
         **{f"b{k}": h[f"b{k}"] for k in range(4)}})
 
 
-def causalite(barres: pd.DataFrame, close_1d: pd.Series, plein: pd.DataFrame) -> list[str]:
+def causalite(barres: pd.DataFrame, plein: pd.DataFrame) -> list[str]:
     """Previsions recalculees avec les seules donnees <= chaque coupure = previsions completes."""
     echecs = []
     for coupure in map(pd.Timestamp, R.COUPURES_CAUSALITE):
         if not plein.index.min() <= coupure < plein.index.max():
             continue
         lendemain = (coupure + pd.Timedelta(days=1)).tz_localize("UTC")
-        court = previsions(barres[barres.index < lendemain], close_1d[close_1d.index <= coupure])
+        court = previsions(barres[barres.index < lendemain])
         ref = plein[plein.index <= coupure]
         for col in ("har_brut", "har", "ecart_type"):
             if not (court.index.equals(ref.index)
@@ -107,8 +108,8 @@ def _jour(d) -> str | None:
 
 
 def mesurer_actif(barres: pd.DataFrame, close_1d: pd.Series) -> dict:
-    p = previsions(barres, close_1d)
-    echecs = causalite(barres, close_1d, p)
+    p = previsions(barres)
+    echecs = causalite(barres, p)
     if echecs:
         raise ControleError(f"epreuve de causalite ratee : {echecs}")
     eligibles = (p["jours_rv"] >= R.FENETRE_MCO) & p["cible"].notna()
@@ -153,6 +154,7 @@ def mesurer_actif(barres: pd.DataFrame, close_1d: pd.Series) -> dict:
         "dernier_har": {"jour": _jour(dernier), "lignes": int(p.at[dernier, "lignes"]),
                         "coefficients": [float(p.at[dernier, f"b{k}"]) for k in range(4)]},
         "causalite": echecs,
+        "controle_1d": dn.controle_clotures(barres, close_1d),
     }
 
 
@@ -179,14 +181,8 @@ def _propre(x):
 
 
 def lire() -> dict[str, tuple[pd.DataFrame, pd.Series]]:
-    """Les copies figees, verifiees ; arret si une cloture 1d differe de la barre de 23:55."""
-    lus = {a: (dn.bougies_5m(a), dn.clotures_1d(a)) for a in R.ACTIFS}
-    for actif, (barres, close_1d) in lus.items():
-        ecarts = dn.controle_clotures(barres, close_1d)
-        if ecarts:
-            raise dn.DonneesError(f"{actif} : {len(ecarts)} jour(s) ou la cloture 1d differe de "
-                                  f"la barre 5 min de 23:55 : {ecarts[:5]}")
-    return lus
+    """Les copies figees (bougies 5 min, et 1d pour le controle), SHA-256 verifie."""
+    return {a: (dn.bougies_5m(a), dn.clotures_1d(a)) for a in R.ACTIFS}
 
 
 def lancer(recalculer: bool = False) -> dict:

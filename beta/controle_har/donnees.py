@@ -2,8 +2,8 @@
 
 Lecture seule. Chaque copie est verifiee par son SHA-256 AVANT d'etre lue : une copie qui a change
 depuis le gel n'est pas la donnee preenregistree. Barres 5 min : index tz-aware UTC = heure
-d'ouverture. Clotures 1d : index naif = jour civil UTC, la cloture du jour D est celle de la
-bougie 1d ouverte en D a 00:00 UTC.
+d'ouverture. Depuis l'amendement du 01/11/2026 (Jonas), la cloture du jour D est celle de la barre
+5 min ouverte en D a 23:55 UTC ; les copies 1d ne servent plus qu'au controle.
 """
 
 from __future__ import annotations
@@ -70,10 +70,20 @@ def clotures_1d(actif: str) -> pd.Series:
     return s
 
 
+def clotures_5m(barres: pd.DataFrame) -> pd.Series:
+    """Cloture du jour D = cloture de la barre 5 min ouverte en D a 23:55 UTC ; un jour sans
+    cette barre n'a pas de cloture. Index naif = jour civil UTC."""
+    heure, minute = R.BARRE_DE_CLOTURE
+    s = barres["close"][(barres.index.hour == heure) & (barres.index.minute == minute)]
+    s = s.astype(float)
+    s.index = s.index.tz_convert(None).normalize()
+    return s.rename("close")
+
+
 def controle_clotures(barres: pd.DataFrame, close_1d: pd.Series) -> list[str]:
-    """Jours ou la cloture 1d differe de la cloture de la barre 5 min de 23:55 (doit etre vide)."""
-    derniere = barres["close"][barres.index.strftime("%H:%M") == "23:55"]
-    derniere.index = derniere.index.tz_convert(None).normalize()
+    """Jours ou la cloture 1d differe de celle de la barre 5 min de 23:55, ou n'a pas de barre de
+    23:55 : rapportes, sans effet sur le calcul (amendement du 01/11)."""
+    derniere = clotures_5m(barres)
     communs = close_1d.index.intersection(derniere.index)
     ecart = communs[close_1d.loc[communs].to_numpy() != derniere.loc[communs].to_numpy()]
     sans_barre = close_1d.index.difference(derniere.index)
