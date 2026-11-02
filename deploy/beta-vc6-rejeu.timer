@@ -1,0 +1,9 @@
+[Unit]
+Description=BETA - rejeu hebdomadaire du paper de plomberie VC6 V2, le lundi a 02:00 UTC
+
+[Timer]
+OnCalendar=Mon *-*-* 02:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

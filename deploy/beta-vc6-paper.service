@@ -1,0 +1,29 @@
+# BETA — « Paper de plomberie – VC6 V2 poche baissiere sous HAR » (Jonas, 02/11/2026). Run NON juge :
+# il verifie l'execution. Decision a la cloture de la veille (barre 5 min de 23:55) avec le code du
+# backtest, execution simulee au comptant a l'ouverture de la bougie 1 min de 00:00, + 10 pb, une
+# ligne dans PAPER_VC6.jsonl (commite par beta-journaux a 01:15). Aucune cle, aucun ordre reel.
+# Installe par : cp deploy/beta-vc6-paper.{service,timer} /etc/systemd/system/
+#                mkdir -p /etc/systemd/system/beta-vc6-paper.service.d
+#                cp deploy/notif.conf /etc/systemd/system/beta-vc6-paper.service.d/
+#                systemctl daemon-reload && systemctl enable --now beta-vc6-paper.timer
+# Sorties (scripts/vc6_paper.py) : 1 marche illisible -> relance 5 min plus tard ; 2 gel rompu ;
+# 3 causalite rompue ; 4 donnee manquante a la cloture -> aucun ordre, alerte, PAS de relance.
+[Unit]
+Description=BETA - paper de plomberie VC6 V2 (poche baissiere sous HAR), non juge
+After=network-online.target beta-maj.service
+Wants=network-online.target
+StartLimitIntervalSec=1h
+StartLimitBurst=6
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/beta/bin/python scripts/vc6_paper.py
+TimeoutStartSec=600
+Restart=on-failure
+RestartSec=5min
+RestartPreventExitStatus=2 3 4
+Nice=10
+CPUQuota=50%
+MemoryMax=2G

@@ -1,0 +1,19 @@
+# BETA — rejeu hebdomadaire du « Paper de plomberie – VC6 V2 poche baissiere sous HAR » : le
+# backtest rejoue sur les 7 derniers jours d'execution, tout ecart d'exposition de plus de 5 points
+# explique, controle que le lake vivant redonne le backtest fige ; une ligne dans
+# PAPER_VC6_REJEU.jsonl. Installe comme beta-vc6-paper (drop-in notif.conf compris).
+# Sorties (scripts/vc6_rejeu.py) : 2 gel rompu ; 4 ecart non explique, backtest fige non reproduit
+# ou jour absent du journal -> alerte.
+[Unit]
+Description=BETA - rejeu hebdomadaire du paper de plomberie VC6 V2
+After=network-online.target beta-vc6-paper.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/BETA-
+Environment=ARIT_HOME=/root/ARIT2.0
+ExecStart=/root/venvs/beta/bin/python scripts/vc6_rejeu.py
+TimeoutStartSec=900
+Nice=10
+CPUQuota=50%
+MemoryMax=2G

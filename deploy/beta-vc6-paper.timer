@@ -1,0 +1,12 @@
+[Unit]
+Description=BETA - paper de plomberie VC6 V2, chaque jour a 00:40 UTC (apres beta-maj de 00:20)
+
+[Timer]
+# Le lake (beta-maj, 00:20) apporte la barre 5 min de 23:55 de la veille et le reglement de funding
+# de 00:00 : la decision de la cloture de la veille est alors calculable. Le prix d'execution
+# (ouverture de la bougie 1 min de 00:00) est deja connu : l'execution simulee est retroactive.
+OnCalendar=*-*-* 00:40:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
