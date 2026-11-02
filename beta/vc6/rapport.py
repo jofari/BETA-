@@ -1,15 +1,21 @@
 """VC6 V1, Temps 2 : le rapport, ecrit par le programme a partir des resultats (aucun chiffre a la
-main). Sortie : VC6_V1/rapport_temps2.md."""
+main). Sortie : VC6_V1/rapport_temps2.md.
+
+Correctif du 02/11/2026 (`correctif=...`, `beta.vc6.correctif`) : meme rapport, sections 6
+(aller-retours, grands bears) et 8 (grands bears) recalculees, ecrit dans
+VC6_V1/rapport_temps2_corrige.md. Sans `correctif`, la sortie est inchangee."""
 
 from __future__ import annotations
 
 import math
+import pathlib
 import subprocess
 
 from beta import config
 from beta.vc6 import regles as R
 
 SORTIE = config.RACINE / "VC6_V1" / "rapport_temps2.md"
+SORTIE_CORRIGEE = config.RACINE / "VC6_V1" / "rapport_temps2_corrige.md"
 NOMS = {k: v["nom"] for k, v in R.VARIANTES.items()}
 
 
@@ -65,22 +71,102 @@ def _sol_replis(res: dict) -> dict:
             "jours_repli": int(av.sum()), "jours": int(len(jours))}
 
 
-def ecrire(res: dict) -> str:
+def _entete_correctif(a, res: dict, cor: dict) -> None:
+    v = cor["verification"]
+    a("# VC6 V1 — rapport du « Temps 2 », corrigé")
+    a("")
+    a(f"- **Correctif daté du {cor['date']}** (Jonas), écrit par le programme "
+      f"(`scripts/vc6_v1_correctif.py`, commit `{cor['commit']}`). Mesures seulement : aucun "
+      "résultat d'essai, aucune règle, aucun seuil ne change. L'original reste "
+      "`VC6_V1/rapport_temps2.md`, non modifié.")
+    a(f"- Résultats des essais : run du 02/11/2026 (`scripts/vc6_temps2.py`, code du commit "
+      f"`{cor['commit_mesure']}`), règles `{res['empreinte_regles']}`, relus dans "
+      f"`{cor['resultats']}`. Vérification avant d'écrire : {v['runs']} séries re-simulées sur les "
+      f"copies figées (5 essais, leurs 5 témoins, 2 runs de robustesse et leurs 2 témoins), "
+      f"rendements identiques au bit près : {oui(v['identiques'])}.")
+    a(f"- Période principale : rendements du {res['periode']['debut']} au "
+      f"{res['periode']['fin']} ({res['periode']['n_jours']} jours).")
+    a(f"- Compteurs au moment de la mesure : invest **{res['compteurs']['invest']}** (54 + 5 "
+      f"essais), global {res['compteurs']['global']}, trading {res['compteurs']['trading']}. "
+      f"Sharpe déflaté au N invest = {res['n_essais_invest']}.")
+    a("- Backtest de diagnostic : il peut éliminer des choix, pas les valider.")
+    a("")
+    a(f"## Correctif du {cor['date']}")
+    a("")
+    a("1. **Section 6, aller-retours.** Les fenêtres de deux aller-retours qui se suivent se "
+      "chevauchaient : leurs frais et leurs écarts au témoin étaient additionnés plusieurs fois. "
+      "Les fenêtres qui se chevauchent sont maintenant fusionnées : chaque jour est compté une "
+      "seule fois. Contrôle automatique pour chaque essai : frais des aller-retours ≤ frais "
+      f"totaux → {'oui pour les 5 essais' if cor['controle_frais'] else 'NON'}.")
+    a("2. **Section 8, grands bears.** La bascule en baissier n'est cherchée qu'entre le plus "
+      "haut et le creux de l'épisode, bornes comprises ; sinon, « raté ». La même définition "
+      "s'applique à la table des grands bears de la section 6.")
+    a("")
+    a("Les autres sections sont écrites par le même programme, à partir des mêmes résultats, sans "
+      "changement. La section « Anomalies relevées à la relecture » de l'original n'est pas "
+      "reprise : ses points 1 et 2 sont ceux que ce correctif traite.")
+    a("")
+
+
+def _bears_principal(a, bears: list[dict], corrige: bool) -> None:
+    a("| plus haut | creux | retour au plus haut | baisse du BTC | bascule en baissier | délai "
+      "(jours) | baisse du BTC avant la bascule | perte des variantes avant la bascule |")
+    a("|---|---|---|---|---|---|---|---|")
+    for b in bears:
+        pv = " ; ".join(f"{NOMS[k]} {pc(x)}" for k, x in b["perte_variantes"].items())
+        bascule = (b["bascule"] or "—") if not corrige else (
+            b["bascule"] if b["statut"] == "bascule" else "raté")
+        a(f"| {b['pic']} | {b['creux']} | {b['fin'] or 'pas encore'} | {pc(b['baisse_btc'])} | "
+          f"{bascule} | {b['delai_j'] if b['delai_j'] is not None else '—'} | "
+          f"{pc(b['baisse_btc_avant_bascule'])} | {pv or '—'} |")
+
+
+def _aller_retours_corriges(a, cor: dict) -> None:
+    ar = cor["aller_retours"]
+    f0 = ar["fixe"]
+    a(f"Aller-retours autour de la SMA 200 (bascule annulée en moins de 30 jours ; le mode est le "
+      f"même pour toutes les variantes) : **{f0['n']}**, regroupés en **{f0['n_fenetres']} "
+      f"fenêtres sans chevauchement** ({f0['jours']} jours, chaque jour compté une seule fois). "
+      "Fenêtre d'un aller-retour : de la bascule à la fin de la rampe qui suit la bascule "
+      "inverse.")
+    a("")
+    a("| essai | frais des aller-retours | frais totaux | contrôle : frais des aller-retours ≤ "
+      "frais totaux | rendement contre le témoin sur ces fenêtres |")
+    a("|---|---|---|---|---|")
+    for k in ("fixe", "vol", "annexe40", "or", "mixte"):
+        x = ar[k]
+        a(f"| {NOMS[k]} | {pc(x['frais_total'], 3)} | {pc(x['frais_totaux'], 3)} | "
+          f"{oui(x['controle_frais'])} | {pc(x['ecart_temoin_total'], 2, True)} |")
+    a("")
+    a("Fenêtres : " + " ; ".join(
+        f"{w['debut']} → {w['fin']} ({w['jours']} j, {w['aller_retours']} aller-retour"
+        f"{'s' if w['aller_retours'] > 1 else ''})" for w in f0["fenetres"]) + ".")
+    a("")
+    a("Détail des aller-retours : " + " ; ".join(
+        f"{x['bascule']} → {x['retour']} ({x['duree_j']} j, vers {x['vers']})"
+        for x in f0["paires"]) + ".")
+    a("")
+
+
+def ecrire(res: dict, sortie: pathlib.Path | None = None, correctif: dict | None = None) -> str:
     L: list[str] = []
     a = L.append
     runs = res["runs"]
     coh = res["coherence"]
-    a("# VC6 V1 — rapport du « Temps 2 »")
-    a("")
-    a(f"- Écrit par le programme (`scripts/vc6_temps2.py`, commit `{_commit()}`), règles "
-      f"`{res['empreinte_regles']}`, préenregistrement `VC6_V1/temps2/PREENREGISTREMENT.md`.")
-    a(f"- Période principale : rendements du {res['periode']['debut']} au "
-      f"{res['periode']['fin']} ({res['periode']['n_jours']} jours).")
-    a(f"- Compteurs : invest **{res['compteurs']['invest']}** (54 + 5 essais), global "
-      f"{res['compteurs']['global']}, trading {res['compteurs']['trading']}. Sharpe déflaté au N "
-      f"invest = {res['n_essais_invest']}.")
-    a("- Backtest de diagnostic : il peut éliminer des choix, pas les valider.")
-    a("")
+    if correctif is not None:
+        _entete_correctif(a, res, correctif)
+    else:
+        a("# VC6 V1 — rapport du « Temps 2 »")
+        a("")
+        a(f"- Écrit par le programme (`scripts/vc6_temps2.py`, commit `{_commit()}`), règles "
+          f"`{res['empreinte_regles']}`, préenregistrement `VC6_V1/temps2/PREENREGISTREMENT.md`.")
+        a(f"- Période principale : rendements du {res['periode']['debut']} au "
+          f"{res['periode']['fin']} ({res['periode']['n_jours']} jours).")
+        a(f"- Compteurs : invest **{res['compteurs']['invest']}** (54 + 5 essais), global "
+          f"{res['compteurs']['global']}, trading {res['compteurs']['trading']}. Sharpe déflaté "
+          f"au N invest = {res['n_essais_invest']}.")
+        a("- Backtest de diagnostic : il peut éliminer des choix, pas les valider.")
+        a("")
     a("## 1. Tests de cohérence du moteur (avant tout run)")
     a("")
     ab = coh["a_b"]
@@ -202,31 +288,33 @@ def ecrire(res: dict) -> str:
     # --------------------------------------------------------------------------------- SMA
     a("## 6. SMA 200 : retard de sortie et aller-retours")
     a("")
-    a("Grands bears (baisse du BTC ≥ 30 % depuis son plus haut, période principale) :")
-    a("")
-    a("| plus haut | creux | retour au plus haut | baisse du BTC | bascule en baissier | délai "
-      "(jours) | baisse du BTC avant la bascule | perte des variantes avant la bascule |")
-    a("|---|---|---|---|---|---|---|---|")
-    for b in res["grands_bears"]:
-        pv = " ; ".join(f"{NOMS[k]} {pc(x)}" for k, x in b["perte_variantes"].items())
-        a(f"| {b['pic']} | {b['creux']} | {b['fin'] or 'pas encore'} | {pc(b['baisse_btc'])} | "
-          f"{b['bascule'] or '—'} | {b['delai_j'] if b['delai_j'] is not None else '—'} | "
-          f"{pc(b['baisse_btc_avant_bascule'])} | {pv or '—'} |")
-    a("")
-    ar = res["analyses"]["fixe"]["aller_retours"]
-    a(f"Aller-retours autour de la SMA 200 (bascule annulée en moins de 30 jours ; le mode est le "
-      f"même pour toutes les variantes) : **{ar['n']}**.")
-    a("")
-    a("| essai | frais des aller-retours | rendement contre le témoin sur ces fenêtres |")
-    a("|---|---|---|")
-    for k in ("fixe", "vol", "annexe40", "or", "mixte"):
-        x = res["analyses"][k]["aller_retours"]
-        a(f"| {NOMS[k]} | {pc(x['frais_total'], 3)} | {pc(x['ecart_temoin_total'], 2, True)} |")
-    a("")
-    if ar["detail"]:
-        a("Détail : " + " ; ".join(f"{x['bascule']} → {x['retour']} ({x['duree_j']} j, vers "
-                                   f"{x['vers']})" for x in ar["detail"]) + ".")
+    if correctif is not None:
+        a("Grands bears (baisse du BTC ≥ 30 % depuis son plus haut, période principale ; "
+          "bascule cherchée entre le plus haut et le creux, sinon « raté ») :")
         a("")
+        _bears_principal(a, correctif["grands_bears"], True)
+        a("")
+        _aller_retours_corriges(a, correctif)
+    else:
+        a("Grands bears (baisse du BTC ≥ 30 % depuis son plus haut, période principale) :")
+        a("")
+        _bears_principal(a, res["grands_bears"], False)
+        a("")
+        ar = res["analyses"]["fixe"]["aller_retours"]
+        a(f"Aller-retours autour de la SMA 200 (bascule annulée en moins de 30 jours ; le mode est "
+          f"le même pour toutes les variantes) : **{ar['n']}**.")
+        a("")
+        a("| essai | frais des aller-retours | rendement contre le témoin sur ces fenêtres |")
+        a("|---|---|---|")
+        for k in ("fixe", "vol", "annexe40", "or", "mixte"):
+            x = res["analyses"][k]["aller_retours"]
+            a(f"| {NOMS[k]} | {pc(x['frais_total'], 3)} | "
+              f"{pc(x['ecart_temoin_total'], 2, True)} |")
+        a("")
+        if ar["detail"]:
+            a("Détail : " + " ; ".join(f"{x['bascule']} → {x['retour']} ({x['duree_j']} j, vers "
+                                       f"{x['vers']})" for x in ar["detail"]) + ".")
+            a("")
     # --------------------------------------------------------------------------------- coince
     a("## 7. Où ça coince")
     a("")
@@ -295,10 +383,18 @@ def ecrire(res: dict) -> str:
           f"utile au critère de la règle 1 : {oui(rob['runs'][k]['utile'])} ; jours en levier "
           f"{lv['jours']}, financement de ces jours {pc(lv['financement'], 3)}.")
     a("")
+    if correctif is not None:
+        a("Grands bears depuis 2014 (Bitstamp) : bascule cherchée entre le plus haut et le creux "
+          "de l'épisode, sinon « raté » (correctif).")
+        a("")
     a("| plus haut | creux | baisse du BTC | bascule | délai (jours) | baisse avant la bascule |")
     a("|---|---|---|---|---|---|")
-    for b in rob["grands_bears"]:
-        a(f"| {b['pic']} | {b['creux']} | {pc(b['baisse_btc'])} | {b['bascule'] or '—'} | "
+    bears_rob = (correctif["robustesse_grands_bears"] if correctif is not None
+                 else rob["grands_bears"])
+    for b in bears_rob:
+        bascule = (b["bascule"] or "—") if correctif is None else (
+            b["bascule"] if b["statut"] == "bascule" else "raté")
+        a(f"| {b['pic']} | {b['creux']} | {pc(b['baisse_btc'])} | {bascule} | "
           f"{b['delai_j'] if b['delai_j'] is not None else '—'} | "
           f"{pc(b['baisse_btc_avant_bascule'])} |")
     a("")
@@ -368,5 +464,6 @@ def ecrire(res: dict) -> str:
     a("- **SMA unique** : **non mesurable** ici ; voir le retard de sortie et les aller-retours "
       "(section 6).")
     a("")
-    SORTIE.write_text("\n".join(L) + "\n", encoding="utf-8")
-    return str(SORTIE)
+    cible = sortie or (SORTIE_CORRIGEE if correctif is not None else SORTIE)
+    cible.write_text("\n".join(L) + "\n", encoding="utf-8")
+    return str(cible)
