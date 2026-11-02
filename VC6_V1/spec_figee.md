@@ -114,3 +114,37 @@ Les clôtures du point 2 sont les copies figées `ETH_perp_1d.parquet` et `SOL_p
 - **HAR** : prévision HAR de la variance journalière moyenne des 5 jours suivants, avec ses replis (écart-type 30 jours avant 730 jours de RV et les jours de prévision ≤ 0).
 - **Écart-type 30 jours** : écart-type d'échantillon des 30 derniers rendements log journaliers, au carré.
 - La spec annualise σ̂i en √365.
+
+## Addendum du 02/11/2026 — décisions de Jonas du 01/11/2026 avant la phase 3
+
+Inscrit le 02/11/2026, à la demande de Jonas, après le « Contrôle HAR » et avant tout code de la phase 3. Son texte est recopié mot pour mot entre les marqueurs. La spec ci-dessus n'est pas modifiée.
+
+=== ADDENDUM DU 01/11/2026 — DÉCISIONS DE JONAS AVANT LA PHASE 3 ===
+1. Contrôle HAR : σ̂ = HAR pour BTC, ETH et SOL (règle 5), avec les replis prévus. Pas de PBO pour ce test de mesure.
+2. Série du BTC pour le mode global : clôture du perpétuel Binance USDT-M (barre 5 min de 23:55) pour la période principale, comme ETH et SOL. Bitstamp au comptant uniquement pour la robustesse BTC seul depuis 2014, avec σ̂ = écart-type 30 jours (les bougies 5 min commencent en 2019).
+3. Ajouts au rapport du Temps 2 (mesures seulement, aucune règle modifiée) :
+   - sur les jours où une poche est investie, sa volatilité réalisée comparée à sa cible (25 % ou 40 %), par variante et pour le test annexe ;
+   - sur la période commune, nombre de jours où le mode global diffère entre le perpétuel et Bitstamp.
+=== FIN ADDENDUM ===
+
+Les séries du point 2 sont les copies figées `BTC_perp_5m.parquet` (période principale) et `BTC_bitstamp_1d.parquet` (robustesse) de la table « Données figées ».
+
+## Inventaire des données de la phase 3 (02/11/2026)
+
+Écrit à partir de `VC6_V1/phase3_inventaire.json`, produit par `VC6_V1/phase3_inventaire.py` (lecture seule des copies figées, SHA-256 contrôlé contre `VC6_V1/sources_figees.json`). Période principale : 01/06/2021 → 31/10/2026.
+
+| donnée | copie figée | début | fin | trous sur la période principale | SHA-256 = gel |
+|---|---|---|---|---|---|
+| funding BTC | `BTC_funding` | 10/09/2019 08:00 | 01/11/2026 00:00 | 5 938 règlements, aucun écart > 8 h, aucun jour sans règlement | oui |
+| funding ETH | `ETH_funding` | 27/11/2019 08:00 | 01/11/2026 00:00 | 5 938 règlements, aucun écart > 8 h, aucun jour sans règlement | oui |
+| funding SOL | `SOL_funding` | 13/09/2020 16:00 | 01/11/2026 00:00 | 6 013 règlements, aucun écart > 8 h ; 101 intervalles < 8 h (krach de FTX, 09-18/11/2022) | oui |
+| marge de maintenance | — | — | — | **ABSENTE** : aucun fichier dans `data/`, aucune table ni colonne dans la base DS1 | — |
+| or, fixing LBMA PM | `XAU_LBMA_1d` | 01/01/1970 | 30/10/2026 | 54 jours lun-ven sans valeur, 13 écarts > 4 jours (6 au plus) | oui |
+| or, comptant Dukascopy | `XAU_SPOT_1d` | 05/05/2003 | 30/10/2026 | 6 jours lun-ven sans valeur, aucun écart > 4 jours ; 278 valeurs le dimanche soir | oui |
+| or, future COMEX GC=F | `XAUUSD_GCF_1d` | 04/01/2010 | 30/10/2026 | 49 jours lun-ven sans valeur, aucun écart > 4 jours ; 8 séances à volume nul | oui |
+| or, perpétuel Binance | `XAU_perp_1d` | 11/12/2025 | 31/10/2026 | ne couvre pas la période principale | oui |
+| ETF monde URTH | `URTH_1d` | 12/01/2012 | 30/10/2026 | 52 jours lun-ven sans valeur, aucun écart > 4 jours | oui |
+
+**Verdict du programme : `phase3_possible = false`, donnée manquante : marge de maintenance.** Phase 3 non lancée.
+
+Non tranché, relevé sans être bloquant pour l'inventaire : la source d'or à utiliser (quatre présentes, trois couvrent la période principale) ; funding et marge avant 2019 pour la robustesse BTC seul depuis 2014.

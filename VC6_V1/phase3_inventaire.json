@@ -1,0 +1,201 @@
+{
+ "funding": {
+  "BTC": {
+   "copie": "BTC_funding",
+   "sha256": "bd970babd9c36149e0c6b9e295be90bd01d4cb4cc650be5a95ea0484fe0bc006",
+   "conforme_au_gel": true,
+   "debut": "2019-09-10 08:00:00+00:00",
+   "fin": "2026-11-01 00:00:00+00:00",
+   "valeurs_manquantes": 0,
+   "toute_la_serie": {
+    "reglements": 7827,
+    "ecarts_sup_8h": 0,
+    "ecart_max_h": 8.0,
+    "ecarts_inf_8h": 0,
+    "jours_sans_reglement": 0
+   },
+   "periode_principale": {
+    "reglements": 5938,
+    "ecarts_sup_8h": 0,
+    "ecart_max_h": 8.0,
+    "ecarts_inf_8h": 0,
+    "jours_sans_reglement": 0
+   }
+  },
+  "ETH": {
+   "copie": "ETH_funding",
+   "sha256": "335f28b5d669c78c354aed3a3fd0334eb86d07dff889ca3d997bc3d6b94413a6",
+   "conforme_au_gel": true,
+   "debut": "2019-11-27 08:00:00+00:00",
+   "fin": "2026-11-01 00:00:00+00:00",
+   "valeurs_manquantes": 0,
+   "toute_la_serie": {
+    "reglements": 7593,
+    "ecarts_sup_8h": 0,
+    "ecart_max_h": 8.0,
+    "ecarts_inf_8h": 0,
+    "jours_sans_reglement": 0
+   },
+   "periode_principale": {
+    "reglements": 5938,
+    "ecarts_sup_8h": 0,
+    "ecart_max_h": 8.0,
+    "ecarts_inf_8h": 0,
+    "jours_sans_reglement": 0
+   }
+  },
+  "SOL": {
+   "copie": "SOL_funding",
+   "sha256": "4c17b7a34a5e6a4d0730c399a2d5dc757a8b56aa461a07663618d0089bfc6757",
+   "conforme_au_gel": true,
+   "debut": "2020-09-13 16:00:00+00:00",
+   "fin": "2026-11-01 00:00:00+00:00",
+   "valeurs_manquantes": 0,
+   "toute_la_serie": {
+    "reglements": 6794,
+    "ecarts_sup_8h": 0,
+    "ecart_max_h": 8.0,
+    "ecarts_inf_8h": 101,
+    "jours_sans_reglement": 0
+   },
+   "periode_principale": {
+    "reglements": 6013,
+    "ecarts_sup_8h": 0,
+    "ecart_max_h": 8.0,
+    "ecarts_inf_8h": 101,
+    "jours_sans_reglement": 0
+   }
+  }
+ },
+ "quotidiennes": {
+  "or_LBMA": {
+   "copie": "XAU_LBMA_1d",
+   "sha256": "8f7c1cc5bffc3d76049391eb2530baf0a0c9e2215e0ab06d17651c1104dfd0bb",
+   "conforme_au_gel": true,
+   "debut": "1970-01-01 00:00:00+00:00",
+   "fin": "2026-10-30 00:00:00+00:00",
+   "clotures_manquantes_ou_non_positives": 0,
+   "toute_la_serie": {
+    "lignes": 14748,
+    "jours_lun_ven_sans_valeur": 79,
+    "ecarts_sup_4_jours": 18,
+    "ecart_max_jours": 6,
+    "valeurs_week_end": 0
+   },
+   "periode_principale": {
+    "lignes": 1360,
+    "jours_lun_ven_sans_valeur": 54,
+    "ecarts_sup_4_jours": 13,
+    "ecart_max_jours": 6,
+    "valeurs_week_end": 0
+   },
+   "couvre_periode_principale": true
+  },
+  "or_SPOT": {
+   "copie": "XAU_SPOT_1d",
+   "sha256": "4ec3b0f04a72f838db89177618096078c8184b2feed25497997aa718d38be542",
+   "conforme_au_gel": true,
+   "debut": "2003-05-05 00:00:00+00:00",
+   "fin": "2026-10-30 00:00:00+00:00",
+   "clotures_manquantes_ou_non_positives": 0,
+   "toute_la_serie": {
+    "lignes": 7316,
+    "jours_lun_ven_sans_valeur": 20,
+    "ecarts_sup_4_jours": 0,
+    "ecart_max_jours": 3,
+    "valeurs_week_end": 1206
+   },
+   "periode_principale": {
+    "lignes": 1686,
+    "jours_lun_ven_sans_valeur": 6,
+    "ecarts_sup_4_jours": 0,
+    "ecart_max_jours": 3,
+    "valeurs_week_end": 278
+   },
+   "couvre_periode_principale": true,
+   "volume_nul_periode_principale": 0
+  },
+  "or_GCF": {
+   "copie": "XAUUSD_GCF_1d",
+   "sha256": "a29a114213acee565cbc19314fc765e93a1c26263c69feb436b39faf8f3024ea",
+   "conforme_au_gel": true,
+   "debut": "2010-01-04 00:00:00+00:00",
+   "fin": "2026-10-30 00:00:00+00:00",
+   "clotures_manquantes_ou_non_positives": 0,
+   "toute_la_serie": {
+    "lignes": 4233,
+    "jours_lun_ven_sans_valeur": 157,
+    "ecarts_sup_4_jours": 1,
+    "ecart_max_jours": 5,
+    "valeurs_week_end": 0
+   },
+   "periode_principale": {
+    "lignes": 1365,
+    "jours_lun_ven_sans_valeur": 49,
+    "ecarts_sup_4_jours": 0,
+    "ecart_max_jours": 4,
+    "valeurs_week_end": 0
+   },
+   "couvre_periode_principale": true,
+   "volume_nul_periode_principale": 8
+  },
+  "or_perp": {
+   "copie": "XAU_perp_1d",
+   "sha256": "5ccfff01be70ff1fc2011b38869a39bbcd9c26c226c840fc012ce51859babdcf",
+   "conforme_au_gel": true,
+   "debut": "2025-12-11 00:00:00+00:00",
+   "fin": "2026-10-31 00:00:00+00:00",
+   "clotures_manquantes_ou_non_positives": 0,
+   "toute_la_serie": {
+    "lignes": 325,
+    "jours_lun_ven_sans_valeur": 0,
+    "ecarts_sup_4_jours": 0,
+    "ecart_max_jours": 1,
+    "valeurs_week_end": 93
+   },
+   "periode_principale": {
+    "lignes": 325,
+    "jours_lun_ven_sans_valeur": 0,
+    "ecarts_sup_4_jours": 0,
+    "ecart_max_jours": 1,
+    "valeurs_week_end": 93
+   },
+   "couvre_periode_principale": false,
+   "volume_nul_periode_principale": 0
+  },
+  "ETF_monde_URTH": {
+   "copie": "URTH_1d",
+   "sha256": "266aec60912cf63e2cf6ef669f6d1a5849f6be8a0f66a084b1a9cfe3589bbdf4",
+   "conforme_au_gel": true,
+   "debut": "2012-01-12 00:00:00+00:00",
+   "fin": "2026-10-30 00:00:00+00:00",
+   "clotures_manquantes_ou_non_positives": 0,
+   "toute_la_serie": {
+    "lignes": 3722,
+    "jours_lun_ven_sans_valeur": 140,
+    "ecarts_sup_4_jours": 1,
+    "ecart_max_jours": 5,
+    "valeurs_week_end": 0
+   },
+   "periode_principale": {
+    "lignes": 1362,
+    "jours_lun_ven_sans_valeur": 52,
+    "ecarts_sup_4_jours": 0,
+    "ecart_max_jours": 4,
+    "valeurs_week_end": 0
+   },
+   "couvre_periode_principale": true,
+   "volume_nul_periode_principale": 0
+  }
+ },
+ "marge_de_maintenance": {
+  "fichiers_data_BETA": [],
+  "colonnes_DS1": [],
+  "requete_DS1_ok": true,
+  "presente": false
+ },
+ "donnees_manquantes": [
+  "marge de maintenance"
+ ],
+ "phase3_possible": false
+}
