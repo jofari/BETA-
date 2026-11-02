@@ -144,7 +144,9 @@ avant de coder**.
   `beta-vc4-sessions` (08:02 Londres, 09:32 New York, en semaine) · `beta-paper-direct`
   (chaque minute) · `beta-marches` 23:10 (vrais marchés, quotidien) · `beta-marches-direct`
   (toutes les 5 min, intraday) · `beta-marches-histo` (toutes les heures, rattrapage de l'or
-  intraday depuis 2003).
+  intraday depuis 2003) · `beta-vc6-paper` 00:40 (paper de plomberie de VC6 V2, non jugé,
+  depuis le 03/11/2026 → `PAPER_VC6.jsonl`) · `beta-vc6-rejeu` (lundi 02:00, rejeu du backtest
+  → `PAPER_VC6_REJEU.jsonl`).
 - **Journaux forward**, à la racine, en ajout seul : `SUIVI_*.jsonl`, `CONSIGNES_VC4.jsonl`,
   `PAPER_*.jsonl` (poussés chaque nuit) ; `DIRECT_PAPER.jsonl` (relevé minute, hors git).
 - **Dashboard** `beta-web` en lecture seule sur `127.0.0.1:7474`, ouvert depuis le PC par
