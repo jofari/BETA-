@@ -121,3 +121,8 @@
 {"run_id": "d53a33a79a87", "experience": "T1J", "candidate": "temps1_justesse:MOM126:BTC", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.768115+00:00"}
 {"run_id": "65c03058dcea", "experience": "T1J", "candidate": "temps1_justesse:C1_V1:BTC", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.769112+00:00"}
 {"run_id": "726d71ce72e6", "experience": "T1J", "candidate": "temps1_justesse:C1_V2:BTC", "empreinte": "c0959f429d9dcf8f", "issue": "lance", "date": "2026-10-24T13:21:00.769536+00:00"}
+{"run_id": "89723f991e4d", "experience": "VC6_V1_TEMPS2", "candidate": "vc6_temps2:fixe", "empreinte": "e1a40b41393ae196", "issue": "essai journalise avant calcul", "date": "2026-11-02T08:41:06.179251+00:00"}
+{"run_id": "0fe87670603f", "experience": "VC6_V1_TEMPS2", "candidate": "vc6_temps2:vol", "empreinte": "e1a40b41393ae196", "issue": "essai journalise avant calcul", "date": "2026-11-02T08:41:06.179468+00:00"}
+{"run_id": "6a9552e9372e", "experience": "VC6_V1_TEMPS2", "candidate": "vc6_temps2:annexe40", "empreinte": "e1a40b41393ae196", "issue": "essai journalise avant calcul", "date": "2026-11-02T08:41:06.179662+00:00"}
+{"run_id": "48b8f0ab6544", "experience": "VC6_V1_TEMPS2", "candidate": "vc6_temps2:or", "empreinte": "e1a40b41393ae196", "issue": "essai journalise avant calcul", "date": "2026-11-02T08:41:06.179865+00:00"}
+{"run_id": "5d1e98701881", "experience": "VC6_V1_TEMPS2", "candidate": "vc6_temps2:mixte", "empreinte": "e1a40b41393ae196", "issue": "essai journalise avant calcul", "date": "2026-11-02T08:41:06.180040+00:00"}

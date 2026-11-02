@@ -148,3 +148,14 @@ Les séries du point 2 sont les copies figées `BTC_perp_5m.parquet` (période p
 **Verdict du programme : `phase3_possible = false`, donnée manquante : marge de maintenance.** Phase 3 non lancée.
 
 Non tranché, relevé sans être bloquant pour l'inventaire : la source d'or à utiliser (quatre présentes, trois couvrent la période principale) ; funding et marge avant 2019 pour la robustesse BTC seul depuis 2014.
+
+## Addendum du 02/11/2026 — réponses de Jonas avant le code du « Temps 2 »
+
+Inscrit le 02/11/2026, après le GO de la phase 3 et avant tout code et tout calcul du « Temps 2 ». Ce sont les réponses de Jonas aux quatre questions posées ce jour-là. La spec ci-dessus n'est pas modifiée.
+
+=== ADDENDUM DU 02/11/2026 — RÉPONSES DE JONAS ===
+1. Marge de maintenance : 0,5 % pour BTC, ETH et SOL. Constante écrite dans la spec, ordre de grandeur du premier palier Binance. Ce n'est pas une source. Elle est sans effet si elle reste sous ≈ 47 %, et le rapport compte quand même les jours contraints.
+2. Source d'or : comptant Dukascopy (`XAU_SPOT`), agrégé par jour UTC comme les cryptos. Ses valeurs du dimanche soir sont ignorées (règle du week-end).
+3. Robustesse BTC seul depuis 2014 : avant le 10/09/2019, le funding est fixé à 0,01 % par règlement de 8 h (≈ 10,95 % par an). Le levier coûte quelque chose et le filtre de 20 % ne se déclenche jamais. C'est écrit dans la section robustesse.
+4. PBO : calculée et rapportée, seuil S10 de 20 % à titre d'information. Les règles de décision 1 à 4 décident seules.
+=== FIN ADDENDUM ===
