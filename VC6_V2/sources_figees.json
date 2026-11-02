@@ -1,0 +1,87 @@
+{
+ "fin_figee": "2026-10-31",
+ "fige_le_v1": "2026-11-01T17:03:25+00:00",
+ "sources": {
+  "BTC_perp_5m": {
+   "copie": "data/vc6_v1/sources_figees/BTC_perp_5m.parquet",
+   "origine": "lake BETA data/lake/BTC_USDT_USDT-5m.parquet (perpetuel Binance USDT-M, date = ouverture de la bougie)",
+   "sha256": "42e62509f051ece9fd86f2a19848e36d53b88b0661243b9aae91320e4caf3618",
+   "egal_au_gel_v1": true,
+   "premiere_ligne": "2019-09-08 17:55",
+   "derniere_ligne": "2026-10-31 23:55",
+   "lignes": 751753,
+   "usage_v2": "clôture de 23:55, σ̂ HAR, mode global (SMA 200), volatilité réalisée (test c)"
+  },
+  "ETH_perp_5m": {
+   "copie": "data/vc6_v1/sources_figees/ETH_perp_5m.parquet",
+   "origine": "lake BETA data/lake/ETH_USDT_USDT-5m.parquet (perpetuel Binance USDT-M, date = ouverture de la bougie)",
+   "sha256": "5e1a62bff2d7a21e2971e321d03e789d074a814c3f329c327e9af7c2ce7a592f",
+   "egal_au_gel_v1": true,
+   "premiere_ligne": "2019-11-27 07:45",
+   "derniere_ligne": "2026-10-31 23:55",
+   "lignes": 728835,
+   "usage_v2": "clôture de 23:55, σ̂ HAR, volatilité réalisée (test c)"
+  },
+  "SOL_perp_5m": {
+   "copie": "data/vc6_v1/sources_figees/SOL_perp_5m.parquet",
+   "origine": "lake BETA data/lake/SOL_USDT_USDT-5m.parquet (perpetuel Binance USDT-M, date = ouverture de la bougie)",
+   "sha256": "0771ad9ed20d60bc1b5e17d16e384fda03f2b2ec447656e938c182923f4fe75d",
+   "egal_au_gel_v1": true,
+   "premiere_ligne": "2020-09-14 07:00",
+   "derniere_ligne": "2026-10-31 23:55",
+   "lignes": 644748,
+   "usage_v2": "clôture de 23:55, σ̂ HAR, volatilité réalisée (test c)"
+  },
+  "BTC_funding": {
+   "copie": "data/vc6_v1/sources_figees/BTC_funding.parquet",
+   "origine": "data/raw/futures/BTC_USDT_USDT-1h-funding_rate.feather (freqtrade, Binance USDT-M ; date = instant de reglement)",
+   "sha256": "bd970babd9c36149e0c6b9e295be90bd01d4cb4cc650be5a95ea0484fe0bc006",
+   "egal_au_gel_v1": true,
+   "premiere_ligne": "2019-09-10 08:00",
+   "derniere_ligne": "2026-11-01 00:00",
+   "lignes": 7827,
+   "usage_v2": "filtre de financement et financement payé"
+  },
+  "ETH_funding": {
+   "copie": "data/vc6_v1/sources_figees/ETH_funding.parquet",
+   "origine": "data/raw/futures/ETH_USDT_USDT-1h-funding_rate.feather (freqtrade, Binance USDT-M ; date = instant de reglement)",
+   "sha256": "335f28b5d669c78c354aed3a3fd0334eb86d07dff889ca3d997bc3d6b94413a6",
+   "egal_au_gel_v1": true,
+   "premiere_ligne": "2019-11-27 08:00",
+   "derniere_ligne": "2026-11-01 00:00",
+   "lignes": 7593,
+   "usage_v2": "filtre de financement et financement payé"
+  },
+  "SOL_funding": {
+   "copie": "data/vc6_v1/sources_figees/SOL_funding.parquet",
+   "origine": "data/raw/futures/SOL_USDT_USDT-1h-funding_rate.feather (freqtrade, Binance USDT-M ; date = instant de reglement)",
+   "sha256": "4c17b7a34a5e6a4d0730c399a2d5dc757a8b56aa461a07663618d0089bfc6757",
+   "egal_au_gel_v1": true,
+   "premiere_ligne": "2020-09-13 16:00",
+   "derniere_ligne": "2026-11-01 00:00",
+   "lignes": 6794,
+   "usage_v2": "filtre de financement et financement payé"
+  },
+  "BTC_bitstamp_1d": {
+   "copie": "data/vc6_v1/sources_figees/BTC_bitstamp_1d.parquet",
+   "origine": "DS1 table bougies_1d, source bitstamp, symbole BTCUSD (docker exec psql, lecture seule ; jour civil UTC clos)",
+   "sha256": "5cd3f419ce33e215201e9d1e8f40cba458baba9645a38df26b8403c504f435dd",
+   "egal_au_gel_v1": true,
+   "premiere_ligne": "2011-08-18 00:00",
+   "derniere_ligne": "2026-10-31 00:00",
+   "lignes": 5554,
+   "usage_v2": "robustesse BTC seul depuis 2014 (clôtures, écart-type 30 jours)"
+  },
+  "URTH_1d": {
+   "copie": "data/vc6_v1/sources_figees/URTH_1d.parquet",
+   "origine": "lake BETA data/lake/MSCIWORLD-1d.parquet (yfinance URTH, iShares MSCI World ETF)",
+   "sha256": "266aec60912cf63e2cf6ef669f6d1a5849f6be8a0f66a084b1a9cfe3589bbdf4",
+   "egal_au_gel_v1": true,
+   "premiere_ligne": "2012-01-12 00:00",
+   "derniere_ligne": "2026-10-30 00:00",
+   "lignes": 3722,
+   "usage_v2": "référence ETF monde"
+  }
+ },
+ "sha256_bloc_spec": "3ba39a7ead70322c91b1bd177881f7a200fb291c02bf338d592de409062c7763"
+}
