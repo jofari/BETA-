@@ -8,7 +8,10 @@ Deux garde-fous repris d'ALPHA, tous deux payes par une panne reelle la-bas :
 
 1. **`allow_reuse_address = False`.** Sous Windows, `SO_REUSEADDR` ne contourne pas
    seulement TIME_WAIT : il laisse un second processus se lier a un port DEJA ecoute. Deux
-   serveurs tournaient alors en parallele sans que rien ne le signale.
+   serveurs tournaient alors en parallele sans que rien ne le signale. Sous Linux (VPS),
+   `SO_REUSEADDR` ne laisse PAS deux processus ecouter le meme port, et le refuser bloquait
+   le redemarrage de beta-web tant que les connexions du tunnel restaient en TIME_WAIT
+   (echec + fausse alerte Discord, 03/11) : il est donc active hors Windows seulement.
 2. **Le client ne demande jamais un chemin de fichier.** Il appelle des routes nommees ; le
    serveur choisit quoi lire. Le statique est confine a `web/` par `relative_to`.
 
@@ -24,6 +27,7 @@ import json
 import logging
 import math
 import mimetypes
+import os
 import pathlib
 import socketserver
 import threading
@@ -45,7 +49,7 @@ HOTE, PORT = "127.0.0.1", 7474      # 7373 est pris par ALPHA
 class ServeurExclusif(socketserver.ThreadingMixIn, http.server.HTTPServer):
     """Refuse un port deja en ecoute (voir le docstring du module)."""
 
-    allow_reuse_address = False
+    allow_reuse_address = os.name != "nt"
     daemon_threads = True
     # Sur le VPS, le dashboard est servi a travers un tunnel SSH (`beta-web.service`) :
     # aucun POST, et seuls les noms d'hote locaux sont acceptes — une page web malveillante

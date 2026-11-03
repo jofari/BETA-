@@ -256,9 +256,18 @@ function rendreStrategie() {
   histogramme($("#distribution"), d.distribution_r);
 }
 
+const echapperHtml = (t) => String(t ?? "").replace(/[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
 function rendreLake() {
   const d = etat.lake;
-  if (!d || !d.series.length) {
+  // Une erreur du serveur ne doit pas casser le rendu des onglets suivants (Protocole, 03/11).
+  if (d && d.erreur) {
+    $("#carte-lake").innerHTML = `<p class="erreur">${echapperHtml(d.erreur)}</p>`;
+    $("#series").innerHTML = "";
+    return;
+  }
+  if (!d || !d.series || !d.series.length) {
     $("#carte-lake").innerHTML = '<p class="vide">Lake vide — lancer scripts/build_lake.py.</p>';
     $("#series").innerHTML = "";
     return;
@@ -414,6 +423,9 @@ async function identifierServeur() {
     info = {};
   }
   $("#badge-lecture-seule").hidden = !info.lecture_seule;
+  // Lecture seule : les boutons qui ECRIVENT (POST refuses en 403) disparaissent, et une note
+  // dit pourquoi, au lieu d'un « serveur en lecture seule » apres coup (Jonas, 03/11).
+  document.body.classList.toggle("lecture-seule", !!info.lecture_seule);
   if (info.lien_vps) {
     $("#lien-vps").href = info.lien_vps;
     $("#lien-vps").hidden = false;

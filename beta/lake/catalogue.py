@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import pathlib
 import shutil
+import time
 
 import duckdb
 import pandas as pd
@@ -92,15 +93,29 @@ def inscrire(audit: dict, paire: univers.Paire | univers.Indice, timeframe: str,
 
 
 
+REQUETE_ETAT = ("SELECT paire, timeframe, marche, n_bougies, debut, fin, couverture_pct,"
+                " bougies_manquantes, plus_grand_trou_h, suspect, source, maj"
+                " FROM datasets ORDER BY marche, paire, timeframe")
+ESSAIS_VERROU = 10                  # x 0,5 s : un passage de beta-maj tient le verrou par serie
+
+
 def etat() -> pd.DataFrame:
-    """Le catalogue, lisible. La colonne `suspect` est la seule a regarder en premier."""
+    """Le catalogue, lisible. La colonne `suspect` est la seule a regarder en premier.
+
+    Lecture seulement : si un autre processus ecrit (beta-maj la nuit, un test), DuckDB
+    refuse le verrou ; on reessaie quelques fois au lieu de faire tomber le dashboard (03/11).
+    """
     if not config.CATALOGUE.exists():
         return pd.DataFrame()
-    with _catalogue() as conn:
-        return conn.execute(
-            "SELECT paire, timeframe, marche, n_bougies, debut, fin, couverture_pct,"
-            " bougies_manquantes, plus_grand_trou_h, suspect, source, maj"
-            " FROM datasets ORDER BY marche, paire, timeframe").df()
+    for essai in range(ESSAIS_VERROU):
+        try:
+            with _catalogue() as conn:
+                return conn.execute(REQUETE_ETAT).df()
+        except duckdb.IOException:
+            if essai == ESSAIS_VERROU - 1:
+                raise
+            time.sleep(0.5)
+    return pd.DataFrame()
 
 
 def purger() -> None:

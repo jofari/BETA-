@@ -211,12 +211,16 @@ const INVEST = (() => {
       </div>
       <div class="kpis" style="margin-top:12px">
         ${(etat.vue.compteurs || []).map((k) =>
-          tuile(entier(k.valeur), echapper(k.nom), "warning", k.portee)).join("")}
+          tuile(entier(k.valeur), echapper(k.libelle || k.nom), k.portee === "invest" ? "warning" : "",
+                echapper(k.nom))).join("")}
       </div>
       ${c ? `<div class="kpis" style="margin-top:12px">
-        ${tuile(entier(c.compteur), "Test invest 1 – compteur au 20/10/2026", "warning",
-                "compteur après la campagne")}
-        ${tuile(entier(c.runs.length), "mesures de la campagne")}
+        ${tuile(etat.vue.rang_invest ? entier(etat.vue.rang_invest) : "—",
+                "compteur invest juste après Test invest 1", "",
+                "ses " + entier(c.runs.length) + " mesures = les essais invest 1 à "
+                + entier(etat.vue.rang_invest || c.runs.length))}
+        ${tuile(entier(c.compteur), "N utilisé par le Sharpe dégonflé", "",
+                "compteur unique au 20/10, avant la séparation du 23/10 (plus sévère)")}
         ${tuile(p ? entier(p.n_episodes) : "—", `épisodes ≥ 20 % (${etat.periode})`,
                 p && p.puissance_faible ? "critical" : "")}
       </div>
@@ -226,7 +230,35 @@ const INVEST = (() => {
   }
 
   // Les controles sont dans le HTML (ids verifies par les tests) ; on ne fait que les remplir.
+  // Les 24 mesures, rangees par periode : socle complet d'abord, puis chaque vote seul, puis
+  // chaque vote retire (Jonas, 03/11 : « on ne peut regarder qu'une seule config »).
+  function rangSignal(r) {
+    if (r.signal === "complet") return r.mapping === "socle" ? 0 : 1;
+    return r.signal.startsWith("sans_") ? 3 + VOTES.indexOf(r.signal.slice(5)) / 10
+                                        : 2 + VOTES.indexOf(r.signal) / 10;
+  }
+
+  function libelleMesure(r) {
+    const mapping = r.mapping === "socle" ? "mapping du socle" : "paliers";
+    const sans = r.signal.startsWith("sans_");
+    return `${nomSignal(r.signal)} — ${mapping}` + (sans ? " (ablation, sans test)"
+      : r.verdict ? " — " + (VERDICTS[r.verdict] || [r.verdict])[0] : " (sans test)");
+  }
+
+  function remplirMesures() {
+    const parPeriode = {};
+    etat.vue.runs.forEach((r) => (parPeriode[r.periode] = parPeriode[r.periode] || []).push(r));
+    $$("#invest-mesure").innerHTML = Object.keys(etat.vue.periodes).filter((p) => parPeriode[p])
+      .map((p) => `<optgroup label="période ${p}">` + parPeriode[p]
+        .sort((a, b) => rangSignal(a) - rangSignal(b))
+        .map((r) => `<option value="${r.run_id}">${echapper(libelleMesure(r))}</option>`).join("")
+        + "</optgroup>").join("");
+    $$("#invest-mesure").addEventListener("change", (ev) =>
+      montrer(ev.target.value).then(rendreSelection));
+  }
+
   function initSelection() {
+    remplirMesures();
     $$("#invest-periode").innerHTML = Object.keys(etat.vue.periodes).map((p) =>
       `<option value="${p}">${p}</option>`).join("");
     $$("#invest-votes").insertAdjacentHTML("beforeend", VOTES.map((v) =>
@@ -239,6 +271,8 @@ const INVEST = (() => {
     const cfg = etat.run ? etat.run.config : null;
     $$("#invest-periode").value = etat.periode;
     if (!cfg) return;
+    if ($$("#invest-mesure").querySelector(`option[value="${etat.run.run_id}"]`))
+      $$("#invest-mesure").value = etat.run.run_id;
     document.querySelectorAll(".invest-votes input").forEach((i) => {
       i.checked = cfg.indicateurs.includes(i.value);
     });
@@ -264,12 +298,24 @@ const INVEST = (() => {
     etat.periode = c.periode;
     rendreEntete();
     rendreCampagne();
-    const trouve = etat.vue.runs.find((r) => r.periode === c.periode && r.mapping === c.mapping
+    const pareil = (r, mapping) => r.periode === c.periode && r.mapping === mapping
       && r.pit === "publication" && r.indicateurs.length === c.indicateurs.length
       && c.indicateurs.every((v) => r.indicateurs.includes(v))
       && Math.abs(r.theta_episode - c.theta) < 1e-9 && Math.abs(r.kappa_pb - c.kappa) < 1e-9
-      && r.b === c.b && r.graine === c.graine);
+      && r.b === c.b && r.graine === c.graine;
+    const trouve = etat.vue.runs.find((r) => pareil(r, c.mapping));
     if (trouve) return montrer(trouve.run_id).then(rendreSelection);
+    // Un vote seul n'a ete mesure qu'en paliers, un vote retire qu'avec le mapping du socle :
+    // on montre la mesure qui existe et on le dit, au lieu de « pas encore calculee ».
+    const autre = etat.vue.runs.find((r) => pareil(r, c.mapping === "socle" ? "paliers" : "socle"));
+    if (autre) {
+      return montrer(autre.run_id).then(() => {
+        rendreSelection();
+        $$("#invest-message").insertAdjacentHTML("beforeend", ` · <span class="neg">mapping
+          « ${echapper(c.mapping)} » pas mesuré pour cette combinaison : affichée en
+          « ${echapper(autre.mapping)} »</span>`);
+      });
+    }
     $$("#invest-detail").hidden = true;
     const commande = etat.vue.commande.replace("{periode}", c.periode)
       .replace("{indicateurs}", c.indicateurs.join(",") || "momentum_btc")
@@ -292,8 +338,16 @@ const INVEST = (() => {
       $$("#invest-message").textContent = etat.run.erreur;
       return;
     }
+    const quand = String(etat.run.calcule_le || "").slice(0, 16).replace("T", " à ");
     $$("#invest-message").textContent = `${etat.run.libelle} · ${etat.run.periode.nom} · run ${runId}`
-      + ` · ${etat.run.statut === "campagne" ? "mesure préenregistrée (TI1)" : "exploratoire (hors campagne)"}`;
+      + ` · ${etat.run.statut === "campagne" ? "mesure préenregistrée (Test invest 1)" : "exploratoire (hors campagne)"}`
+      + ` · mesurée le ${quand} UTC sur des données arrêtées au ${etat.run.donnees.fin}`;
+    // Un lien vers une mesure d'une autre periode change aussi la periode affichee.
+    if (etat.run.periode.nom !== etat.periode) {
+      etat.periode = etat.run.periode.nom;
+      rendreEntete();
+      rendreCampagne();
+    }
     $$("#invest-detail").hidden = false;
     rendreRun();
   }
@@ -313,7 +367,7 @@ const INVEST = (() => {
         ${tuile(pc(st.protection), "protection agrégée", "", `${r.periode.n_episodes} épisode(s)`)}
         ${tuile(n2(st.calmar, 2), "Calmar")}
         ${tuile(pc(st.cagr), "CAGR", "", "panier " + pc(m.panier.cagr))}
-        ${tuile(n2(st.sharpe, 2), "Sharpe (√365)", "", "DSR " + n2(st.dsr, 2) + " · N " + (st.n_essais || "—"))}
+        ${tuile(n2(st.sharpe, 2), "Sharpe (√365)", "", "DSR " + n2(st.dsr, 2) + " · N " + (st.n_essais || "—") + " (au 20/10)")}
         ${tuile(n2(st.expo_moyenne, 2), "exposition moyenne", "", `${st.changements_expo} changements`)}
         ${tuile(r.verdict ? (VERDICTS[r.verdict] || [r.verdict])[0] : "pas de test", "verdict D4", tonVerdict,
                 r.nulls ? "p retenue " + n2(r.nulls.p_retenue) : "")}
@@ -397,10 +451,12 @@ const INVEST = (() => {
       return;
     }
     const p = c.periodes[etat.periode], syn = p.synthese;
-    $$("#invest-c1").innerHTML = table(["signal", "Ulcer", "MDD", "protection", "expo",
-      "p circulaire", "p segments", "p retenue", "q BH (informatif)", "verdict D4"],
+    const resume = Object.fromEntries(etat.vue.runs.map((r) => [r.run_id, r]));
+    $$("#invest-c1").innerHTML = table(["signal", "Ulcer", "Ulcer témoin", "Ulcer panier", "MDD",
+      "protection", "expo", "p circulaire", "p segments", "p retenue", "q BH (informatif)", "verdict D4"],
       syn.c1.map((l) => [`<a href="#invest" data-run="${l.run_id}">${echapper(nomSignal(l.signal))}</a>`,
-        n2(l.ulcer), pc(l.mdd), pc(l.protection), n2(l.expo_moyenne, 2), n2(l.p_circulaire),
+        n2(l.ulcer), n2((resume[l.run_id] || {}).ulcer_temoin),
+        n2((resume[l.run_id] || {}).ulcer_panier), pc(l.mdd), pc(l.protection), n2(l.expo_moyenne, 2), n2(l.p_circulaire),
         n2(l.p_segments), `<strong>${n2(l.p_retenue)}</strong>`, n2(l.q_bh), verdictHtml(l.verdict)]))
       + `<p class="sous" style="margin-top:8px">Socle complet en paliers (veille = 0,7), sans test :
         Ulcer ${n2(syn.socle_paliers.ulcer)}, MDD ${pc(syn.socle_paliers.mdd)}, protection

@@ -84,7 +84,29 @@ def releve(racine: Path, marche, maintenant: dt.datetime) -> dict:
         x = equite(d, prix.get(d["instrument"], {}), echeances)
         if x is not None:
             e[nom] = round(x, 2)
+    # VC6 (paper de plomberie, Jonas 02/11) : son propre journal, au comptant, sans funding
+    # regle. Meme formule : cash + somme(q * milieu spot actuel).
+    vc6 = equite_vc6(racine, prix.get(pp.SPOT, {}))
+    if vc6 is not None:
+        e["VC6"] = round(vc6, 2)
     return {"t": maintenant.isoformat(timespec="seconds"), "e": e}
+
+
+def equite_vc6(racine: Path, milieux_spot: dict[str, float]) -> float | None:
+    """Le compte VC6 du dernier passage aux milieux spot donnes. None si rien ou prix absent."""
+    chemin_vc6 = racine / "PAPER_VC6.jsonl"
+    if not chemin_vc6.exists():
+        return None
+    lignes = [json.loads(brut) for brut in chemin_vc6.read_text(encoding="utf-8").splitlines()
+              if brut.strip()]
+    lignes = [x for x in lignes if x.get("quantites") is not None and x.get("cash") is not None]
+    if not lignes:
+        return None
+    d = lignes[-1]
+    q = {a: x for a, x in d["quantites"].items() if x}
+    if any(a not in milieux_spot for a in q):
+        return None
+    return float(d["cash"]) + sum(x * milieux_spot[a] for a, x in q.items())
 
 
 def chemin(racine: Path | None = None) -> Path:

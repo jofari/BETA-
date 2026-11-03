@@ -35,6 +35,7 @@
   --actif-xrp: #b8b6ad;
   --serie-vc5: #c084fc;        /* VC5 (10/10) : violet, distinct des actifs et des etats */
   --serie-vc4: #f472b6;        /* VC4 (10/10) : rose */
+  --serie-vc6: #2dd4bf;        /* VC6 paper de plomberie (03/11) : turquoise */
 
   --radius: 10px;
   --gap: 14px;
@@ -409,3 +410,18 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .verdict-warning { color: var(--status-warning); font-weight: 600; }
 .verdict-muted { color: var(--text-muted); }
 td.kappa { text-align: center; color: var(--text-primary); }
+
+/* Lecture seule (VPS) : les gestes qui ecrivent sont caches, la note explique pourquoi. */
+.note-lecture-seule { display: none; }
+body.lecture-seule .note-lecture-seule { display: block; }
+body.lecture-seule [data-action-run],
+body.lecture-seule [data-geste],
+body.lecture-seule #atelier-ecraser,
+body.lecture-seule label:has(> #atelier-ecraser),
+body.lecture-seule #idee-form { display: none; }
+
+/* Forward : choix des voies affichees (Jonas, 03/11). */
+.choix-voies { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.choix-voies .chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.choix-voies .lien-choix { background: none; border: 0; color: var(--accent); cursor: pointer;
+                           padding: 0; font: inherit; text-decoration: underline; }

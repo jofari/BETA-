@@ -125,6 +125,7 @@
           <button class="btn" data-action-run="claude">Ouvrir dans Claude Code</button>
           <button class="btn" data-action-run="dossier">Dossier du run</button>
           <p class="sous" id="fiche-action-message"></p>
+          <p class="sous note-lecture-seule">Dashboard du VPS en lecture seule : ouvrir un run dans Claude Code ou son dossier se fait sur le PC (BETA local).</p>
         </div>
       </aside>
 
@@ -297,6 +298,7 @@
             </label>
           </div>
 
+          <p class="sous note-lecture-seule">Dashboard du VPS en lecture seule : écrire, passer au sas et déposer une candidate se fait sur le PC (BETA local).</p>
           <div class="atelier-boutons">
             <button class="btn" data-geste="gabarit">Squelette</button>
             <button class="btn" data-geste="generer">Demander au modèle local</button>
@@ -346,6 +348,7 @@
         bouge pas. Il ne bouge qu'à la <em>promotion</em> en expérience préenregistrée — et
         durcit alors le seuil de toutes les autres. C'est l'étage qui permet de ne pas perdre
         une idée sans avoir à la payer tout de suite.</p>
+      <p class="sous note-lecture-seule">Dashboard du VPS en lecture seule : noter une idée se fait sur le PC (BETA local) ou en demandant à Claude sur le VPS.</p>
       <form class="atelier-boutons" id="idee-form">
         <input id="idee-texte" type="text" class="idee-champ"
                placeholder="l'idée, en clair — une phrase suffit" spellcheck="false">
@@ -358,6 +361,9 @@
   </section>
 
   <section class="panneau" id="onglet-forward" hidden>
+    <div class="carte">
+      <div class="choix-voies" id="forward-choix"></div>
+    </div>
     <div class="trio" id="forward-voies"></div>
 
     <div class="carte">
@@ -393,7 +399,7 @@
       <h2>Paper en direct</h2>
       <p class="sous">Rendement en % depuis le départ. 10 000 $ fictifs par voie, valorisés chaque minute aux prix Binance (funding
         réglé compris). Les ordres sont exécutés contre le vrai carnet à 01:00 UTC (VC4 aussi aux
-        sessions). La page se met à jour toute seule chaque minute.</p>
+        sessions) ; VC6 au comptant à l'ouverture de 00:00 UTC + 10 pb, journal écrit à 00:40. La page se met à jour toute seule chaque minute.</p>
       <canvas class="graphique" id="forward-paper" height="260"></canvas>
       <div id="forward-paper-legende"></div>
     </div>
@@ -429,8 +435,13 @@
 
     <div class="carte">
       <h2>Configuration</h2>
-      <p class="sous">L'onglet relit les configurations déjà calculées. Une autre se calcule en
-        ligne de commande — chaque nouvelle configuration compte un essai de plus.</p>
+      <p class="sous">L'onglet relit les 24 mesures de Test invest 1, faites le 20/10/2026 sur des
+        données arrêtées au 19/10/2026. Elles sont figées : les refaire aujourd'hui, c'est un nouvel
+        essai, compté. Une autre configuration se calcule en ligne de commande (même règle).</p>
+      <div class="invest-selection">
+        <label>mesure <select id="invest-mesure"></select></label>
+      </div>
+      <p class="sous" style="margin:10px 0 4px">ou composer la configuration :</p>
       <div class="invest-selection">
         <label>période <select id="invest-periode"></select></label>
         <fieldset class="invest-votes" id="invest-votes"><legend>indicateurs actifs</legend></fieldset>

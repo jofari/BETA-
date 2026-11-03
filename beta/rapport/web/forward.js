@@ -8,7 +8,20 @@
 
 const FORWARD = (() => {
   const $$ = (sel) => document.querySelector(sel);
-  const etat = { vue: null, direct: null };
+  const etat = { vue: null, direct: null, caches: lireCaches() };
+
+  /* Les voies affichees (Jonas, 03/11 : « pouvoir choisir lesquelles on veut voir »). Le choix
+     est garde dans le navigateur ; s'il est illisible, tout s'affiche. */
+  function lireCaches() {
+    try { return new Set(JSON.parse(localStorage.getItem("forward-caches") || "[]")); }
+    catch (exc) { return new Set(); }
+  }
+  function ecrireCaches() {
+    try { localStorage.setItem("forward-caches", JSON.stringify([...etat.caches])); }
+    catch (exc) { /* stockage indisponible : le choix vaut pour cette page seulement */ }
+  }
+  const visible = (nom) => !etat.caches.has(nom);
+  const filtrer = (vue) => ({ ...vue, voies: vue.voies.filter((v) => visible(v.nom)) });
 
   const echapper = (t) => String(t ?? "").replace(/[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -22,7 +35,8 @@ const FORWARD = (() => {
 
   // Une couleur par voie, la meme dans toutes les vues. BTC reste neutre : c'est le decor.
   const TEINTES = { VOIE_C: "--series-long", VC3: "--accent", VC5: "--serie-vc5",
-                    VC4: "--serie-vc4", VC2: "--status-serious", BTC: "--series-neutre" };
+                    VC4: "--serie-vc4", VC2: "--status-serious", VC6: "--serie-vc6",
+                    BTC: "--series-neutre" };
   const teinte = (nom) => couleur(TEINTES[nom] || "--text-muted");
   const VOTES = { momentum_btc: "momentum", taux_reel_10a: "taux réel",
                   inflation_anticipee_10a: "inflation", nasdaq: "Nasdaq", fear_greed: "F&G" };
@@ -108,7 +122,8 @@ const FORWARD = (() => {
      un point par minute), rendement depuis le premier jour. Rien d'autre sur ce graphique. */
   function courbesDirect(canvas, direct) {
     const { ctx, large, haut } = preparer(canvas);
-    const series = Object.entries((direct && direct.voies) || {}).map(([nom, x]) => ({
+    const series = Object.entries((direct && direct.voies) || {}).filter(([nom]) => visible(nom))
+      .map(([nom, x]) => ({
       nom, points: x.points.map((p) => ({ t: Date.parse(p.t), v: 100 * p.r })) }));
     const tous = series.flatMap((s) => s.points);
     if (tous.length < 2) return vide(ctx, large, haut,
@@ -154,11 +169,40 @@ const FORWARD = (() => {
     || s.derniere.positions || null;
   const brutDe = (pos) => pos ? Object.values(pos).reduce((a, x) => a + Math.abs(x), 0) : null;
 
+  /* Une voie sans suivi au cours de cloture (VC6, paper de plomberie) : sa decision du jour et
+     son paper, rien d'autre. */
+  function cartePaperSeul(v, tete) {
+    const p = v.paper;
+    if (!p) return `<div class="carte voie">${tete}<p class="vide">Pas encore de passage paper
+      (timer beta-vc6-paper, 00:40 UTC).</p></div>`;
+    const d = p.decision || {}, a = p.allocation;
+    const mode = d.mode_btc ? `<span class="puce regime-${d.mode_btc === "baissier" ? "baissier"
+      : "haussier"}">${echapper(d.mode_btc)}</span>` + (d.en_rampe ? ' <span class="muet">(en rampe)</span>' : "")
+      : "—";
+    // Un seul chiffre de rendement : celui du paper en direct (consigne du 13/10).
+    const poidsActifs = a ? a.actifs.filter((x) => Math.abs(x.poids) > 5e-4)
+      .map((x) => `${x.paire} ${part(x.poids)}`).join(" · ") : "";
+    const lignes = [
+      ["Démarré le", `${p.debut} <span class="muet">· ${p.n_jours} passage(s) · frais ${usdt(p.frais)}</span>`],
+      ["Mode BTC", `${mode} <span class="muet">clôture du ${d.cloture || "—"}</span>`],
+      ["Exposition", a ? `<strong>${part(a.exposition_brute)}</strong> investi <span class="muet">· `
+        + `${part(a.part_cash)} cash</span>` : "—"],
+      ["Répartition", poidsActifs || "—"],
+      ["Poche baissière", manque(d.poche_baissiere) ? "—" : part(d.poche_baissiere)],
+      ["Dernier passage", `${heureUtc(p.dernier_passage)}` + (d.statut && d.statut !== "execute"
+        ? ` <span class="neg">(${echapper(d.statut)})</span>` : "")],
+      ["Paper", paperDirect(v.nom, p)],
+    ];
+    return `<div class="carte voie">${tete}<dl class="voie-dl">${lignes.map(([k, x]) =>
+      `<dt>${k}</dt><dd>${x}</dd>`).join("")}</dl></div>`;
+  }
+
   function carte(v) {
     const s = v.suivi, p = v.paper;
     const tete = `<div class="voie-tete"><span class="pastille" style="background:${teinte(v.nom)}">
       </span><h2>${echapper(v.titre)}</h2><span class="puce">${echapper(v.instrument)}</span></div>
       <p class="sous">${echapper(v.statut)}</p>`;
+    if (v.paper_seul) return cartePaperSeul(v, tete);
     if (!s) return `<div class="carte voie">${tete}<p class="vide">Aucun suivi sur cette machine
       (les timers tournent sur le VPS).</p></div>`;
     const d = s.derniere, c = s.consigne;
@@ -488,9 +532,33 @@ const FORWARD = (() => {
 
   /* ---------- rendu ------------------------------------------------------------------------ */
 
+  function rendreChoix(vue) {
+    const cases = vue.voies.map((v) => `<label class="chk"><input type="checkbox"
+      data-voie="${echapper(v.nom)}" ${visible(v.nom) ? "checked" : ""}>
+      <span class="pastille" style="background:${teinte(v.nom)}"></span>${echapper(v.titre)}</label>`);
+    $$("#forward-choix").innerHTML = '<strong>Voies affichées</strong>' + cases.join("")
+      + '<button class="lien-choix" data-choix="tout">toutes</button>'
+      + '<button class="lien-choix" data-choix="aucune">aucune</button>';
+  }
+
+  document.addEventListener("change", (ev) => {
+    const c = ev.target.closest("#forward-choix [data-voie]");
+    if (!c) return;
+    if (c.checked) etat.caches.delete(c.dataset.voie); else etat.caches.add(c.dataset.voie);
+    ecrireCaches();
+    rendre();
+  });
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest("#forward-choix [data-choix]");
+    if (!b || !etat.vue || !etat.vue.voies) return;
+    etat.caches = b.dataset.choix === "tout" ? new Set() : new Set(etat.vue.voies.map((v) => v.nom));
+    ecrireCaches();
+    rendre();
+  });
+
   function dessiner() {
-    const vue = etat.vue;
-    if (!vue || vue.erreur) return;
+    if (!etat.vue || etat.vue.erreur) return;
+    const vue = filtrer(etat.vue);
     const sSuivi = seriesSuivi(vue);
     courbes($$("#forward-suivi"), sSuivi, "Aucun suivi sur cette machine.");
     legende("#forward-suivi-legende", sSuivi);
@@ -499,13 +567,16 @@ const FORWARD = (() => {
   }
 
   function rendre() {
-    const vue = etat.vue;
-    if (!vue || vue.erreur) {
+    if (!etat.vue || etat.vue.erreur) {
+      const vue = etat.vue;
       $$("#forward-voies").innerHTML = `<p class="erreur">${echapper(vue ? vue.erreur
         : "pas de données")}</p>`;
       return;
     }
-    $$("#forward-voies").innerHTML = vue.voies.map(carte).join("");
+    rendreChoix(etat.vue);
+    const vue = filtrer(etat.vue);
+    $$("#forward-voies").innerHTML = vue.voies.length ? vue.voies.map(carte).join("")
+      : '<p class="vide">Aucune voie cochée.</p>';
     $$("#forward-allocation").innerHTML = panneauAllocation(vue);
     $$("#forward-indicateurs").innerHTML = panneauIndicateurs(vue);
     $$("#forward-positions").innerHTML = tablePositions(vue);

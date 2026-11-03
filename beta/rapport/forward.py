@@ -24,7 +24,11 @@ VOIES = (
     ("VC5", "VC5 — cible de vol 35 %", "spot"),
     ("VC4", "VC4 — à chaque session", "spot"),
     ("VC2", "VC2 — poche achetée", "perpétuels"),
+    # Paper de plomberie (Jonas 02/11) : journal a part (beta.vc6_v2.paper), pas de suivi au
+    # cours de cloture ; non juge, VC6 rejetee le 02/11.
+    ("VC6", "VC6 V2 — poche baissière sous HAR", "comptant"),
 )
+PAPER_SEUL = {"VC6": "paper de plomberie — non jugé (VC6 rejetée le 02/11, rodage de l'exécution)"}
 N_ORDRES = 40                       # derniers ordres paper affiches
 TOLERANCE_LEVIER = 1e-6             # arrondis d'execution : 100,0000x % investi n'est pas du levier
 
@@ -51,6 +55,8 @@ def bilan(rendements: list[float]) -> dict:
 
 
 def statut(nom: str, registre: dict) -> str:
+    if nom in PAPER_SEUL:
+        return PAPER_SEUL[nom]
     if nom == "VOIE_C":
         return "référence — config figée le 03/10"
     entree = registre.get(nom, {})
@@ -227,7 +233,10 @@ def paper(lignes: list[dict], modele: list[dict]) -> dict | None:
     notional = sum(o["notional"] for o in ordres)
 
     def moyenne(cle: str) -> float | None:
-        return sum(o[cle] * o["notional"] for o in ordres) / notional if notional else None
+        # VC6 n'a pas de cout au carnet (execution au prix d'ouverture, frais fixes) : None.
+        mesures = [o for o in ordres if o.get(cle) is not None]
+        n = sum(o["notional"] for o in mesures)
+        return sum(o[cle] * o["notional"] for o in mesures) / n if n else None
 
     derniere = lignes[-1]
     return {
@@ -251,11 +260,69 @@ def paper(lignes: list[dict], modele: list[dict]) -> dict | None:
     }
 
 
+def passages_vc6(lignes: list[dict]) -> list[dict]:
+    """Le journal VC6 (`beta.vc6_v2.paper`) traduit dans la forme des autres PAPER_<voie>.
+
+    Rien n'est recalcule : memes chiffres, autres noms (valeur -> equite, ecrit_le ->
+    execute_le, actif -> paire). Comptant : aucun funding regle (il est journalise pour
+    information seulement, decision A de Jonas du 02/11). Une journee « donnee_manquante »
+    garde le compte tel quel et ne passe aucun ordre.
+    """
+    sortie = []
+    for ligne in lignes:
+        if ligne.get("valeur") is None:
+            continue
+        prix, valeur = ligne.get("prix") or {}, ligne["valeur"]
+        sortie.append({
+            "date": ligne["date"], "execute_le": ligne.get("ecrit_le"),
+            "statut": ligne.get("statut"), "capital_initial": ligne["capital_initial"],
+            "equite_avant": ligne["valeur_avant"], "equite": valeur, "cash": ligne["cash"],
+            "quantites": ligne["quantites"], "milieux": prix,
+            "frais": ligne.get("frais") or 0.0, "funding": {},
+            "ignores": ligne.get("ignores") or [],
+            "poids": {a: q * prix[a] / valeur for a, q in ligne["quantites"].items()
+                      if a in prix and valeur},
+            "ordres": [{"paire": o["actif"], "sens": o["sens"], "notional": o["notional"],
+                        "prix": o["prix"], "cout_carnet_pb": None, "ecart_ouverture_pb": None,
+                        "slippage_modele_pb": None} for o in ligne.get("ordres") or []],
+            "decision": ligne.get("decision"), "actifs": ligne.get("actifs"),
+            "poche_baissiere": ligne.get("poche_baissiere"),
+        })
+    return sortie
+
+
+def paper_vc6(lignes: list[dict]) -> dict | None:
+    """Le paper VC6 dans la forme de `paper()`, plus la decision du jour (mode BTC, E par actif)."""
+    passages = passages_vc6(lignes)
+    if not passages:
+        return None
+    p = paper(passages, [])
+    derniere = passages[-1]
+    # Pas de modele quotidien a cote : la comparaison au backtest est le rejeu du lundi.
+    p["modele"] = None
+    for point in p["points"]:
+        point["modele"] = None
+    # Le rendement compte la journee executee (frais du jour compris), comme le releve minute.
+    p["rendement"] = derniere["equite"] / p["capital"] - 1.0
+    p["decision"] = {"date": derniere["date"], "statut": derniere["statut"],
+                     **(derniere.get("decision") or {}),
+                     "e_paper": {a: x.get("e_paper")
+                                 for a, x in (derniere.get("actifs") or {}).items()},
+                     "poche_baissiere": (derniere.get("poche_baissiere") or {}).get("modele")}
+    return p
+
+
 def vue(racine: Path | None = None) -> dict:
     racine = racine or config.RACINE
     registre = experiences.etat()
     voies = []
     for nom, titre, instrument in VOIES:
+        if nom in PAPER_SEUL:
+            voies.append({"nom": nom, "titre": titre, "instrument": instrument,
+                          "statut": statut(nom, registre), "suivi": None, "paper_seul": True,
+                          "paper": paper_vc6(_lire(racine / f"PAPER_{nom}.jsonl")),
+                          "pas_a_pas": None})
+            continue
         lignes_suivi = _lire(racine / f"SUIVI_{nom}.jsonl")
         s = suivi(lignes_suivi)
         consignes = _lire(racine / f"CONSIGNES_{nom}.jsonl")
@@ -293,6 +360,8 @@ def direct(racine: Path | None = None) -> dict:
     voies = {}
     for nom, _, _ in VOIES:
         passages = _lire(racine / f"PAPER_{nom}.jsonl")
+        if nom in PAPER_SEUL:
+            passages = passages_vc6(passages)
         if not passages:
             continue
         capital = passages[0]["capital_initial"]

@@ -106,11 +106,13 @@ def registre(tmp_path, monkeypatch):
 
 def test_la_vue_porte_les_deux_compteurs_du_back_end(dossier, registre):
     compteurs = invest.vue()["compteurs"]
-    assert compteurs == [
-        {"nom": "experiences.compteur_total", "portee": "global", "valeur": 33},
-        {"nom": 'experiences.compteur(famille="invest")', "portee": "invest", "valeur": 2}]
-    assert compteurs[0]["valeur"] == experiences.compteur_total()
-    assert compteurs[1]["valeur"] == experiences.compteur(famille="invest")
+    # Nom exact du back-end (Jonas, 25/10) + libelle en clair (Jonas, 03/11).
+    assert [(k["nom"], k["portee"], k["valeur"]) for k in compteurs] == [
+        ('experiences.compteur(famille="invest")', "invest", 2),
+        ('experiences.compteur(famille="trading")', "trading", 31),
+        ("experiences.compteur_total", "global", 33)]
+    assert compteurs[0]["valeur"] == experiences.compteur(famille="invest")
+    assert compteurs[2]["valeur"] == experiences.compteur_total()
 
 
 VOTES = ["momentum_btc", "taux_reel_10a", "inflation_anticipee_10a", "nasdaq", "fear_greed"]
@@ -168,7 +170,17 @@ def test_l_onglet_affiche_les_valeurs_du_back_end(dossier, registre, tmp_path):
     (dossier / f"campagne_{campagne.ID_EXP}.json").write_text(
         json.dumps(_campagne_minimale(117)), encoding="utf-8")
     tuiles = _tuiles_affichees(invest.vue(), tmp_path)
-    assert tuiles["experiences.compteur_total"] == experiences.compteur_total() == 33
-    assert tuiles['experiences.compteur(famille="invest")'] == \
-        experiences.compteur(famille="invest") == 2
-    assert tuiles["Test invest 1 – compteur au 20/10/2026"] == 117
+    assert tuiles["total des deux (affichage seulement)"] == experiences.compteur_total() == 33
+    assert tuiles["essais invest aujourd'hui"] == experiences.compteur(famille="invest") == 2
+    assert tuiles["N utilisé par le Sharpe dégonflé"] == 117
+
+
+def test_compteurs_lisibles_et_rang_de_ti1():
+    from beta.protocole import experiences
+    from beta.rapport import invest
+    noms = {k["portee"]: k for k in invest.compteurs()}
+    assert set(noms) == {"invest", "trading", "global"}
+    assert all(k["libelle"] for k in noms.values())
+    assert noms["global"]["valeur"] == noms["invest"]["valeur"] + noms["trading"]["valeur"]
+    rang = invest.rang_dans_famille("TI1")
+    assert rang is None or 1 <= rang <= experiences.compteur(famille="invest")

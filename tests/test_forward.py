@@ -64,7 +64,7 @@ def test_slippage_moyen_pondere_par_le_notional():
 
 def test_vue_sans_journaux_et_statuts_du_registre(tmp_path):
     v = forward.vue(tmp_path)
-    assert [x["nom"] for x in v["voies"]] == ["VOIE_C", "VC3", "VC5", "VC4", "VC2"]
+    assert [x["nom"] for x in v["voies"]] == ["VOIE_C", "VC3", "VC5", "VC4", "VC2", "VC6"]
     assert all(x["suivi"] is None and x["paper"] is None for x in v["voies"])
     statuts = {x["nom"]: x["statut"] for x in v["voies"]}
     assert statuts["VC3"].startswith("dry-run") and statuts["VC2"].startswith("informative")
@@ -319,3 +319,42 @@ def test_pas_a_pas_signale_une_valeur_journalisee_qui_ne_se_recoupe_pas():
 def test_pas_a_pas_ordre_contraire_a_la_regle_est_signale():
     assert not forward.pas_a_pas(_consigne_moteur(ecart=0.05, trade=True))["verifie"]
     assert forward.pas_a_pas(None) is None and forward.pas_a_pas({"indicateurs": {}}) is None
+
+
+# ------------------------------------------------------------------- VC6, paper de plomberie
+
+def _ligne_vc6(date, valeur_avant, valeur, ordres=(), statut="execute"):
+    return {"date": date, "statut": statut, "ecrit_le": f"{date}T00:40:09+00:00",
+            "capital_initial": 10_000.0, "valeur_avant": valeur_avant, "valeur": valeur,
+            "cash": 5_000.0, "quantites": {"BTC": 0.05, "ETH": 0.0, "SOL": 0.0},
+            "prix": {"BTC": 100_000.0 * valeur / 10_000.0, "ETH": 2_000.0, "SOL": 90.0},
+            "frais": 5.0, "ignores": [],
+            "decision": {"cloture": "2026-11-02", "mode_btc": "haussier"},
+            "actifs": {"BTC": {"e_paper": 0.6}}, "poche_baissiere": {"modele": 0.0},
+            "ordres": [{"actif": "BTC", "sens": "achat", "qte": 0.05, "prix": 100_000.0,
+                        "notional": 5_000.0, "frais": 5.0} for _ in ordres]}
+
+
+def test_vc6_traduit_sans_rien_recalculer(tmp_path):
+    _jsonl(tmp_path / "PAPER_VC6.jsonl", [_ligne_vc6("2026-11-03", 10_000.0, 9_995.0, ordres=[1])])
+    v = {x["nom"]: x for x in forward.vue(tmp_path)["voies"]}["VC6"]
+    p = v["paper"]
+    assert v["paper_seul"] and v["suivi"] is None and "non jugé" in v["statut"]
+    assert p["equite"] == 9_995.0 and p["rendement"] == pytest.approx(-0.0005)
+    assert p["n_ordres"] == 1 and p["ordres"][0]["paire"] == "BTC"
+    assert p["carnet_pb"] is None and p["funding"] == 0
+    assert p["decision"]["mode_btc"] == "haussier" and p["decision"]["e_paper"] == {"BTC": 0.6}
+    assert p["allocation"]["cash"] == 5_000.0
+
+
+def test_vc6_releve_minute_au_comptant(tmp_path):
+    _jsonl(tmp_path / "PAPER_VC6.jsonl", [_ligne_vc6("2026-11-03", 10_000.0, 9_995.0)])
+    assert paper_direct.equite_vc6(tmp_path, {"BTC": 110_000.0}) == pytest.approx(5_000.0 + 5_500.0)
+    assert paper_direct.equite_vc6(tmp_path, {"ETH": 1.0}) is None       # prix BTC absent
+    assert paper_direct.equite_vc6(tmp_path / "vide", {"BTC": 1.0}) is None
+
+
+def test_vc6_dans_le_direct(tmp_path):
+    _jsonl(tmp_path / "PAPER_VC6.jsonl", [_ligne_vc6("2026-11-03", 10_000.0, 9_995.0)])
+    d = forward.direct(tmp_path)["voies"]["VC6"]
+    assert d["equite"] == 9_995.0 and d["t"].startswith("2026-11-03T00:40")

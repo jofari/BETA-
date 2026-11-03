@@ -30,7 +30,10 @@ def _resume(r: dict) -> dict:
             "verdict": r.get("verdict"),
             "p_retenue": (r.get("nulls") or {}).get("p_retenue"),
             "ulcer": m.get("ulcer"), "mdd": m.get("mdd"), "protection": m.get("protection"),
-            "expo_moyenne": m.get("expo_moyenne")}
+            "expo_moyenne": m.get("expo_moyenne"),
+            # Les colonnes « temoin » et « panier » du rapport final (21/10).
+            "ulcer_temoin": (r["metriques"].get("temoin") or {}).get("ulcer"),
+            "ulcer_panier": (r["metriques"].get("panier") or {}).get("ulcer")}
 
 
 # Un run ne change pas une fois ecrit : son resume se garde tant que le fichier ne bouge pas
@@ -52,12 +55,30 @@ def _resume_en_cache(chemin) -> dict:
 
 
 def compteurs() -> list[dict]:
-    """Les deux compteurs du back-end, sous leur nom exact (Jonas, 25/10) : relus, jamais
-    recalcules ici."""
-    return [{"nom": "experiences.compteur_total", "portee": "global",
-             "valeur": experiences.compteur_total()},
-            {"nom": 'experiences.compteur(famille="invest")', "portee": "invest",
-             "valeur": experiences.compteur(famille="invest")}]
+    """Les compteurs du back-end, sous leur nom exact (Jonas, 25/10) : relus, jamais
+    recalcules ici. Le libelle dit en clair ce que chacun compte (Jonas, 03/11)."""
+    return [{"nom": 'experiences.compteur(famille="invest")', "portee": "invest",
+             "libelle": "essais invest aujourd'hui",
+             "valeur": experiences.compteur(famille="invest")},
+            {"nom": 'experiences.compteur(famille="trading")', "portee": "trading",
+             "libelle": "essais trading actif aujourd'hui",
+             "valeur": experiences.compteur(famille="trading")},
+            {"nom": "experiences.compteur_total", "portee": "global",
+             "libelle": "total des deux (affichage seulement)",
+             "valeur": experiences.compteur_total()}]
+
+
+def rang_dans_famille(id_exp: str) -> int | None:
+    """Ou se termine une experience dans le compteur de SA famille : le compteur de la famille
+    juste apres sa derniere mesure. Relu dans RUNS.jsonl, dans l'ordre d'ecriture."""
+    registre = experiences.etat()
+    famille = experiences.famille_de(id_exp, registre=registre)
+    runs = [r for r in experiences.runs_journalises()
+            if experiences.famille_de(r.get("experience"), registre=registre) == famille]
+    rangs = [i for i, r in enumerate(runs) if r.get("experience") == id_exp]
+    if not rangs:
+        return None
+    return experiences.DETTE_INITIALE[famille] + rangs[-1] + 1
 
 
 def vue() -> dict:
@@ -71,7 +92,7 @@ def vue() -> dict:
                 runs.append(_resume_en_cache(chemin))
     return {"runs": runs, "campagne": synthese, "commande": COMMANDE,
             "periodes": campagne.PERIODES, "experience": campagne.ID_EXP,
-            "compteurs": compteurs()}
+            "compteurs": compteurs(), "rang_invest": rang_dans_famille(campagne.ID_EXP)}
 
 
 def run(params: dict) -> dict:
