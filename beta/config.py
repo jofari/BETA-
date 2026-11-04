@@ -61,6 +61,14 @@ def chemin_parquet(slug: str, timeframe: str) -> pathlib.Path:
     return LAKE / f"{slug}-{timeframe}.parquet"
 
 
+# Les vrais marches (beta.marches) : hors du lake, meme forme de nom de fichier.
+MARCHES = DATA / "marches"
+
+
+def chemin_marches(slug: str, timeframe: str) -> pathlib.Path:
+    return MARCHES / f"{slug}-{timeframe}.parquet"
+
+
 def chemin_feather_arit(slug: str, timeframe: str) -> pathlib.Path:
     return ARIT_DATA / f"{slug}-{timeframe}-{TRADING_MODE}.feather"
 

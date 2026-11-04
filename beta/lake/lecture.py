@@ -34,12 +34,18 @@ class DataError(RuntimeError):
     """Donnee absente du lake, ou timeframe non derivable."""
 
 
-def _table_source(paire: univers.Paire | univers.Indice, timeframe: str) -> tuple[str, bool]:
+def _table_source(paire: univers.Paire | univers.Indice | univers.MarcheIntraday,
+                  timeframe: str) -> tuple[str, bool]:
     """(timeframe a lire, faut-il resampler). Le 5m est la base de toute derivation.
 
     Un indice n'a que le 1d et pas de 5m : rien ne se derive, tout autre timeframe est une
     erreur de lecture, dite tout de suite plutot que decouverte sur un fichier absent.
     """
+    if univers.est_intraday(paire):
+        if timeframe in paire.timeframes:
+            return timeframe, False
+        raise DataError(f"{paire.base} : seuls {', '.join(paire.timeframes)} existent sur "
+                        f"disque, {timeframe} n'est pas derive (series de sources externes)")
     if univers.est_indice(paire):
         if timeframe in univers.TIMEFRAMES_INDICES:
             return timeframe, False
@@ -54,13 +60,20 @@ def _table_source(paire: univers.Paire | univers.Indice, timeframe: str) -> tupl
     return "5m", True
 
 
+def _chemin(p, timeframe: str):
+    """Le lake pour une paire ou un indice, `data/marches/` pour un marche intraday."""
+    if univers.est_intraday(p):
+        return config.chemin_marches(p.slug, timeframe)
+    return config.chemin_parquet(p.slug, timeframe)
+
+
 def disponible(paire: str, timeframe: str) -> bool:
     p = univers.resoudre(paire)
     try:
         source, _ = _table_source(p, timeframe)
     except DataError:
         return False            # un timeframe impossible pour cet actif n'est pas disponible
-    return config.chemin_parquet(p.slug, source).exists()
+    return _chemin(p, source).exists()
 
 
 def load(paire: str, timeframe: str, debut: str | None = None,
@@ -73,7 +86,7 @@ def load(paire: str, timeframe: str, debut: str | None = None,
     """
     p = univers.resoudre(paire)
     source, resampler = _table_source(p, timeframe)
-    chemin = config.chemin_parquet(p.slug, source)
+    chemin = _chemin(p, source)
     if not chemin.exists():
         raise DataError(f"{p.base} {source} absent du lake ({chemin.name}). "
                         "Lancer scripts/build_lake.py.")

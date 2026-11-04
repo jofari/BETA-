@@ -111,6 +111,38 @@ INDICES: tuple[Indice, ...] = (
     Indice("GC=F", "XAUUSD", "20100101", "or, future COMEX continu"),
 )
 
+# Les VRAIS MARCHES en intraday (Jonas, 04/11 : R8 sur l'or et le Nasdaq). Collectes par
+# `beta.marches.intraday` dans `data/marches/` (pas dans le lake : sources Dukascopy et Yahoo,
+# pas Binance), lus ici pour que le moteur puisse les cribler. Comme un indice : ni funding ni
+# Fear & Greed. Contrairement a un indice, plusieurs timeframes STOCKES, aucun derive : le 1h
+# Yahoo du NDX commence a 09:30 New York, il ne se reconstruit pas depuis un 5m de 60 jours.
+class MarcheIntraday(NamedTuple):
+    """Une serie intraday des vrais marches : `base` est aussi le slug de fichier
+    (`data/marches/XAU_SPOT-5m.parquet`). `timeframes` = ceux qui existent sur disque."""
+
+    base: str
+    timeframes: tuple[str, ...]
+    note: str
+
+    @property
+    def symbole(self) -> str:
+        return f"marches:{self.base}"
+
+    @property
+    def slug(self) -> str:
+        return self.base
+
+
+INTRADAY: tuple[MarcheIntraday, ...] = (
+    MarcheIntraday("XAU_SPOT", ("5m", "1h", "1d"),
+                   "or comptant XAU/USD, bougies BID Dukascopy (5m depuis 06/2023, rattrapage "
+                   "vers 2003 en cours ; 1h et 1d depuis 2003)"),
+    MarcheIntraday("NDX", ("5m", "1h", "1d"),
+                   "Nasdaq-100 (^NDX, Yahoo) : 5m sur 60 jours glissants seulement, 1h depuis "
+                   "11/2023, 1d depuis 1985 ; seance reguliere 09:30-16:00 New York"),
+)
+
+
 # Timeframes STOCKES. Tout le reste se derive par resampling (cf. beta.data.load) : on ne
 # telecharge pas ce qu'on peut calculer, et un 15m derive du 5m est exact, pas approche.
 TIMEFRAMES: tuple[str, ...] = ("5m", "1h", "4h", "1d")
@@ -141,7 +173,7 @@ def par_base(base: str) -> Paire:
                    f"{', '.join(p.base for p in PAIRES)})")
 
 
-def resoudre(nom: str) -> Paire | Indice:
+def resoudre(nom: str) -> Paire | Indice | MarcheIntraday:
     """Accepte 'BTC', 'BTC/USDT:USDT', 'BTC_USDT_USDT' ou 'BTC/USDT' — les quatre notations qui
     circulent (la derniere est celle des trades spot d'ARIT, anterieurs au passage en futures A2).
 
@@ -157,17 +189,29 @@ def resoudre(nom: str) -> Paire | Indice:
     for indice in INDICES:
         if nom.upper() in (indice.base, indice.ticker.upper(), indice.slug.upper()):
             return indice
+    for marche in INTRADAY:
+        if nom.upper() in (marche.base, marche.symbole.upper()):
+            return marche
     raise KeyError(f"actif hors univers : {nom} (paires : "
                    f"{', '.join(p.base for p in PAIRES + TRADFI)} ; indices : "
-                   f"{', '.join(i.base for i in INDICES)})")
+                   f"{', '.join(i.base for i in INDICES)} ; marches intraday : "
+                   f"{', '.join(m.base for m in INTRADAY)})")
 
 
-def est_indice(actif: Paire | Indice) -> bool:
-    return isinstance(actif, Indice)
+def est_indice(actif: Paire | Indice | MarcheIntraday) -> bool:
+    """Vrai pour tout ce qui n'est pas un perpetuel : ni funding, ni Fear & Greed."""
+    return isinstance(actif, (Indice, MarcheIntraday))
+
+
+def est_intraday(actif: Paire | Indice | MarcheIntraday) -> bool:
+    return isinstance(actif, MarcheIntraday)
 
 
 def timeframes_de(actif: Paire | Indice) -> tuple[str, ...]:
-    """Les timeframes STOCKES pour cet actif : 4 pour une paire, le seul 1d pour un indice."""
+    """Les timeframes STOCKES pour cet actif : 4 pour une paire, le seul 1d pour un indice,
+    ceux du disque pour un marche intraday."""
+    if est_intraday(actif):
+        return actif.timeframes
     return TIMEFRAMES_INDICES if est_indice(actif) else TIMEFRAMES
 
 

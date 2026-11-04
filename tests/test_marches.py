@@ -38,9 +38,15 @@ def _yahoo(debut="2026-10-01", fin="2026-10-21", base=100.0):
 # ----------------------------------------------------------------------------- noms
 
 def test_noms_neufs_sans_collision_avec_le_lake():
+    # Depuis le 04/11 (R13, R14), NDX et XAU_SPOT se resolvent : mais vers un marche
+    # INTRADAY (data/marches), jamais vers une paire ou un indice du lake.
+    intraday = {m.base for m in univers.INTRADAY}
     for s in SERIES:
-        with pytest.raises(KeyError):
-            univers.resoudre(s.nom)
+        if s.nom in intraday:
+            assert univers.est_intraday(univers.resoudre(s.nom))
+        else:
+            with pytest.raises(KeyError):
+                univers.resoudre(s.nom)
     assert par_nom("ndx").identifiant == "^NDX"           # Jonas 21/10 : pas le Composite
     assert par_nom("XAU_LBMA").source == "wgc"
 

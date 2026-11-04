@@ -774,3 +774,23 @@ clé `pbo` quand k > 1. Les verdicts déjà rendus ne sont pas recalculés : ils
 portes. ⚠️ R12, préenregistrée le 12/10 avec « neuf portes S1-S9 franchies » et jamais
 mesurée : si elle l'était un jour, la batterie exigerait dix portes. Son texte n'est pas
 modifié.
+
+## R8 retestée sur l'or et le Nasdaq-100 : R13 et R14 (04/11/2026)
+
+Jonas : « retester sur les mêmes paramètres mais sur l'or et le nasdaq maintenant qu'on a les
+données ». Inventaire montré avant de choisir : avant 2025, l'or comptant (Dukascopy) n'existe
+en 5m que depuis le 21/06/2023, le Nasdaq-100 (Yahoo) seulement en 1h depuis le 22/11/2023 ;
+les perpétuels TradFi (XAUUSDT, QQQUSDT) sont entièrement dans le hold-out. Choix de Jonas :
+**« Or 5 min + Nasdaq 1 h »**, **« les 3 »** variantes de stop.
+
+- **R13** = R8 à l'identique sur `XAU_SPOT` 5m (fenêtre 09:30-10:15 New York, cible 3 R, 72 bougies).
+- **R14** = R8 sur `NDX` 1h, variante imposée par la donnée : fenêtre 09:30-10:30 (une bougie),
+  horizon 6 bougies.
+- Branchement : `univers.INTRADAY` (`MarcheIntraday`), lu par `lecture.load` dans
+  `data/marches/` via `config.chemin_marches` ; ni funding ni Fear & Greed, comme un indice.
+  Coûts du moteur pour un perpétuel (0,10 % + 0,02 % + un tick).
+- Période figée au préenregistrement ; l'empreinte des séries lues est dans la clôture.
+
+**Verdict du programme** (`scripts/mesurer_r13_r14.py`) : **R13 INFIRMÉE, R14 INFIRMÉE**,
+les 6 variantes à R moyen négatif (or −0,57 / −0,27 / −0,19 R ; Nasdaq −0,60 / −0,34 / −0,25 R),
+8 à 10 portes échouées chacune. Compteur trading 93 → 99.

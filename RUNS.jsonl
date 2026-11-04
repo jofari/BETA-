@@ -128,3 +128,9 @@
 {"run_id": "5d1e98701881", "experience": "VC6_V1_TEMPS2", "candidate": "vc6_temps2:mixte", "empreinte": "e1a40b41393ae196", "issue": "essai journalise avant calcul", "date": "2026-11-02T08:41:06.180040+00:00"}
 {"run_id": "b08291e55a6f", "experience": "VC6_V2", "candidate": "vc6_v2:har_sans_regime", "empreinte": "e39ad1cdaa14326e", "issue": "essai journalise avant calcul", "date": "2026-11-02T18:01:03.960429+00:00"}
 {"run_id": "30354d583c28", "experience": "VC6_V2", "candidate": "vc6_v2:poche_baissiere_har", "empreinte": "e39ad1cdaa14326e", "issue": "essai journalise avant calcul", "date": "2026-11-02T18:01:03.960621+00:00"}
+{"run_id": "8bfb719165c8", "experience": "R13", "candidate": "r13_ny_or_stop_050", "empreinte": "b8dcacb10d31", "issue": "infirmee", "date": "2026-11-04T12:50:16.569503+00:00"}
+{"run_id": "53aae4e0be16", "experience": "R13", "candidate": "r13_ny_or_stop_100", "empreinte": "8ca359af2b7d", "issue": "infirmee", "date": "2026-11-04T12:51:34.276597+00:00"}
+{"run_id": "f621f8eb0240", "experience": "R13", "candidate": "r13_ny_or_stop_150", "empreinte": "9d915baf7cfd", "issue": "infirmee", "date": "2026-11-04T12:52:51.324371+00:00"}
+{"run_id": "544b3cd8a3bf", "experience": "R14", "candidate": "r14_ny_ndx1h_stop_050", "empreinte": "180c537e9959", "issue": "infirmee", "date": "2026-11-04T12:53:10.278524+00:00"}
+{"run_id": "eaa351a4c37a", "experience": "R14", "candidate": "r14_ny_ndx1h_stop_100", "empreinte": "96f342fd5cc4", "issue": "infirmee", "date": "2026-11-04T12:53:18.257404+00:00"}
+{"run_id": "03d6d0620341", "experience": "R14", "candidate": "r14_ny_ndx1h_stop_150", "empreinte": "778193144971", "issue": "infirmee", "date": "2026-11-04T12:53:26.087996+00:00"}
