@@ -476,6 +476,13 @@ def parseur() -> argparse.ArgumentParser:
 
     valider = ateliers.add_parser("valider", help="passe une candidate existante au sas")
     valider.add_argument("module")
+    valider.add_argument("--actif", default="",
+                         help="la serie que la candidate tradera (XAU_SPOT, NDX, BTC...) : "
+                              "l'epreuve tourne sur elle, toute la periode, train seulement ; "
+                              "sans elle, sur une serie temoin (BTC 4h)")
+    valider.add_argument("--timeframe", default="", help="defaut : 4h")
+    valider.add_argument("--debut", default="", help="debut de la periode (avec --actif)")
+    valider.add_argument("--fin", default="", help="fin de la periode, bornee au train")
 
     local = ateliers.add_parser("local", help="fait ecrire la candidate par un modele local")
     local.add_argument("hypothese_en_clair",

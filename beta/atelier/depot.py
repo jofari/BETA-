@@ -45,13 +45,14 @@ def verifier_nom(module: str) -> None:
                          "souligne, de 3 a 49 caracteres")
 
 
-def valider(code: str, module: str, timeout: int = epreuve.TIMEOUT_S,
-            timeframe: str = "") -> dict:
+def valider(code: str, module: str, timeout: int | None = None,
+            timeframe: str = "", actif: str = "", debut: str = "", fin: str = "") -> dict:
     """Sas statique puis epreuve dynamique, sur une copie temporaire. N'ecrit pas la cible.
 
     Rend un rapport unique : `{ok, refus, reserves, mesures, sas, epreuve}`. Les refus des
     deux etages sont fusionnes parce que l'appelant n'a aucune raison de savoir lequel a
-    parle — ce qui l'interesse, c'est ce qu'il doit corriger.
+    parle — ce qui l'interesse, c'est ce qu'il doit corriger. `actif` (et `timeframe`,
+    `debut`, `fin`) : l'epreuve tourne sur la serie que la candidate tradera (04/11/2026).
     """
     verifier_nom(module)
     rapport_sas = sas.controler(code, module)
@@ -66,8 +67,8 @@ def valider(code: str, module: str, timeout: int = epreuve.TIMEOUT_S,
     try:
         DOSSIER.mkdir(parents=True, exist_ok=True)
         cible.write_text(code, encoding="utf-8")
-        rapport_epreuve = epreuve.lancer(essai, timeout=timeout,
-                                         timeframe=timeframe)
+        rapport_epreuve = epreuve.lancer(essai, timeout=timeout, timeframe=timeframe,
+                                         actif=actif, debut=debut, fin=fin)
     except OSError as exc:
         raise DepotError(f"ecriture de l'essai impossible : {exc}") from exc
     finally:
@@ -105,7 +106,8 @@ def reserves_de_protocole(code: str) -> list[str]:
 
 
 def deposer(code: str, module: str, ecraser: bool = False,
-            timeout: int = epreuve.TIMEOUT_S, timeframe: str = "") -> dict:
+            timeout: int | None = None, timeframe: str = "", actif: str = "",
+            debut: str = "", fin: str = "") -> dict:
     """Valide puis pose le fichier. Rien n'est ecrit si la validation refuse."""
     verifier_nom(module)
     cible = chemin(module)
@@ -115,7 +117,8 @@ def deposer(code: str, module: str, ecraser: bool = False,
             "l'empreinte de la candidate changera : les verdicts deja rendus ne "
             "s'appliqueront plus a la nouvelle version, et c'est voulu.")
 
-    rapport = valider(code, module, timeout=timeout, timeframe=timeframe)
+    rapport = valider(code, module, timeout=timeout, timeframe=timeframe, actif=actif,
+                      debut=debut, fin=fin)
     if not rapport["ok"]:
         rapport["depose"] = False
         return rapport

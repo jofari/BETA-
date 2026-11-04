@@ -31,13 +31,15 @@ En ligne de commande :
 | `python beta.py idee liste` | les idées notées, promues, écartées |
 | `python beta.py idee promouvoir I1 --experience R7 ...` | l'idée devient une expérience préenregistrée — **le compteur avance** |
 | `python beta.py atelier nouveau <module> --hypothese R7` | un squelette prêt à remplir |
-| `python beta.py atelier valider <module>` | sas statique + épreuve de causalité |
+| `python beta.py atelier valider <module>` | sas statique + épreuve de causalité (sur une série **témoin**, BTC 4 h) |
+| `python beta.py atelier valider <module> --actif XAU_SPOT --timeframe 5m --debut 2023-06-21` | la même épreuve **sur la série que la candidate tradera**, toute la période, train seulement : c'est elle qui donne le nombre de signaux avant le préenregistrement |
 | `python beta.py atelier local "<règle>" --module r7_x --hypothese R7` | la fait écrire par un modèle local |
 | `python beta.py atelier modeles` | quels serveurs locaux répondent |
 | `python beta.py auto proposer --sujet "..."` | le modèle local note des hypothèses — **gratuit**, rien n'est mesuré |
 | `python beta.py auto cribler --experience R7 --intentions f.txt` | écrit un lot de candidates et le crible — **un cran de compteur chacune** |
 | `python scripts/preenregistrer.py` | préenregistre R1-R6 (idempotent) |
 | `python scripts/mesurer.py` | mesure R1 et R6, applique Benjamini-Hochberg, clôt au registre |
+| `python scripts/rapport_experience.py R13 R14 [--eprouver]` | **le rapport d'une expérience, écrit par le programme** : `rapports/<ids>/RAPPORT.md` + `RESUME_DISCORD.md` (c'est ce résumé, tel quel, qui part sur Discord) |
 | `python scripts/epreuve_mcp.py` | **éprouve le pont MCP pour de vrai** (sous-processus, JSON-RPC) |
 | `python beta.py mcp` | le serveur MCP stdio (7 outils) — normalement lancé par le client |
 
@@ -158,6 +160,21 @@ par lequel un chiffre sort du moteur sans que l'hypothèse ait été écrite ava
 `Verdict` ne peut être `CONFIRMEE` ni avec une porte échouée, ni avec une porte **non
 exécutée** — une porte qu'on n'a pas passée ne se présume pas franchie.
 
+**Depuis le 04/11/2026, le moteur refait l'épreuve de causalité sur les séries mêmes du run,
+avant tout calcul** (`pipeline.eprouver_le_run`) : une candidate qui lit le futur n'est pas
+mesurée, rien n'est journalisé, le compteur ne bouge pas. Le rapport de l'épreuve (signaux,
+longs, courts par série) est écrit avec le run, dans `data/runs/<run>/epreuve.json`. Avant,
+l'épreuve de l'atelier tournait sur BTC, et une candidate posée à la main dans
+`beta/candidates/` n'en passait aucune (R13 et R14).
+
+**Le rapport d'une expérience s'écrit par le programme** :
+`python scripts/rapport_experience.py R13 R14` relit le registre et les runs et écrit
+`rapports/R13-R14/RAPPORT.md` (préenregistrement mot pour mot, chiffres de chaque variante,
+R brut / coûts / R net recalculés depuis les trades, sorties, sens, années, batterie porte
+par porte avec les réserves du moteur, buy-and-hold, compteurs, empreintes, contrôles de
+cohérence) et `RESUME_DISCORD.md`. Aucun chiffre tapé à la main ; un avis de Claude, s'il y
+en a un, passe par `--avis fichier.md` et reste dans une section séparée et marquée.
+
 **Ce que paie un trade** (depuis le 13/10) : 0,10 % de frais aller-retour (taker Binance 0,05 %
 par côté) + 0,02 % de slippage, un **spread d'un tick rapporté au prix** — le tick est lu dans
 les prix du lake, mois par mois, et redonne les spreads du carnet (BTC 0,01 pb … SOL 0,9 pb) —
@@ -268,6 +285,12 @@ automatiquement, `urllib` seul, aucune dépendance ajoutée. Une hypothèse de t
 |---|---|---|
 | **sas** (`ast`, sans importer) | imports hors liste blanche, `open`/`exec`, `shift(-n)`, `center=True`, `bfill`, effets de bord à l'import, `creer()` manquant | tout look-ahead qui ne ressemble à aucun motif connu |
 | **épreuve** (sous-processus, chronomètre) | **causalité**, déterminisme, contrat, non-dégénérescence | rien de ce qui précède ne lui échappe |
+
+Sans `--actif`, l'épreuve tourne sur une série **témoin** (BTC 4 h, ou BTC dans le
+`--timeframe` demandé) et le rapport le dit : elle valide le code, pas la candidate sur ce
+qu'elle tradera. Avec `--actif XAU_SPOT --timeframe 5m [--debut ...] [--fin ...]`, elle lit
+cette série comme le moteur la lira (funding, macro, tick), sur toute la période bornée au
+train, et ne se rabat sur aucune autre si elle manque.
 
 L'épreuve de causalité tient en une phrase : **`signaux(df[:t])` doit rendre exactement
 `signaux(df)[:t]`.** Une fonction causale ne peut pas produire autre chose sur un préfixe,

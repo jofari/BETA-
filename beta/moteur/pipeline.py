@@ -9,19 +9,25 @@ verdict qui en sort ne peut pas etre CONFIRMEE si une porte a echoue ou n'a pas 
 (`contrats.Verdict` s'en charge). Le pipeline n'a donc aucun moyen de contourner le
 protocole, meme par erreur — c'est ce qui permet de le lancer en boucle sur des dizaines de
 candidates sans le relire a chaque fois.
+
+Depuis le 04/11/2026, aucun chiffre ne sort non plus d'une candidate que l'epreuve de
+causalite n'a pas passee SUR LES SERIES DU RUN (`eprouver_le_run`) : l'epreuve de l'atelier
+tournait sur une serie temoin, et une candidate posee a la main dans `beta/candidates/` n'en
+passait aucune. Son rapport est ecrit avec le run (`epreuve.json`).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
 
 from beta import config
 from beta.lake import lecture, univers
-from beta.moteur import espace_r
+from beta.moteur import causalite, espace_r
 from beta.moteur.contrats import Candidate, Run, Verdict
 from beta.protocole import experiences, holdout
 from beta.stats import batterie, synthetique
@@ -61,10 +67,22 @@ def series_du_run(run: Run) -> dict[str, pd.DataFrame]:
     la colonne est simplement absente, et les candidates qui n'en ont pas besoin l'ignorent.
     """
     debut, fin = _bornes_du_split(run)
+    return charger_series(run.paires, run.timeframe, debut=debut, fin=fin)
+
+
+def charger_series(paires: tuple[str, ...], timeframe: str, debut: str | None = None,
+                   fin: str | None = None) -> dict[str, pd.DataFrame]:
+    """Les series telles qu'une mesure les lit, SANS Run : bornes donnees par l'appelant.
+
+    Sert a l'epreuve de l'atelier sur la serie reelle (04/11/2026), qui tourne avant le
+    preenregistrement et ne peut donc pas construire de Run : elle lit ainsi exactement ce
+    que lira la mesure — memes colonnes jointes, meme tick. Le split n'est PAS applique ici :
+    l'appelant passe `holdout.borner_train(fin)` pour rester dans le train.
+    """
     series = {}
-    for paire in run.paires:
+    for paire in paires:
         try:
-            df = lecture.load(paire, run.timeframe, debut=debut, fin=fin)
+            df = lecture.load(paire, timeframe, debut=debut, fin=fin)
             df = _joindre_funding(df, paire)
             df = _joindre_macro(df, paire)
             # Le tick se lit dans les prix REELS : une colonne, pour que le temoin
@@ -72,7 +90,7 @@ def series_du_run(run: Run) -> dict[str, pd.DataFrame]:
             df["tick"] = espace_r.pas_de_cotation(df)
             series[paire] = df
         except lecture.DataError as exc:
-            log.error("%s %s indisponible : %s", paire, run.timeframe, exc)
+            log.error("%s %s indisponible : %s", paire, timeframe, exc)
     return series
 
 
@@ -154,6 +172,35 @@ def _joindre_macro(df: pd.DataFrame, paire: str | None = None) -> pd.DataFrame:
                          allow_exact_matches=False)
 
 
+def eprouver_le_run(run: Run, series: dict[str, pd.DataFrame]) -> dict:
+    """L'epreuve de causalite refaite par le moteur, sur les series memes du run.
+
+    Determinisme et causalite (`causalite.eprouver_serie`) sur chaque serie, bornee au split :
+    c'est exactement ce que la mesure va lire. Un refus leve `causalite.EpreuveRefusee` AVANT
+    tout calcul de trade : rien n'est mesure, rien n'est journalise, le compteur ne bouge pas.
+    Une serie sans signal n'est PAS un refus ici : c'est la batterie qui rend INDECIDABLE faute
+    de signaux, comme avant. Le rapport (comptes de signaux par serie compris) part avec le
+    run, dans `epreuve.json`.
+    """
+    par_serie: dict[str, dict] = {}
+    refus: list[str] = []
+    reserves: list[str] = []
+    for paire, df in series.items():
+        if df.empty:
+            continue
+        epreuve = causalite.eprouver_serie(run.candidate, df)
+        par_serie[paire] = epreuve["mesures"]
+        refus += [f"{paire} {run.timeframe} : {x}" for x in epreuve["refus"]]
+        reserves += [f"{paire} {run.timeframe} : {x}" for x in epreuve["reserves"]]
+    rapport = {"candidate": run.candidate.nom, "empreinte": run.candidate.empreinte,
+               "timeframe": run.timeframe, "split": run.split, "ok": not refus,
+               "refus": refus, "reserves": reserves, "series": par_serie,
+               "le": datetime.now(UTC).isoformat()}
+    if refus:
+        raise causalite.EpreuveRefusee(rapport)
+    return rapport
+
+
 def trades_du_run(run: Run, series: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """Applique la candidate a chaque paire et empile les trades. Une ligne = un signal."""
     morceaux = []
@@ -218,7 +265,7 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
              trades_lot: dict[str, pd.DataFrame] | None = None,
              generateur_synthetique: str = "phase",
              n_chemins: int = N_CHEMINS_SYNTHETIQUES,
-             enregistrer: bool = True) -> tuple[Verdict, dict]:
+             enregistrer: bool = True, epreuve: dict | None = None) -> tuple[Verdict, dict]:
     """Le run complet. Rend (verdict, artefacts) — artefacts contient trades et courbes.
 
     `famille` ferme la dette T9. Sans elle, `batterie.evaluer` laissait
@@ -231,11 +278,16 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
     `n_essais` fige N pour tout un lot. Depuis A1, chaque run journalise fait monter le
     compteur ; laisser chaque candidate lire `compteur()` a son tour jugerait la derniere
     du lot plus severement que la premiere, pour la seule raison qu'elle est passee apres.
+
+    `epreuve` : le rapport d'une epreuve deja passee sur ces memes series (second passage de
+    `cribler`). Absent, l'epreuve tourne ici, avant tout calcul (`eprouver_le_run`).
     """
     series = series_du_run(run)
     if not series:
         raise lecture.DataError(f"aucune serie disponible pour {run.paires} "
                                 f"en {run.timeframe} — construire le lake d'abord")
+    if epreuve is None:
+        epreuve = eprouver_le_run(run, series)
 
     tous = trades_du_run(run, series)
     sequence = espace_r.enchainer(tous)
@@ -272,7 +324,7 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
         reserves=tuple(reserves), n_essais_cumules=n)
 
     artefacts = {"trades": tous, "sequence": sequence, "equity": courbe,
-                 "detail": resultat["detail"], "series": list(series)}
+                 "detail": resultat["detail"], "series": list(series), "epreuve": epreuve}
     if enregistrer:
         _ecrire(verdict, artefacts)
     log.info("%s", verdict.texte())
@@ -307,6 +359,10 @@ def _ecrire(verdict: Verdict, artefacts: dict) -> None:
             encoding="utf-8")
         artefacts["sequence"].to_parquet(dossier / "trades.parquet", index=False)
         artefacts["equity"].to_parquet(dossier / "equity.parquet", index=False)
+        if artefacts.get("epreuve"):
+            (dossier / "epreuve.json").write_text(
+                json.dumps(artefacts["epreuve"], indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8")
     except (OSError, ValueError) as exc:
         log.warning("resultats du run %s non ecrits (%s)", verdict.run.id, exc)
 
@@ -397,13 +453,14 @@ def cribler(candidates: dict[str, Candidate], paires: tuple[str, ...], timeframe
     trades_lot = {nom: art["sequence"] for nom, (_, art) in premiers.items()}
 
     verdicts = {}
-    for nom, (verdict, _) in premiers.items():
+    for nom, (verdict, art) in premiers.items():
         run = verdict.run
         try:
             final, _ = executer(run, equities_voisines={k: v for k, v in equities.items()
                                                         if k != nom},
                                 univers_candidates=univers, famille=famille,
-                                n_essais=n_lot, trades_lot=trades_lot)
+                                n_essais=n_lot, trades_lot=trades_lot,
+                                epreuve=art.get("epreuve"))
             verdicts[nom] = final
         except Exception as exc:                     # noqa: BLE001
             log.error("second passage de '%s' echoue : %s", nom, exc)

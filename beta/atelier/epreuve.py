@@ -27,7 +27,18 @@ Quatre epreuves, dont une qui vaut les trois autres :
 L'epreuve lit UNIQUEMENT du train : le hold-out est scelle, et le bruler pour valider la
 syntaxe d'une candidate serait la facon la plus bete de le perdre.
 
+**La serie reelle (04/11/2026, R13 et R14).** Sans `--actif`, l'epreuve tourne sur une serie
+TEMOIN (BTC en 4h, ou BTC dans le timeframe demande) : elle valide le code, pas la candidate
+sur ce qu'elle tradera — une regle ancree sur l'ouverture de New York etait refusee en 4h, et
+validee sur BTC en 5m alors qu'elle visait l'or. Avec `--actif`, elle tourne sur CETTE serie,
+chargee comme le moteur la charge (`pipeline.charger_series` : funding, macro, tick), sur toute
+la periode demandee bornee au train, et ne se rabat sur AUCUNE autre si elle manque. Le nombre
+de signaux qu'elle rend est alors celui de la periode : le comptage d'avant le
+preenregistrement sort de BETA. Le moteur refait de toute facon la meme epreuve sur les series
+du run avant de mesurer (`pipeline.eprouver_le_run`).
+
     python -m beta.atelier.epreuve <module>          # rend un rapport JSON sur stdout
+    python -m beta.atelier.epreuve <module> --actif XAU_SPOT --timeframe 5m --debut 2023-06-21
 """
 
 from __future__ import annotations
@@ -38,6 +49,8 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
+
+from beta.moteur.causalite import COUPURES, TOLERANCE, comparer  # noqa: F401 - reexportes
 
 log = logging.getLogger("beta.atelier.epreuve")
 
@@ -60,17 +73,19 @@ BOUGIES_TEMOIN = 1500
 # partout le meme ORDRE DE GRANDEUR en temps couvert, pas en nombre de lignes.
 BOUGIES_PAR_TIMEFRAME = {"5m": 20_000, "15m": 8_000, "1h": 4_000}
 
-# Coupures de l'epreuve de causalite, en fraction de la tranche. Trois suffisent : une
-# fonction qui regarde le futur echoue a la premiere, et les deux autres ne servent qu'a
-# distinguer un debordement d'une bougie d'une normalisation globale.
-COUPURES = (0.40, 0.70, 0.95)
+# Les coupures de l'epreuve de causalite (`COUPURES`) et la tolerance des colonnes
+# auxiliaires (`TOLERANCE`) vivent dans `beta.moteur.causalite` depuis le 04/11 : le moteur
+# refait la meme epreuve avant de mesurer, et deux copies finiraient par diverger.
 
 # Au-dela, on considere que la candidate ne finira pas. Le chargement du parquet et l'import
 # de pandas comptent dedans : le seuil est genereux a dessein, il vise la boucle infinie,
 # pas la candidate lente.
 TIMEOUT_S = 120
+# Sur la serie reelle, l'epreuve lit toute la periode (des centaines de milliers de bougies en
+# 5m) et joint funding et macro comme le moteur : le chronometre s'allonge d'autant. Il vise
+# toujours la boucle sans fin, pas la candidate lente.
+TIMEOUT_REEL_S = 600
 
-TOLERANCE = 1e-9            # colonnes auxiliaires : un ecart flottant n'est pas une faute
 MIN_SIGNAUX = 5
 PART_EN_POSITION_MAX = 0.98
 
@@ -81,17 +96,23 @@ class EpreuveError(RuntimeError):
 
 # --- cote appelant ----------------------------------------------------------------------
 
-def lancer(module: str, timeout: int = TIMEOUT_S, timeframe: str = "") -> dict:
+def lancer(module: str, timeout: int | None = None, timeframe: str = "", actif: str = "",
+           debut: str = "", fin: str = "") -> dict:
     """Lance l'epreuve dans un sous-processus. Ne leve pas : un echec est un rapport.
 
     Le rapport a toujours la meme forme, quoi qu'il arrive — `{ok, refus, reserves,
     mesures}`. Un appelant (CLI, dashboard, boucle de reparation d'un modele local) n'a
-    donc jamais deux chemins a ecrire.
+    donc jamais deux chemins a ecrire. `actif` (avec `timeframe`, `debut`, `fin`) eprouve
+    la candidate sur la serie qu'elle tradera ; sans lui, sur une serie temoin.
     """
+    if timeout is None:
+        timeout = TIMEOUT_REEL_S if actif else TIMEOUT_S
+    options = [("--timeframe", timeframe), ("--actif", actif), ("--debut", debut),
+               ("--fin", fin)]
     try:
         fini = subprocess.run(                                   # noqa: S603
             [sys.executable, "-m", "beta.atelier.epreuve", module]
-            + (["--timeframe", timeframe] if timeframe else []),
+            + [x for option, valeur in options if valeur for x in (option, valeur)],
             cwd=str(RACINE), capture_output=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired:
         return {"module": module, "ok": False,
@@ -145,43 +166,39 @@ def _serie_temoin(timeframe_voulu: str = ""):
                        "construire le lake d'abord (`python beta.py lake`)")
 
 
-def _comparer(reference, tronque) -> tuple[int, int | None, float]:
-    """Compare un prefixe de signaux au meme prefixe calcule sur la serie tronquee.
+def _serie_reelle(actif: str, timeframe: str, debut: str = "", fin: str = ""):
+    """La serie que la candidate tradera, chargee comme le moteur la charge, train seulement.
 
-    Rend (nombre de lignes ou `sens` differe, premiere de ces lignes, plus grand ecart sur
-    les colonnes auxiliaires). `sens` se compare a l'identique — c'est un entier, et c'est
-    la seule colonne dont le moteur se sert. Les colonnes auxiliaires (`force`,
-    `stop_distance`) tolerent un ecart flottant : un chiffre qui bouge de 1e-16 n'est pas
-    une lecture du futur, c'est de l'arithmetique.
+    Aucun repli : si elle manque, l'epreuve s'arrete. Se rabattre en silence sur BTC rendrait
+    un rapport « valide » qui ne dit rien de la serie mesuree — la panne du 04/11.
     """
-    import numpy as np
+    from beta.moteur import pipeline
+    from beta.protocole import holdout
 
-    a = reference["sens"].to_numpy()
-    b = tronque["sens"].to_numpy()
-    differences = np.flatnonzero(a != b)
-    premiere = int(differences[0]) if differences.size else None
-
-    ecart = 0.0
-    for colonne in (set(reference.columns) & set(tronque.columns)) - {"sens"}:
-        try:
-            x = reference[colonne].to_numpy(dtype=float)
-            y = tronque[colonne].to_numpy(dtype=float)
-        except (TypeError, ValueError):
-            continue                                       # colonne non numerique : ignoree
-        fini = np.isfinite(x) & np.isfinite(y)
-        if fini.any():
-            ecart = max(ecart, float(np.max(np.abs(x[fini] - y[fini]))))
-        if (np.isnan(x) != np.isnan(y)).any():
-            ecart = max(ecart, float("inf"))
-    return int(differences.size), premiere, ecart
+    timeframe = timeframe or TIMEFRAME_TEMOIN
+    series = pipeline.charger_series((actif,), timeframe, debut=debut or None,
+                                     fin=holdout.borner_train(fin or None))
+    df = series.get(actif)
+    if df is None or df.empty:
+        raise EpreuveError(f"serie demandee indisponible : {actif} {timeframe} (train"
+                           f"{', depuis ' + debut if debut else ''}) — l'epreuve ne se rabat "
+                           "sur aucune autre serie")
+    return df, f"{actif} {timeframe}"
 
 
-def eprouver(module: str, timeframe: str = "") -> dict:
-    """L'epreuve complete, dans le processus courant. Appelee par `main()`."""
-    from beta.moteur import registre
+# Ancien nom, garde pour les appelants d'avant le 04/11.
+_comparer = comparer
 
-    refus: list[str] = []
-    reserves: list[str] = []
+
+def eprouver(module: str, timeframe: str = "", actif: str = "", debut: str = "",
+             fin: str = "") -> dict:
+    """L'epreuve complete, dans le processus courant. Appelee par `main()`.
+
+    Avec `actif` : sur la serie reelle, toute la periode. Sans : sur une serie temoin, et le
+    rapport le dit dans ses reserves.
+    """
+    from beta.moteur import causalite, registre
+
     mesures: dict = {}
 
     candidate = registre.charger(module)                   # leve si creer() est absent
@@ -189,49 +206,29 @@ def eprouver(module: str, timeframe: str = "") -> dict:
     mesures["hypothese"] = candidate.hypothese
     mesures["empreinte"] = candidate.empreinte
 
-    df, temoin = _serie_temoin(timeframe)
+    if actif:
+        df, temoin = _serie_reelle(actif, timeframe, debut, fin)
+    else:
+        df, temoin = _serie_temoin(timeframe)
     mesures["temoin"] = f"{temoin}, {len(df)} bougies"
+    mesures["serie_reelle"] = bool(actif)
 
-    signaux = candidate.appliquer(df)                      # contrat : leve si viole
-
-    # 2. determinisme
-    encore = candidate.appliquer(df)
-    ecarts, premiere, _ = _comparer(signaux, encore)
-    if ecarts:
-        refus.append(f"deux appels sur le MEME DataFrame donnent des signaux differents "
-                     f"({ecarts} lignes, la premiere en {premiere}) : la candidate garde "
-                     "un etat, elle n'est pas une fonction pure")
-
-    # 3. causalite — le test qui compte
-    for fraction in COUPURES:
-        coupe = max(50, int(len(df) * fraction))
-        if coupe >= len(df):
-            continue
-        try:
-            partiel = candidate.appliquer(df.iloc[:coupe])
-        except Exception as exc:                           # noqa: BLE001
-            refus.append(f"la candidate echoue sur une serie tronquee a {coupe} bougies "
-                         f"({type(exc).__name__}: {exc}) — elle suppose une longueur "
-                         "minimale qu'un run ne lui garantit pas")
-            continue
-        ecarts, premiere, ecart_aux = _comparer(signaux.iloc[:coupe], partiel)
-        if ecarts:
-            refus.append(
-                f"CAUSALITE : coupee a {coupe} bougies, la candidate change {ecarts} "
-                f"signaux du passe (le premier en {premiere}). Une fonction causale ne le "
-                "peut pas : elle lit donc quelque chose apres la ligne qu'elle decide")
-        elif ecart_aux > TOLERANCE:
-            reserves.append(f"coupee a {coupe}, une colonne auxiliaire bouge de "
-                            f"{ecart_aux:.2e} — sans effet sur `sens`, mais a savoir")
+    # 1 a 3. contrat, determinisme, causalite — le meme coeur que le moteur
+    epreuve = causalite.eprouver_serie(candidate, df)
+    refus: list[str] = list(epreuve["refus"])
+    reserves: list[str] = list(epreuve["reserves"])
+    if not actif:
+        reserves.append(f"eprouvee sur une serie TEMOIN ({temoin}), pas sur celle que la "
+                        "candidate tradera : `--actif` et `--timeframe` pour l'eprouver sur "
+                        "la vraie (le moteur la reeprouve de toute facon sur les series du "
+                        "run avant de mesurer)")
 
     # 4. non-degenerescence
-    sens = signaux["sens"]
-    n_signaux = int((sens != 0).sum())
-    mesures.update({"n_bougies": len(df), "n_signaux": n_signaux,
-                    "n_long": int((sens > 0).sum()), "n_short": int((sens < 0).sum()),
-                    "part_en_position": round(n_signaux / max(len(df), 1), 4)})
+    mesures.update(epreuve["mesures"])
+    n_signaux = mesures["n_signaux"]
     if n_signaux == 0:
-        refus.append("aucun signal sur la tranche temoin : il n'y a rien a mesurer")
+        refus.append(f"aucun signal sur {'la serie' if actif else 'la tranche temoin'} "
+                     f"({temoin}) : il n'y a rien a mesurer")
     elif n_signaux < MIN_SIGNAUX:
         reserves.append(f"{n_signaux} signaux seulement sur {len(df)} bougies — la "
                         "candidate est peut-etre juste, mais elle sera INDECIDABLE faute "
@@ -256,12 +253,19 @@ def main(argv: list[str] | None = None) -> int:
     parseur = argparse.ArgumentParser(prog="beta.atelier.epreuve")
     parseur.add_argument("module")
     parseur.add_argument("--timeframe", default="",
-                         help="unite de temps de la serie temoin (defaut : 4h). "
+                         help="unite de temps de la serie (defaut : 4h). "
                               "Une candidate intraday ne signale rien en 4h.")
+    parseur.add_argument("--actif", default="",
+                         help="la serie que la candidate tradera (ex : XAU_SPOT, NDX, BTC) ; "
+                              "sans elle, l'epreuve tourne sur une serie temoin")
+    parseur.add_argument("--debut", default="", help="debut de la periode (avec --actif)")
+    parseur.add_argument("--fin", default="",
+                         help="fin de la periode (avec --actif), bornee au train")
     arguments = parseur.parse_args(argv)
 
     try:
-        rapport = eprouver(arguments.module, arguments.timeframe)
+        rapport = eprouver(arguments.module, arguments.timeframe, arguments.actif,
+                           arguments.debut, arguments.fin)
     except Exception as exc:                               # noqa: BLE001 - c'est le but
         rapport = {"module": arguments.module, "ok": False,
                    "refus": [f"{type(exc).__name__} : {exc}"], "reserves": [],

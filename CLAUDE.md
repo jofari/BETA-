@@ -76,6 +76,11 @@ d'edge.
    La garde qui compte n'est pas la liste de motifs interdits, c'est l'épreuve de
    **causalité** : `signaux(df[:t])` doit rendre exactement `signaux(df)[:t]`. Une liste
    attrape ce qu'elle connaît ; celle-ci attrape ce qu'on n'avait pas prévu.
+   **Depuis le 04/11/2026, le moteur la refait sur les séries mêmes du run, avant tout
+   calcul** (`pipeline.eprouver_le_run`, rapport dans `data/runs/<run>/epreuve.json`) ; dans
+   l'atelier, `atelier valider <module> --actif <série> --timeframe <tf> [--debut ...]`
+   l'éprouve sur la série qu'elle tradera et donne le nombre de signaux d'avant le
+   préenregistrement (sans `--actif` : une série témoin, BTC 4 h, et le rapport le dit).
 8. **`data/` est jetable, jamais versionné.** Supprimer `data/` doit laisser BETA repartir
    proprement via `scripts/build_lake.py`.
 9. **Tout en UTC**, sans exception. Les timestamps du lake sont tz-aware.
@@ -232,6 +237,13 @@ avec le lake (test) : `SP500`, `NASDAQ` et `XAUUSD` gardent leur sens ci-dessus.
   24/10 à 23:11 UTC, et un test de T1F a échoué sans qu'aucun code ait changé. Les copies figées
   vivent dans `tests/donnees/`, nommées par leur empreinte, avec un `.json` qui dit d'où elles
   viennent. Le script qui les produit est dans `scripts/` (`figer_donnees_t1j.py`).
+- **Les chiffres et le verdict d'une mesure sortent du programme, pas de Claude** (Jonas,
+  24/10 et 04/11/2026). Après une mesure du moteur :
+  `python scripts/rapport_experience.py <ids> [--eprouver]` écrit
+  `rapports/<ids>/RAPPORT.md` et `RESUME_DISCORD.md` ; c'est ce résumé, **tel quel**, qui part
+  sur le salon Discord BETA, avec le rapport en pièce jointe. Aucun chiffre recalculé ou
+  arrondi à la main, aucun verdict reformulé ; un avis de Claude va dans un fichier à part
+  (`--avis`), recopié dans une section marquée « ce n'est PAS le programme ».
 - Pont MCP : déclaré dans `.mcp.json` (Claude Code voit les 7 outils en ouvrant le dossier)
   et dans `~/.lmstudio/mcp.json`. L'éprouver **pour de vrai** :
   `python scripts/epreuve_mcp.py` — un vrai sous-processus, un vrai JSON-RPC. Les tests en

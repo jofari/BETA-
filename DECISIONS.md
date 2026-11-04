@@ -794,3 +794,61 @@ les perpétuels TradFi (XAUUSDT, QQQUSDT) sont entièrement dans le hold-out. Ch
 **Verdict du programme** (`scripts/mesurer_r13_r14.py`) : **R13 INFIRMÉE, R14 INFIRMÉE**,
 les 6 variantes à R moyen négatif (or −0,57 / −0,27 / −0,19 R ; Nasdaq −0,60 / −0,34 / −0,25 R),
 8 à 10 portes échouées chacune. Compteur trading 93 → 99.
+
+## Rapport écrit par le programme, épreuve sur la vraie série (04/11/2026)
+
+Jonas, après le rapport de R13 et R14 : « une partie du test est passée par toi mais pas par
+BETA, ou en tout cas un pré-verdict et des pré-calculs ont été faits par toi ». Exact :
+
+- **avant la mesure** : un plus petit effet détectable « à la louche » (≈ 0,2 R) ; le nombre
+  de signaux (395 / 278) et l'épreuve de causalité faits par un script improvisé ; la règle
+  d'agrégation du lot (« confirmée si au moins une des 3 variantes l'est ») écrite par Claude,
+  sans validation de Jonas ;
+- **après la mesure** : la décomposition R brut / coûts calculée à la main ; « ce n'est pas un
+  edge » et « pourquoi c'est pire que sur les cryptos » écrits comme des résultats ; des
+  chiffres arrondis à la main ; le rapport Discord rédigé par Claude.
+
+Vérifié le 04/11 : le sas n'avait pas tourné du tout sur R13 et R14 — les six candidates ont
+été posées directement dans `beta/candidates/`, sans passer par le dépôt. Lancé tel qu'il
+était, il refusait la variante or en 4 h (« aucun signal », sur BTC) et la validait avec
+`--timeframe 5m`… sur BTC : il ne savait lire ni l'or ni le Nasdaq.
+
+**Feu vert de Jonas le 04/11** (« ok tu as le feu vert ») sur trois corrections, **sans
+remesurer** (R13 et R14 sont closes ; remesurer coûterait de nouveaux essais au compteur) :
+
+- **A. Le rapport s'écrit par le programme.** `beta/rapport/experience.py`, lancé par
+  `python scripts/rapport_experience.py <ids> [--eprouver] [--avis fichier.md]`, relit
+  `EXPERIMENTS.jsonl`, `RUNS.jsonl` et `data/runs/<run>/`, et écrit `rapports/<ids>/RAPPORT.md`
+  (préenregistrement mot pour mot, chiffres de chaque variante, R brut / coûts / R net
+  recalculés depuis `trades.parquet`, sorties, sens, années, batterie porte par porte avec les
+  champs et les réserves du moteur tels quels, buy-and-hold, compteurs, empreintes) et
+  `RESUME_DISCORD.md`. Le verdict d'une expérience est celui de sa ligne de clôture ; celui
+  d'une variante, celui de son `verdict.json`. Ce que le programme recalcule est contrôlé
+  contre ce que le moteur a écrit (R moyen, nombre de trades, R net = R brut − coûts trade par
+  trade, coûts = frais + spread + funding, clôture = runs, journal) : un écart s'écrit en
+  clair et passe la pastille au rouge, il n'est jamais corrigé. Les seuls arrondis sont ceux
+  des fonctions de format du module. Un avis de Claude passe par `--avis` et reste dans une
+  section séparée, marquée « ce n'est PAS le programme ».
+- **B.** Le rapport R13/R14 envoyé sur le salon BETA le 04/11 à 13:01 UTC est remplacé par
+  celui du programme (`rapports/R13-R14/`), envoyé tel quel.
+- **C. L'épreuve tourne sur la série que la candidate tradera.** Le cœur de l'épreuve
+  (déterminisme, causalité à trois coupures, comptes de signaux) vit dans
+  `beta/moteur/causalite.py`, commun à l'atelier et au moteur.
+  `python beta.py atelier valider <module> --actif XAU_SPOT --timeframe 5m --debut 2023-06-21`
+  lit la série comme la mesure la lira (`pipeline.charger_series` : funding, macro, tick), sur
+  toute la période bornée au train, sans repli sur une autre série : le nombre de signaux
+  d'avant le préenregistrement sort de BETA. Sans `--actif`, l'épreuve dit qu'elle a tourné sur
+  un témoin. Et le moteur la refait sur les séries mêmes du run avant tout calcul
+  (`pipeline.eprouver_le_run`) : refus = rien de mesuré, rien de journalisé, compteur
+  inchangé ; le rapport part avec le run (`epreuve.json`). Relancée sur R13 et R14 par le
+  générateur (`--eprouver`), même code que les runs : or 5 min 395 signaux, Nasdaq 1 h 278
+  signaux, causalité et déterminisme « ok ».
+
+**Ouvert — D** : la règle d'agrégation d'un lot de variantes (« au moins une sur 3 »), écrite
+par Claude dans le préenregistrement de R13 et R14 sans validation de Jonas, attend sa
+décision pour les prochains lots. Pour R13 et R14, les trois variantes de chaque lot sont
+infirmées par le moteur : la règle n'a départagé aucun cas mixte.
+
+**Reste hors programme** : le plus petit effet détectable AVANT mesure (il demande un σ(R)
+supposé, que BETA ne fixe pas). Il ne se donne plus « à la louche » ; s'il faut un chiffre,
+c'est au programme de le calculer, sur décision de Jonas.

@@ -2,6 +2,8 @@
 
     atelier nouveau <module> --hypothese R7    ecrit un squelette pret a remplir
     atelier valider <module>                   passe une candidate existante au sas
+    atelier valider <module> --actif XAU_SPOT --timeframe 5m --debut 2023-06-21
+                                               ... sur la serie qu'elle tradera (04/11/2026)
     atelier local "<regle>" --module r7_x ...  la fait ecrire par un modele local
     atelier modeles                            quels serveurs locaux repondent
 
@@ -72,7 +74,9 @@ def cmd_valider(args) -> int:
     except OSError as exc:
         print(f"lecture impossible : {exc}")
         return 1
-    rapport = depot.valider(code, args.module)
+    rapport = depot.valider(code, args.module, timeframe=getattr(args, "timeframe", ""),
+                            actif=getattr(args, "actif", ""), debut=getattr(args, "debut", ""),
+                            fin=getattr(args, "fin", ""))
     _afficher(rapport)
     if rapport["ok"]:
         print("\n" + RAPPEL.format(module=args.module))
