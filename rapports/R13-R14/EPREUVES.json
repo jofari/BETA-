@@ -1,0 +1,200 @@
+{
+  "r13_ny_or_stop_050": {
+    "le": "2026-11-04T13:32:06.662542+00:00",
+    "run": "8bfb719165c8",
+    "actif": "XAU_SPOT",
+    "code": "même empreinte que le run",
+    "rapport": {
+      "module": "r13_ny_or_stop_050",
+      "ok": true,
+      "refus": [],
+      "reserves": [],
+      "mesures": {
+        "candidate": "r13_ny_or_stop_050",
+        "hypothese": "R13",
+        "empreinte": "b8dcacb10d31",
+        "temoin": "XAU_SPOT 5m, 108528 bougies",
+        "serie_reelle": true,
+        "n_bougies": 108528,
+        "premiere": "2023-06-21 00:00:00+00:00",
+        "derniere": "2024-12-31 21:55:00+00:00",
+        "n_signaux": 395,
+        "n_long": 193,
+        "n_short": 202,
+        "part_en_position": 0.0036,
+        "coupures": [
+          43411,
+          75969,
+          103101
+        ],
+        "causalite": "ok",
+        "determinisme": "ok"
+      }
+    }
+  },
+  "r13_ny_or_stop_100": {
+    "le": "2026-11-04T13:32:08.662645+00:00",
+    "run": "53aae4e0be16",
+    "actif": "XAU_SPOT",
+    "code": "même empreinte que le run",
+    "rapport": {
+      "module": "r13_ny_or_stop_100",
+      "ok": true,
+      "refus": [],
+      "reserves": [],
+      "mesures": {
+        "candidate": "r13_ny_or_stop_100",
+        "hypothese": "R13",
+        "empreinte": "8ca359af2b7d",
+        "temoin": "XAU_SPOT 5m, 108528 bougies",
+        "serie_reelle": true,
+        "n_bougies": 108528,
+        "premiere": "2023-06-21 00:00:00+00:00",
+        "derniere": "2024-12-31 21:55:00+00:00",
+        "n_signaux": 395,
+        "n_long": 193,
+        "n_short": 202,
+        "part_en_position": 0.0036,
+        "coupures": [
+          43411,
+          75969,
+          103101
+        ],
+        "causalite": "ok",
+        "determinisme": "ok"
+      }
+    }
+  },
+  "r13_ny_or_stop_150": {
+    "le": "2026-11-04T13:32:10.678819+00:00",
+    "run": "f621f8eb0240",
+    "actif": "XAU_SPOT",
+    "code": "même empreinte que le run",
+    "rapport": {
+      "module": "r13_ny_or_stop_150",
+      "ok": true,
+      "refus": [],
+      "reserves": [],
+      "mesures": {
+        "candidate": "r13_ny_or_stop_150",
+        "hypothese": "R13",
+        "empreinte": "9d915baf7cfd",
+        "temoin": "XAU_SPOT 5m, 108528 bougies",
+        "serie_reelle": true,
+        "n_bougies": 108528,
+        "premiere": "2023-06-21 00:00:00+00:00",
+        "derniere": "2024-12-31 21:55:00+00:00",
+        "n_signaux": 395,
+        "n_long": 193,
+        "n_short": 202,
+        "part_en_position": 0.0036,
+        "coupures": [
+          43411,
+          75969,
+          103101
+        ],
+        "causalite": "ok",
+        "determinisme": "ok"
+      }
+    }
+  },
+  "r14_ny_ndx1h_stop_050": {
+    "le": "2026-11-04T13:32:12.327422+00:00",
+    "run": "544b3cd8a3bf",
+    "actif": "NDX",
+    "code": "même empreinte que le run",
+    "rapport": {
+      "module": "r14_ny_ndx1h_stop_050",
+      "ok": true,
+      "refus": [],
+      "reserves": [],
+      "mesures": {
+        "candidate": "r14_ny_ndx1h_stop_050",
+        "hypothese": "R14",
+        "empreinte": "180c537e9959",
+        "temoin": "NDX 1h, 1930 bougies",
+        "serie_reelle": true,
+        "n_bougies": 1930,
+        "premiere": "2023-11-22 14:30:00+00:00",
+        "derniere": "2024-12-31 20:30:00+00:00",
+        "n_signaux": 278,
+        "n_long": 131,
+        "n_short": 147,
+        "part_en_position": 0.144,
+        "coupures": [
+          772,
+          1351,
+          1833
+        ],
+        "causalite": "ok",
+        "determinisme": "ok"
+      }
+    }
+  },
+  "r14_ny_ndx1h_stop_100": {
+    "le": "2026-11-04T13:32:13.938175+00:00",
+    "run": "eaa351a4c37a",
+    "actif": "NDX",
+    "code": "même empreinte que le run",
+    "rapport": {
+      "module": "r14_ny_ndx1h_stop_100",
+      "ok": true,
+      "refus": [],
+      "reserves": [],
+      "mesures": {
+        "candidate": "r14_ny_ndx1h_stop_100",
+        "hypothese": "R14",
+        "empreinte": "96f342fd5cc4",
+        "temoin": "NDX 1h, 1930 bougies",
+        "serie_reelle": true,
+        "n_bougies": 1930,
+        "premiere": "2023-11-22 14:30:00+00:00",
+        "derniere": "2024-12-31 20:30:00+00:00",
+        "n_signaux": 278,
+        "n_long": 131,
+        "n_short": 147,
+        "part_en_position": 0.144,
+        "coupures": [
+          772,
+          1351,
+          1833
+        ],
+        "causalite": "ok",
+        "determinisme": "ok"
+      }
+    }
+  },
+  "r14_ny_ndx1h_stop_150": {
+    "le": "2026-11-04T13:32:15.616955+00:00",
+    "run": "03d6d0620341",
+    "actif": "NDX",
+    "code": "même empreinte que le run",
+    "rapport": {
+      "module": "r14_ny_ndx1h_stop_150",
+      "ok": true,
+      "refus": [],
+      "reserves": [],
+      "mesures": {
+        "candidate": "r14_ny_ndx1h_stop_150",
+        "hypothese": "R14",
+        "empreinte": "778193144971",
+        "temoin": "NDX 1h, 1930 bougies",
+        "serie_reelle": true,
+        "n_bougies": 1930,
+        "premiere": "2023-11-22 14:30:00+00:00",
+        "derniere": "2024-12-31 20:30:00+00:00",
+        "n_signaux": 278,
+        "n_long": 131,
+        "n_short": 147,
+        "part_en_position": 0.144,
+        "coupures": [
+          772,
+          1351,
+          1833
+        ],
+        "causalite": "ok",
+        "determinisme": "ok"
+      }
+    }
+  }
+}
