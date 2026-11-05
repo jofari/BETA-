@@ -259,8 +259,32 @@ def _backtest(module: str, paires: list | None = None, timeframe: str = "4h",
                        "resultat": {"type": "string"}},
         "required": ["id", "verdict", "resultat"]})
 def _publier(id: str, verdict: str, resultat: str, **_) -> dict:  # noqa: A002
+    # Le verdict sort du programme, pas de l'appelant (audit du 05/11, point 5). Un modele
+    # branche ici pouvait ecrire « confirmee » sans qu'aucun run n'existe. On ne clot donc
+    # que ce que le moteur a REELLEMENT mesure, et avec le verdict que lui a rendu.
+    from beta.moteur.contrats import CONFIRMEE, INDECIDABLE, INFIRMEE
     from beta.protocole import experiences
-    entree = experiences.clore(id, verdict, resultat)
+    experiences.exiger(id)            # hypothese inconnue -> refus de preenregistrement
+    if verdict not in (CONFIRMEE, INFIRMEE, INDECIDABLE):
+        raise ValueError(f"verdict inconnu : {verdict!r} "
+                         f"(attendu : {CONFIRMEE}, {INFIRMEE} ou {INDECIDABLE})")
+    statut = (experiences.etat().get(id) or {}).get("statut")
+    if statut in ("clos", "abandonne"):
+        raise ValueError(f"'{id}' est deja {statut} : on ne la clot pas une seconde fois")
+    issues = [r.get("issue") for r in experiences.runs_journalises()
+              if r.get("experience") == id]
+    if not issues:
+        raise ValueError(f"aucun run journalise pour '{id}' : lancer beta_run_backtest "
+                         "avant de clore — un verdict sans mesure n'est pas un verdict")
+    if len(set(issues)) > 1:
+        raise ValueError(f"'{id}' porte {len(issues)} runs aux issues differentes "
+                         f"({sorted(set(issues))}) : un lot se clot par le script de "
+                         "l'experience (correction multiple comprise), pas par cet outil")
+    if verdict != issues[0]:
+        raise ValueError(f"verdict {verdict!r} contraire a celui du moteur "
+                         f"({issues[0]!r}, {len(issues)} run(s)) : refuse")
+    entree = experiences.clore(id, verdict, resultat, source="mcp",
+                               runs_verifies=len(issues))
     return {**entree, "n_essais_cumules_apres": experiences.n_essais_pour(id)}
 
 

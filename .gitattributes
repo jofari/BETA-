@@ -1,0 +1,8 @@
+# Aucune conversion de fin de ligne, sur aucun fichier (audit du 05/11/2026, point 7).
+# Les sceaux de BETA (PREENREGISTREMENT.md, spec_figee.md, modules d'un commit, copies
+# figees de tests/donnees/) sont des empreintes calculees sur les OCTETS du fichier, au
+# moment du gel, sur le VPS (fins de ligne LF). Sous Windows, core.autocrlf=true les
+# extrayait en CRLF : l'empreinte changeait, les gardes de gel echouaient, et la seule
+# facon de les faire repasser aurait ete de regenerer les sceaux -- c'est-a-dire de les
+# detruire. Avec -text, chaque fichier est extrait octet pour octet tel qu'il a ete commite.
+* -text

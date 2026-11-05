@@ -122,10 +122,13 @@ def test_lecture_seule_refuse_les_post_et_les_hotes_etrangers(lancer):
     assert _requete(port, "GET", "/api/serveur", hote="localhost:7574")[0] == 200
 
 
-def test_sur_le_pc_rien_ne_change(lancer):
+def test_sur_le_pc_seul_un_hote_local_est_servi(lancer):
+    # Jusqu'au 05/11 le PC servait n'importe quel nom d'hote : la porte du rebinding DNS
+    # vers /api/atelier (audit du 05/11, point 6). Le controle vaut desormais partout.
     port = lancer(False)
-    statut, corps = _requete(port, "GET", "/api/serveur", hote="nom-de-machine:7474")
+    statut, corps = _requete(port, "GET", "/api/serveur", hote="127.0.0.1:7474")
     assert statut == 200 and corps["lecture_seule"] is False
+    assert _requete(port, "GET", "/api/serveur", hote="nom-de-machine:7474")[0] == 403
 
 
 # ------------------------------------------------------------------- allocation, levier

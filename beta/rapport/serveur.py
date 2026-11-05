@@ -44,6 +44,7 @@ log = logging.getLogger("beta.rapport")
 
 WEB = pathlib.Path(__file__).resolve().parent / "web"
 HOTE, PORT = "127.0.0.1", 7474      # 7373 est pris par ALPHA
+HOTES_LOCAUX = ("127.0.0.1", "localhost", "::1")
 
 
 class ServeurExclusif(socketserver.ThreadingMixIn, http.server.HTTPServer):
@@ -54,7 +55,8 @@ class ServeurExclusif(socketserver.ThreadingMixIn, http.server.HTTPServer):
     # Sur le VPS, le dashboard est servi a travers un tunnel SSH (`beta-web.service`) :
     # aucun POST, et seuls les noms d'hote locaux sont acceptes — une page web malveillante
     # ouverte dans le navigateur ne peut alors ni declencher une action, ni lire les
-    # donnees par rebinding DNS. Sur le PC, rien ne change.
+    # donnees par rebinding DNS. Depuis le 05/11, le controle d'hote vaut aussi sur le PC,
+    # et tout POST doit y etre du JSON venu d'une page locale (`Handler._post_refuse`).
     lecture_seule = False
     lien_vps: str | None = None
 
@@ -286,14 +288,42 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json({"erreur": str(exc)}, 500)
 
     def _hote_refuse(self) -> bool:
-        """En lecture seule : refuse tout nom d'hote qui n'est pas local (rebinding DNS)."""
-        if not self.server.lecture_seule:
-            return False
+        """Refuse tout nom d'hote qui n'est pas local (rebinding DNS), DANS TOUS LES MODES.
+
+        Jusqu'au 05/11 ce controle ne valait qu'en lecture seule : sur le PC, une page web
+        quelconque ouverte pendant que BETA.cmd tournait pouvait viser 127.0.0.1:7474 par
+        un nom rebinde, ou par un POST cross-site, jusqu'a /api/atelier (audit, point 6).
+        """
         hote = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
-        if hote in ("127.0.0.1", "localhost", "::1"):
+        if hote in self._hotes_admis():
             return False
         self._json({"erreur": "hote refuse"}, 403)
         return True
+
+    def _hotes_admis(self) -> tuple[str, ...]:
+        """Les noms locaux, plus l'adresse d'ecoute si `serve --host` en a donne une precise."""
+        ecoute = str(self.server.server_address[0])
+        return HOTES_LOCAUX + (() if ecoute in ("", "0.0.0.0", "::") else (ecoute,))
+
+    def _post_refuse(self) -> bool:
+        """Un POST n'est accepte que s'il est du JSON venu d'une page locale.
+
+        `Content-Type: application/json` n'est pas un formulaire « simple » : un navigateur
+        ne peut l'envoyer cross-site qu'apres un preflight CORS, auquel ce serveur ne repond
+        jamais. Un formulaire HTML ou un `fetch` en `text/plain` est donc refuse ici. Et si
+        le navigateur dit d'ou vient la requete (`Origin`), elle doit venir d'ici.
+        """
+        ctype = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        if ctype != "application/json":
+            self._json({"erreur": "Content-Type application/json exige"}, 415)
+            return True
+        origine = self.headers.get("Origin")
+        if origine is not None:
+            hote = (urlparse(origine).hostname or "").strip("[]")
+            if hote not in self._hotes_admis():
+                self._json({"erreur": "origine refusee"}, 403)
+                return True
+        return False
 
     def do_GET(self) -> None:        # noqa: N802 — impose par BaseHTTPRequestHandler
         if self._hote_refuse():
@@ -341,6 +371,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return None
         if self.server.lecture_seule:
             return self._json({"erreur": "serveur en lecture seule (VPS)"}, 403)
+        if self._post_refuse():
+            return None
         route = urlparse(self.path).path.rstrip("/")
         if route == "/api/atelier":
             return self._post_atelier()
