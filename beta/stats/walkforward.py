@@ -17,6 +17,20 @@ Ce module ne reoptimise rien : BETA ne fait pas d'hyperoptimisation (interdit n�
 ARIT, repris ici). Le walk-forward y sert a mesurer la STABILITE d'un edge dans le temps —
 la question « ce resultat vient-il de toute la periode, ou de six mois de 2021 ? », qui tue
 plus de candidates que la p-value.
+
+⚠️ Ce que cela implique, dit franchement (audit du 05/11/2026) : **S6 est un test de
+stabilite par sous-periode, pas une validation croisee.** Rien n'est appris sur le train,
+donc :
+- la purge et l'embargo ne changent AUCUN score du CPCV (le score d'une combinaison est le R
+  moyen de ses plis de test, que le train soit purge ou non) ; ils ne touchent que le R
+  moyen in-sample du walk-forward ancre, a la marge. L'embargo, qui retire une bande APRES
+  le test, n'a d'effet nulle part : le train de l'ancre est entierement AVANT le test ;
+- les C(6, 2) = 15 « chemins » du CPCV sont 15 couples de sous-periodes, fortement
+  dependants (chaque pli entre dans 5 d'entre eux). Les vrais chemins CPCV de Lopez de Prado
+  (phi = k/N x C(N, k) = 5) seraient tous identiques ici — le R moyen de l'echantillon
+  entier — puisque la performance d'un pli de test ne depend pas de son train. La part de
+  couples perdants reste une mesure de stabilite legitime ; elle n'est pas une probabilite
+  de perte hors echantillon.
 """
 
 from __future__ import annotations
@@ -41,7 +55,11 @@ def _bornes(dates: pd.Series, n_plis: int) -> list[tuple[pd.Timestamp, pd.Timest
     debut, fin = dates.min(), dates.max()
     if pd.isna(debut) or pd.isna(fin) or debut == fin:
         return []
-    coupures = pd.date_range(debut, fin, periods=n_plis + 1)
+    coupures = list(pd.date_range(debut, fin, periods=n_plis + 1))
+    # Les plis sont [debut, fin[ : sans ce decalage, le DERNIER trade (entree == max) ne
+    # tombait dans aucun pli de test (audit du 05/11/2026). Une microseconde suffit : c'est
+    # la resolution du lake, et aucun trade ne peut entrer apres le dernier.
+    coupures[-1] = coupures[-1] + pd.Timedelta(microseconds=1)
     return [(coupures[i], coupures[i + 1]) for i in range(n_plis)]
 
 
@@ -122,10 +140,14 @@ def cpcv(trades: pd.DataFrame, n_plis: int = N_PLIS, k_test: int = K_TEST_CPCV,
          embargo_pct: float = EMBARGO_PCT, colonne: str = "r") -> dict:
     """Combinatorial purged CV : toutes les combinaisons de `k_test` plis de test.
 
-    Le walk-forward ancre ne donne qu'UN chemin de validation, celui de la chronologie
-    reelle. CPCV en donne C(n, k), donc une DISTRIBUTION de performances hors echantillon —
-    dont on lit la part de chemins perdants, la seule statistique qui repond a « quelle est
-    la probabilite que ce systeme soit en perte sur une periode que je n'ai pas vue ? ».
+    Le walk-forward ancre ne donne qu'UN decoupage, celui de la chronologie reelle. Ici,
+    C(n, k) combinaisons de plis de test donnent une DISTRIBUTION du R moyen par couple de
+    sous-periodes, dont on lit la part perdante (`part_chemins_perdants`, nom conserve pour
+    les rapports deja ecrits).
+
+    Sans parametre appris, ce n'est PAS la probabilite d'etre en perte sur une periode non
+    vue : c'est la part des couples de sous-periodes ou l'edge disparait (voir le docstring
+    du module). Les combinaisons sont dependantes entre elles.
     """
     if trades.empty:
         return {"n_combinaisons": 0, "part_chemins_perdants": float("nan")}

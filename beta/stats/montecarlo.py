@@ -33,8 +33,17 @@ def _courbes(matrice_r: np.ndarray, capital: float, risque_pct: float) -> np.nda
     return capital + np.cumsum(gains, axis=1)
 
 
-def _drawdown_max_pct(courbes: np.ndarray) -> np.ndarray:
+def _drawdown_max_pct(courbes: np.ndarray, capital: float | None = None) -> np.ndarray:
+    """Drawdown maximal de chaque courbe, en %. `capital` : le point de depart E0.
+
+    Les courbes commencent APRES le premier trade : sans E0 dans le sommet courant, une
+    sequence qui commence par des pertes n'avait pas de drawdown avant son premier gain
+    (-1, +1, +1 rendait 0 % au lieu de -1 % ; audit du 05/11/2026). `capital=None` garde
+    l'ancien calcul pour les scripts historiques qui l'appellent ainsi.
+    """
     sommets = np.maximum.accumulate(courbes, axis=1)
+    if capital is not None:
+        sommets = np.maximum(sommets, capital)
     return np.min((courbes / sommets - 1.0) * 100.0, axis=1)
 
 
@@ -63,9 +72,9 @@ def simuler(r: np.ndarray, mode: str = "permutation", n_tirages: int = N_TIRAGES
 
     courbes = _courbes(matrice, capital, risque_pct)
     finaux = courbes[:, -1]
-    dd = _drawdown_max_pct(courbes)
+    dd = _drawdown_max_pct(courbes, capital)
     reel = _courbes(x[None, :], capital, risque_pct)[0]
-    dd_reel = float(_drawdown_max_pct(reel[None, :])[0])
+    dd_reel = float(_drawdown_max_pct(reel[None, :], capital)[0])
 
     return {
         "n": n, "mode": mode, "n_tirages": n_tirages,
@@ -82,8 +91,10 @@ def simuler(r: np.ndarray, mode: str = "permutation", n_tirages: int = N_TIRAGES
         # (le drawdown, lui, n'a plus de sens au-dela de -100 %).
         "p_ruine": float((courbes.min(axis=1) <= 0.0).mean()),
         "seuil_dd_pct": SEUIL_DD_PCT,
-        # Rang du drawdown observe dans la distribution simulee : proche de 0, la sequence
-        # reelle a ete CHANCEUSE, et le MDD publie sous-estime le risque reel.
+        # Part des tirages dont le drawdown est AU MOINS aussi severe que l'observe. Proche
+        # de 100, presque toutes les chronologies auraient fait pire : la sequence reelle a
+        # ete CHANCEUSE, et le MDD publie sous-estime le risque reel. Proche de 0, elle a
+        # ete malchanceuse. (Le commentaire disait l'inverse jusqu'au 05/11/2026.)
         "centile_drawdown_reel": float((dd <= dd_reel).mean() * 100.0),
         "cone": {f"p{p}": np.percentile(courbes, p, axis=0).tolist()
                  for p in PERCENTILES_CONE},

@@ -416,12 +416,16 @@ def test_le_rejeu_par_blocs_rend_les_memes_tirages_que_le_monte_carlo():
     spec = importlib.util.spec_from_file_location("reevaluer_s6_ruine", chemin)
     script = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(script)
+    # Le script valide des valeurs STOCKEES avant le 05/11/2026 : il garde donc le drawdown
+    # d'alors (sans le capital initial dans le sommet). Les tirages, eux, restent les memes
+    # que ceux de `simuler` : tout ce qui ne depend pas du drawdown doit coincider.
+    sans_drawdown = {"n", "equity_finale_reelle", "equity_finale", "p_perte"}
     r = edge(n=120, mu=-0.4)
     for mode in ("permutation", "remise"):
         entier = montecarlo.simuler(r, mode, n_tirages=1_000)
         blocs = script.rejouer_mc(r, mode, n_tirages=1_000, bloc=64)
-        for cle, valeur in blocs.items():
-            if isinstance(valeur, dict):
-                assert valeur == pytest.approx(entier[cle])
-            else:
-                assert valeur == pytest.approx(entier[cle]), (mode, cle)
+        for cle in sans_drawdown:
+            assert blocs[cle] == pytest.approx(entier[cle]), (mode, cle)
+        reel = montecarlo._courbes(r[None, :], 100_000.0, 1.0)
+        assert blocs["drawdown_max_reel_pct"] == pytest.approx(
+            float(montecarlo._drawdown_max_pct(reel)[0]))

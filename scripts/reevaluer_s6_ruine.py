@@ -51,6 +51,10 @@ def rejouer_mc(r: np.ndarray, mode: str, graine: int = GRAINE_RUN,
     permutation par ligne ; des entiers ligne apres ligne), donc les tirages sont les
     memes — ce que `_reproduit` verifie contre les valeurs stockees, run par run. Ne rend
     que ce qui sert au controle et `p_ruine` (pas le cone).
+
+    Le drawdown est celui d'AVANT le 05/11/2026 (`_drawdown_max_pct` sans capital : E0 hors
+    du sommet), volontairement : ce script ne complete un run que s'il en reproduit les
+    valeurs stockees, calculees ainsi.
     """
     x = np.asarray(r, dtype=float)
     x = x[np.isfinite(x)]

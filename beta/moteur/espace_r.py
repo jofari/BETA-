@@ -484,7 +484,9 @@ def equity(trades: pd.DataFrame, capital: float = 100_000.0,
     ordonnes = trades.sort_values("ts_sortie")
     gain = ordonnes["r"].fillna(0.0) * capital * risque_par_trade_pct / 100.0
     courbe = capital + gain.cumsum()
-    sommet = courbe.cummax()
+    # Le capital de depart compte comme premier sommet : sans lui, des pertes d'entree de
+    # jeu n'etaient pas un drawdown (audit du 05/11/2026, meme defaut que S4).
+    sommet = courbe.cummax().clip(lower=capital)
     return pd.DataFrame({"ts": ordonnes["ts_sortie"].to_numpy(),
                          "equity": courbe.to_numpy(),
                          "drawdown_pct": ((courbe / sommet - 1.0) * 100.0).to_numpy()})

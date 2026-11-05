@@ -61,6 +61,7 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
             nom: str = "candidate", famille: pd.DataFrame | None = None,
             univers_candidates: dict[str, np.ndarray] | None = None,
             trades_lot: dict[str, pd.DataFrame] | None = None,
+            paire_synthetique: str | None = None,
             graine: int = 0) -> dict:
     """Passe une candidate a la batterie. Rend metriques, portes et reserves.
 
@@ -70,6 +71,11 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
 
     `trades_lot` ({nom: trades}, la candidate comprise) nourrit S10 : la PBO se calcule sur
     le lot entier, donc elle est la meme pour toutes les candidates d'un meme lot.
+
+    `paire_synthetique` : la paire sur laquelle les chemins synthetiques de S5 ont ete
+    rejoues. Le reel est alors lu sur CETTE paire seulement, pour que S5 compare la meme
+    statistique des deux cotes (audit du 05/11/2026 : le reel sommait toutes les paires, le
+    temoin une seule).
 
     `spread` et `funding` ne servent qu'a S8 : ils disent a la reference de payer les memes
     couts de detention que la candidate. Les trades, eux, arrivent ici deja nets — c'est le
@@ -117,10 +123,14 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
         detail["S4_monte_carlo"] = mc
         p_perte = mc["remise"].get("p_perte", float("nan"))
         portes["S4_monte_carlo"] = bool(np.isfinite(p_perte) and p_perte <= SEUIL_P_PERTE)
+        # Centile = part des chronologies simulees au drawdown au moins aussi severe. Haut,
+        # la chronologie reelle a ete chanceuse ; le test etait inverse (<= 10) jusqu'au
+        # 05/11/2026, et signalait comme chanceuses les sequences les plus malchanceuses.
         centile_dd = mc["permutation"].get("centile_drawdown_reel", float("nan"))
-        if np.isfinite(centile_dd) and centile_dd <= 10:
-            reserves.append(f"drawdown observe au {centile_dd:.0f}e centile des sequences "
-                            "simulees : la chronologie reelle a ete chanceuse")
+        if np.isfinite(centile_dd) and centile_dd >= 90:
+            reserves.append(f"{centile_dd:.0f} % des chronologies simulees ont un drawdown "
+                            "au moins aussi severe que l'observe : la chronologie reelle a "
+                            "ete chanceuse, le drawdown publie sous-estime le risque")
 
     # --- S6 : walk-forward purge et embargo ------------------------------------------
     if len(trades) >= N_MIN_TRADES and "ts_entree" in trades.columns:
@@ -150,7 +160,11 @@ def evaluer(trades: pd.DataFrame, *, equity: pd.DataFrame | None = None,
 
     # --- S5 : chemins synthetiques ----------------------------------------------------
     if resultats_synthetiques:
-        obs = float(np.nansum(r)) if len(r) else float("nan")
+        if paire_synthetique is not None and "paire" in trades.columns:
+            r_paire = trades.loc[trades["paire"] == paire_synthetique, "r"].dropna()
+            obs = float(r_paire.sum())
+        else:
+            obs = float(np.nansum(r)) if len(r) else float("nan")
         comp = synthetique.comparer(obs, resultats_synthetiques, CENTILE_SYNTHETIQUE)
         detail["S5_synthetique"] = comp
         portes["S5_synthetique"] = comp["passe"]

@@ -23,16 +23,50 @@ import pandas as pd
 
 # alpha = 0,05 unilateral, puissance 80 % : z(1-alpha) + z(1-beta)
 Z_MDE = 2.487
-# n effectif = n / 1,6. Les trades se chevauchent (positions simultanees sur des paires
-# correlees) : compter n trades independants surestime la puissance disponible.
+# n effectif = n / 1,6 au mieux. Les trades se chevauchent (positions simultanees sur des
+# paires correlees) : compter n trades independants surestime la puissance disponible.
 CHEVAUCHEMENT = 1.6
 N_MIN_PF = 2
 
 
-def mde(n: int, sigma_r: float, effectif: bool = True) -> float:
-    """Plus petit effet detectable, en R par trade. NaN si l'echantillon ne permet rien."""
+def n_effectif(r: np.ndarray) -> float:
+    """Nombre effectif de trades independants : n / max(1,6 ; 1 + 2 x somme des rho_k).
+
+    rho_k = autocorrelation des R (dans l'ordre d'entree) au decalage k, pour k = 1..L,
+    L = n^(1/3) : la regle du bootstrap (`bootstrap.longueur_optimale`), fixee d'avance et
+    non choisie d'apres les donnees. Des trades groupes (les memes jours, sur des paires
+    correlees) ont des R correles d'un trade au suivant ; jusqu'au 05/11/2026, le facteur
+    etait fige a 1,6. Sur les 22 runs enregistres a cette date (30 trades ou plus), le MDE
+    etait ainsi sous-estime d'un facteur 1,00 a 1,78 (mediane 1,18 ; 7 inchanges).
+
+    Le plancher 1,6 garde l'hypothese d'origine comme borne : l'estimation ne peut que
+    DURCIR le MDE, jamais le relacher (autocorrelation nulle ou negative => n / 1,6).
+    """
+    x = np.asarray(r, dtype=float)
+    x = x[np.isfinite(x)]
+    n = len(x)
+    if n < 3:
+        return n / CHEVAUCHEMENT
+    centre = x - x.mean()
+    variance = float(centre @ centre)
+    if variance <= 0:
+        return n / CHEVAUCHEMENT
+    decalages = range(1, min(max(1, int(n ** (1.0 / 3.0))), n - 1) + 1)
+    somme = sum(float(centre[:-k] @ centre[k:]) / variance for k in decalages)
+    return n / max(CHEVAUCHEMENT, 1.0 + 2.0 * somme)
+
+
+def mde(n: int, sigma_r: float, effectif: bool = True,
+        n_eff: float | None = None) -> float:
+    """Plus petit effet detectable, en R par trade. NaN si l'echantillon ne permet rien.
+
+    `n_eff` : un nombre effectif deja estime (`n_effectif`). Absent, n / 1,6 comme avant :
+    les appelants historiques (r1_trailing, r6_news_window) gardent leurs chiffres.
+    """
     if n <= 1 or not sigma_r or math.isnan(sigma_r):
         return float("nan")
+    if n_eff is not None:
+        return Z_MDE * sigma_r / math.sqrt(n_eff) if n_eff > 0 else float("nan")
     return Z_MDE * sigma_r / math.sqrt(n / CHEVAUCHEMENT if effectif else n)
 
 
@@ -58,6 +92,7 @@ def resumer(trades: pd.DataFrame) -> dict:
     rendement = (trades["rendement_pct"].dropna() if "rendement_pct" in trades.columns
                  else pd.Series(dtype=float))
     sigma = float(r.std(ddof=1)) if len(r) > 1 else float("nan")
+    neff = n_effectif(r.to_numpy())
     resume = {
         "n": n,
         "n_avec_r": len(r),
@@ -65,7 +100,8 @@ def resumer(trades: pd.DataFrame) -> dict:
         "r_median": float(r.median()) if len(r) else float("nan"),
         "r_sigma": sigma,
         "r_total": float(r.sum()) if len(r) else float("nan"),
-        "mde_r": mde(len(r), sigma),
+        "n_effectif": neff,
+        "mde_r": mde(len(r), sigma, n_eff=neff),
         "rendement_moyen_pct": float(rendement.mean()) if len(rendement) else float("nan"),
         "rendement_total_pct": float(rendement.sum()) if len(rendement) else float("nan"),
         "win_rate": float((r > 0).mean()) if len(r) else float("nan"),

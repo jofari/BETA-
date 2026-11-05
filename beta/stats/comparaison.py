@@ -114,7 +114,8 @@ def classer(verdicts: dict, equities: dict[str, pd.DataFrame],
     """Le classement d'un lot. Rend tableau, reality check, matrice et redondances.
 
     `verdicts` : {nom: Verdict}. `equities` : {nom: DataFrame ts/equity}.
-    `univers_r` : {nom: R par trade} pour S7. `equity_arit` : la courbe d'AritV1, facultative.
+    `univers_r` : {nom: P&L journalier en R, calendrier commun} pour S7
+    (`multitest.univers_journalier`). `equity_arit` : la courbe d'AritV1, facultative.
 
     Le tri est fait sur le R moyen, **pas** sur une issue : classer par verdict mettrait en
     tete les candidates qui ont eu la chance qu'une porte ne tourne pas. Le tableau porte

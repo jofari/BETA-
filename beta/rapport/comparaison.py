@@ -26,6 +26,7 @@ from beta.moteur.pipeline import RESULTATS
 from beta.rapport import identite
 from beta.rapport.runs import MAX_POINTS_COURBE, _lire_json, _lire_parquet
 from beta.stats import comparaison as stats_comparaison
+from beta.stats import multitest as stats_multitest
 
 log = logging.getLogger("beta.rapport.comparaison")
 
@@ -93,10 +94,11 @@ def charger_lot(split: str = "train") -> dict:
         if not equity.empty:
             equities[nom] = equity
         trades = _lire_parquet(dossier / "trades.parquet")
-        if not trades.empty and "r" in trades.columns:
-            serie = trades["r"].dropna().to_numpy()
-            if len(serie) >= 3:
-                univers[nom] = serie
+        if not trades.empty and "r" in trades.columns and trades["r"].notna().sum() >= 3:
+            univers[nom] = trades
+    # S7 sur un calendrier journalier commun, comme dans la batterie (audit du 05/11/2026) :
+    # des R par trade de runs differents ne s'alignent pas ligne a ligne.
+    univers = stats_multitest.univers_journalier(univers)
     return {"verdicts": verdicts, "equities": equities, "univers": univers,
             "titres": titres,
             "arit": stats_comparaison.equity_arit(train_seulement=(split == "train")),

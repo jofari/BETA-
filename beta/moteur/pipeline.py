@@ -30,7 +30,7 @@ from beta.lake import lecture, univers
 from beta.moteur import causalite, espace_r
 from beta.moteur.contrats import Candidate, Run, Verdict
 from beta.protocole import experiences, holdout
-from beta.stats import batterie, synthetique
+from beta.stats import batterie, multitest, synthetique
 
 log = logging.getLogger("beta.moteur.pipeline")
 
@@ -231,6 +231,12 @@ def _resultats_synthetiques(run: Run, series: dict[str, pd.DataFrame],
     (« cette forme de signal gagne-t-elle sur une serie sans structure ? »). C'est une
     limite assumee, elle est ecrite dans les reserves du verdict.
 
+    Le R total d'un chemin est celui de la sequence ENCHAINEE (`espace_r.enchainer`, une
+    position a la fois), comme le reel, et le reel est lu sur la meme paire
+    (`batterie.evaluer(paire_synthetique=...)`). Jusqu'au 05/11/2026, le temoin sommait
+    tous ses signaux, chevauchements compris, face au reel enchaine de toutes les paires :
+    deux grandeurs sans rapport (audit du 05/11/2026).
+
     Le temoin paie les MEMES couts que le reel : le spread, au tick de la serie mere, et le
     funding, que `_reconstruire_ohlcv` recopie tous deux de la serie mere sur les memes dates.
     Sans cette recopie, l'ecart reel/synthetique contenait un cout de detention au lieu de
@@ -255,7 +261,8 @@ def _resultats_synthetiques(run: Run, series: dict[str, pd.DataFrame],
         except Exception as exc:                     # noqa: BLE001 - un chemin ne doit pas
             log.debug("chemin synthetique %d ecarte : %s", i, exc)   # tuer le temoin entier
             continue
-        totaux.append(float(trades["r"].dropna().sum()) if not trades.empty else 0.0)
+        sequence = espace_r.enchainer(trades) if not trades.empty else trades
+        totaux.append(float(sequence["r"].dropna().sum()) if not sequence.empty else 0.0)
     return totaux
 
 
@@ -303,11 +310,14 @@ def executer(run: Run, *, equities_voisines: dict[str, pd.DataFrame] | None = No
         spread=run.spread, funding=run.funding, spread_modele=run.spread_modele,
         resultats_synthetiques=synthetiques, equities_voisines=equities_voisines,
         nom=run.candidate.nom, univers_candidates=univers_candidates,
-        famille=famille, trades_lot=trades_lot, graine=run.graine)
+        famille=famille, trades_lot=trades_lot,
+        paire_synthetique=next(iter(series)) if synthetiques else None,
+        graine=run.graine)
 
     reserves = list(resultat["reserves"])
     reserves.append(f"chemins synthetiques rejoues sur {next(iter(series))} seulement "
-                    f"({generateur_synthetique}, {len(synthetiques)} chemins)")
+                    f"({generateur_synthetique}, {len(synthetiques)} chemins), compares au "
+                    f"R total reel de {next(iter(series))}")
     reserves.append(f"{len(tous)} signaux mesures, {len(sequence)} retenus apres "
                     "elimination des chevauchements")
 
@@ -445,12 +455,12 @@ def cribler(candidates: dict[str, Candidate], paires: tuple[str, ...], timeframe
             log.error("candidate '%s' ecartee du criblage : %s", nom, exc)
 
     equities = {nom: art["equity"] for nom, (_, art) in premiers.items()}
-    univers = {nom: art["sequence"]["r"].dropna().to_numpy()
-               for nom, (_, art) in premiers.items()
-               if not art["sequence"].empty}
     famille = _famille_du_lot(premiers)
     # S10 : toutes les candidates mesurees, meme sans trade — elles faisaient partie du choix.
     trades_lot = {nom: art["sequence"] for nom, (_, art) in premiers.items()}
+    # S7 : le P&L journalier sur le calendrier commun du lot, la base de S10. Les R par trade
+    # n'etaient pas alignes entre candidates (audit du 05/11/2026).
+    univers = multitest.univers_journalier(trades_lot)
 
     verdicts = {}
     for nom, (verdict, art) in premiers.items():

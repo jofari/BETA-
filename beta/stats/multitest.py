@@ -9,9 +9,11 @@ regarde avant de trouver ca ?*
 - **S2 Sharpe degonfle (DSR)** — Bailey & Lopez de Prado (2014). Le Sharpe maximal de N
   essais sur du bruit pur n'est pas 0 : il croit comme sqrt(2 ln N). Le DSR retire cette
   esperance avant de conclure ;
-- **S7 Reality Check de White / SPA de Hansen** — la p-value du MAXIMUM d'un univers de N
+- **S7 Reality Check de White, studentise** — la p-value du MAXIMUM d'un univers de N
   candidates, obtenue par bootstrap. C'est le test correct quand on choisit la meilleure
-  d'un lot : la p-value de la gagnante prise isolement n'a aucun sens.
+  d'un lot : la p-value de la gagnante prise isolement n'a aucun sens. (Ce n'est pas le SPA
+  « consistant » de Hansen : chaque colonne est recentree sur sa propre moyenne, ce que
+  Hansen appelle SPA_u, la version la plus prudente.)
 
 Le N qui alimente S2 et S7 vient du compteur cumulatif de `protocole.experiences`, qui part
 de 30 et ne redescend jamais. C'est la seule facon d'honorer les essais qu'on a faits et
@@ -26,7 +28,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from beta.stats import bootstrap
+from beta.stats import bootstrap, pbo
 
 FDR_DEFAUT = 0.10
 EULER = 0.5772156649015329        # gamma d'Euler-Mascheroni, dans l'esperance du maximum
@@ -102,8 +104,11 @@ def sharpe_degonfle(rendements: np.ndarray, n_essais: int,
         return resultat
     skew = float(stats.skew(x))
     kurt = float(stats.kurtosis(x, fisher=False))     # non centree : 3 pour une normale
-    # Variance du Sharpe sous H0, en l'absence d'estimation externe : 1/(T-1) est
-    # l'approximation usuelle et volontairement prudente.
+    # Variance du Sharpe sous H0, en l'absence d'estimation externe : 1/(T-1), la variance
+    # d'UN Sharpe estime sur T observations de bruit. Ce n'est PAS le choix prudent : c'est
+    # la dispersion MINIMALE des essais. Des essais passes heterogenes ont une V[{SR}] plus
+    # grande, donc un seuil SR0 plus haut — avec 1/(T-1), la porte est alors trop genereuse
+    # (audit du 05/11/2026 ; la variance empirique des essais est une decision de Jonas).
     var_sr = (1.0 / (t - 1)) if variance_sharpe is None else variance_sharpe
     seuil = sharpe_attendu_du_maximum(n_essais, var_sr)
     denominateur = 1.0 - skew * sr + (kurt - 1.0) / 4.0 * sr ** 2
@@ -117,13 +122,42 @@ def sharpe_degonfle(rendements: np.ndarray, n_essais: int,
 
 
 def _matrice(series: dict[str, np.ndarray]) -> tuple[list[str], np.ndarray]:
-    """Aligne des series de longueurs differentes sur la plus courte, sans les melanger."""
+    """Les series en colonnes. Elles doivent etre ALIGNEES : meme longueur, meme calendrier.
+
+    Jusqu'au 05/11/2026, cette fonction tronquait a la plus courte et alignait par position :
+    la batterie lui passait des R PAR TRADE, donc le 1er trade de A face au 1er de B, a des
+    dates sans rapport. Le bootstrap « conjoint » ne conservait aucune correlation reelle
+    (0,93 par date devenait 0,05) et jetait les trades au-dela de la serie la plus courte.
+    Aligner est le travail de l'appelant (`univers_journalier`) : ici, on refuse.
+    """
     noms = list(series)
     if not noms:
         return [], np.empty((0, 0))
-    longueur = min(len(series[n]) for n in noms)
-    return noms, np.column_stack([np.asarray(series[n], dtype=float)[:longueur]
-                                  for n in noms])
+    longueurs = {n: len(series[n]) for n in noms}
+    if len(set(longueurs.values())) > 1:
+        raise ValueError("reality check : series de longueurs differentes "
+                         f"({longueurs}) — les aligner sur un calendrier commun d'abord "
+                         "(`univers_journalier`)")
+    return noms, np.column_stack([np.asarray(series[n], dtype=float) for n in noms])
+
+
+def univers_journalier(trades: dict[str, pd.DataFrame]) -> dict[str, np.ndarray]:
+    """L'univers de S7 : le P&L JOURNALIER de chaque candidate, sur un calendrier commun.
+
+    P&L du jour = somme des R des trades clotures ce jour-la, 0 sans cloture, du premier au
+    dernier jour de cloture du lot : exactement la base de S10 (`pbo.rendements_lot`,
+    decision de Jonas du 26/10/2026). Ligne t = le meme jour pour toutes les candidates :
+    c'est ce qui donne un sens au bootstrap conjoint. Une candidate sans trade est retiree :
+    elle n'a pas de performance a mettre au maximum.
+    """
+    matrice = pbo.rendements_lot(trades)
+    if matrice.empty:
+        return {}
+    actives = [nom for nom, t in trades.items()
+               if t is not None and not t.empty and "r" in t.columns
+               and t["r"].notna().any()]
+    return {nom: matrice[nom].to_numpy(dtype=float) for nom in matrice.columns
+            if nom in actives}
 
 
 def reality_check(series: dict[str, np.ndarray], n_repetitions: int = 1000,
@@ -131,17 +165,18 @@ def reality_check(series: dict[str, np.ndarray], n_repetitions: int = 1000,
                   studentise: bool = True) -> dict:
     """S7 — p-value du MEILLEUR d'un univers de candidates (White 2000, Hansen 2005).
 
-    `series` : une entree par candidate, chacune une serie de performances DEJA relatives a
-    la reference (par exemple R par trade, ou rendement moins buy-and-hold). H0 : aucune
-    candidate ne bat la reference.
+    `series` : une entree par candidate, toutes ALIGNEES (meme longueur, ligne t = meme date),
+    chacune une serie de performances DEJA relatives a la reference. H0 : aucune candidate ne
+    bat la reference. Dans la batterie, la serie est le P&L journalier en R
+    (`univers_journalier`) et la reference est ZERO — ne rien faire, pas le buy-and-hold.
 
     La statistique est le maximum sur les candidates de sqrt(T) x moyenne. Sa distribution
     sous H0 s'obtient en recentrant chaque colonne sur sa propre moyenne puis en
     rebootstrappant par blocs — de sorte que la dependance temporelle ET la correlation
     entre candidates soient conservees, ce qu'une correction de Bonferroni ignore.
 
-    `studentise=True` donne le SPA de Hansen : diviser par l'ecart-type empeche une
-    candidate tres volatile et sans edge de dominer la statistique du maximum.
+    `studentise=True` divise par l'ecart-type (le « RC studentise », SPA_u de Hansen) : une
+    candidate tres volatile et sans edge ne peut plus dominer la statistique du maximum.
     """
     noms, matrice = _matrice(series)
     if not noms or matrice.shape[0] < 3:
