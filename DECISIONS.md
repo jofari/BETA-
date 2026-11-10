@@ -852,3 +852,28 @@ infirmées par le moteur : la règle n'a départagé aucun cas mixte.
 **Reste hors programme** : le plus petit effet détectable AVANT mesure (il demande un σ(R)
 supposé, que BETA ne fixe pas). Il ne se donne plus « à la louche » ; s'il faut un chiffre,
 c'est au programme de le calculer, sur décision de Jonas.
+
+## Momentum trente jours sur le BTC — MOMENTUM30_BTC (10/11/2026)
+
+Jonas : « à l'aide de toutes les données et de tous les tests effectués dans BETA, théorise et
+teste une stratégie rentable sur le BTC (je veux voir ce que tu arrives à faire) et fais-la
+passer dans BETA ». Claude a suivi le skill de recherche (question, littérature vérifiée,
+mécanisme, données, prédiction, préenregistrement, mesure), avec **deux entorses nommées** :
+hypothèse et règles écrites par Claude (« proposition de Claude »), et nuit entre gel et
+lancement sautée. Dossier `MOMENTUM30_BTC/` (`RECHERCHE.md`, `PREENREGISTREMENT.md`), moteur
+`beta/momentum30_btc/moteur.py`, scripts `preenregistrer_momentum30_btc.py` et
+`mesurer_momentum30_btc.py`, rapport `rapports/MOMENTUM30_BTC/`.
+
+Ce qui a été mesuré : exposition long-only sur le perpétuel BTC en quotidien, 1 si le rendement
+des 30 derniers jours est > 0, sinon 0, décidée à la clôture et appliquée le lendemain, contre le
+hold du même perpétuel, rendements du 09/10/2019 au 31/12/2024, frais 6 pb par bascule, funding
+réel, cash au DFF. Famille invest, un essai, compteur invest 61 → 62. Règle : Sharpe, CAGR et
+MDD meilleurs que le hold ET p retenue des deux nulls du test invest < 0,05.
+
+**Verdict du programme : CONFIRMÉE** (issue attendue : infirmée) — stratégie Sharpe 1,16 / CAGR
++55 % / MDD −47 % contre hold 0,80 / +38 % / −79 % ; p retenue 0,027.
+
+**Ouvert — attend Jonas** : (1) relire le préenregistrement et qualifier le résultat (recherche
+ou exploration : tant qu'il n'a pas relu, c'est une exploration, un résultat d'exploration ne
+prouve rien) ; (2) suite éventuelle : paper BTC perpétuel et/ou ouverture unique du hold-out
+2025+, sans aucun réglage avant. Aucun réglage n'a été fait ni ne sera fait sans décision.

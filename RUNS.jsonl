@@ -134,3 +134,5 @@
 {"run_id": "544b3cd8a3bf", "experience": "R14", "candidate": "r14_ny_ndx1h_stop_050", "empreinte": "180c537e9959", "issue": "infirmee", "date": "2026-11-04T12:53:10.278524+00:00"}
 {"run_id": "eaa351a4c37a", "experience": "R14", "candidate": "r14_ny_ndx1h_stop_100", "empreinte": "96f342fd5cc4", "issue": "infirmee", "date": "2026-11-04T12:53:18.257404+00:00"}
 {"run_id": "03d6d0620341", "experience": "R14", "candidate": "r14_ny_ndx1h_stop_150", "empreinte": "778193144971", "issue": "infirmee", "date": "2026-11-04T12:53:26.087996+00:00"}
+{"run_id": "4b650c8870ab", "experience": "MOMENTUM30_BTC", "candidate": "momentum30_btc:L30", "empreinte": "7ef4d7985b440c5a", "issue": "essai journalise avant calcul", "date": "2026-11-10T19:49:27.432046+00:00"}
+{"run_id": "4b650c8870ab", "experience": "MOMENTUM30_BTC", "candidate": "momentum30_btc:L30", "empreinte": "7ef4d7985b440c5a", "issue": "confirmee", "date": "2026-11-10T19:49:30.643405+00:00"}
