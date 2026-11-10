@@ -1,0 +1,1 @@
+{"date": "2026-11-09", "fenetre": ["2026-11-03", "2026-11-09"], "jours": 7, "jours_absents": [], "ecarts": [], "non_expliques": 0, "controle_backtest_fige": {"identique": true, "jours": 1979, "ecart_max": 0.0, "periode": ["2021-06-01", "2026-10-31"]}, "rendement": {"du": "2026-11-03", "au": "2026-11-09", "paper": -0.018795722028639994, "backtest": -0.01769265563170641}}
