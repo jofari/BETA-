@@ -155,7 +155,7 @@ chiffres à lire à côté, sans seuil et sans verdict. Détail : `beta/stats/CL
 
 ## Le VPS
 
-Le même dépôt vit sur un VPS Linux (`/root/BETA-`, venv `/root/venvs/arit`). Le PC et le VPS
+Le même dépôt vit sur un VPS Linux (`/root/BETA-`, venv `/root/venvs/beta`). Le PC et le VPS
 poussent sur le même `main` : **`git pull --ff-only` avant de coder**. Une quinzaine de timers
 `beta-*` y tournent sans personne (lake, suivi et paper des voies C, journaux poussés chaque nuit,
 vrais marchés) et alertent le salon Discord BETA en cas d'échec ; le dashboard `beta-web` est en
@@ -185,7 +185,7 @@ Dates de cotation, sources, pièges et qualité : `beta/lake/CLAUDE.md` et
 - Paths en `pathlib`, jamais de séparateur codé en dur.
 - `logging`, jamais `print`, hors sortie de rapport destinée à être lue.
 - Tests : `& C:\Users\jofar\venvs\arit\Scripts\python.exe -m pytest -q` (PC) ;
-  `/root/venvs/arit/bin/python -m pytest -q` (VPS).
+  `/root/venvs/beta/bin/python -m pytest -q` (VPS).
 - **Chaque test lit une copie figée de ses données, jamais la source vivante** (Jonas,
   25/10/2026). Une source peut réécrire le passé : Yahoo a révisé la clôture NDX du 23/10 le
   24/10 à 23:11 UTC, et un test de T1F a échoué sans qu'aucun code ait changé. Les copies figées

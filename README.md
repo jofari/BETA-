@@ -482,7 +482,8 @@ Flux : `ARIT (lecture seule) ─┐`
 & C:\Users\jofar\venvs\arit\Scripts\python.exe -m pytest -q
 ```
 
-Sur le VPS : `cd /root/BETA- && /root/venvs/arit/bin/python -m pytest -q`.
+Sur le VPS : `cd /root/BETA- && /root/venvs/beta/bin/python -m pytest -q` (le venv des services
+depuis la bascule du 16/10/2026 ; `/root/venvs/arit` reste celui de freqtrade).
 
 142 tests. Ils protègent en priorité la **détection des trous** et la convention
 d'horodatage du resampling (une bougie porte l'heure de son **ouverture** — s'y tromper

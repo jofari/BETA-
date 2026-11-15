@@ -4,7 +4,7 @@
 > racine le 15/11/2026.
 
 
-Le même dépôt vit aussi sur un VPS Linux (`/root/BETA-`, venv `/root/venvs/arit`, unités
+Le même dépôt vit aussi sur un VPS Linux (`/root/BETA-`, venv `/root/venvs/beta`, unités
 systemd dans `deploy/`). Le PC et le VPS poussent sur le même `main` : **`git pull --ff-only`
 avant de coder**.
 
@@ -23,7 +23,9 @@ avant de coder**.
   le tunnel `VPS.cmd`. Après un changement de son code : `systemctl restart beta-web`.
 - **Alertes** : toute unité `beta-*` en échec — alarme du dry-run comprise (sorties 4 et 5) —
   part sur le salon Discord BETA (drop-in `deploy/notif.conf`).
-- Tests sur le VPS : `cd /root/BETA- && /root/venvs/arit/bin/python -m pytest -q`.
+- Tests sur le VPS : `cd /root/BETA- && /root/venvs/beta/bin/python -m pytest -q`. Les 18 unités
+  tournent dans `/root/venvs/beta` depuis la bascule du 16/10/2026 ; `/root/venvs/arit` est le
+  venv de freqtrade (téléchargements du lake). Tester dans le venv qui exécute.
 
 ## Règles d'exploitation
 
