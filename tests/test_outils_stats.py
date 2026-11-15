@@ -14,7 +14,7 @@ import pytest
 from scipy import stats
 
 from beta.moteur import espace_r
-from beta.stats import (comparaison, multitest, risque, robustesse, selection, sharpe)
+from beta.stats import comparaison, multitest, risque, robustesse, selection, sharpe
 
 
 def bruit(n=1000, mu=0.0, sigma=1.0, graine=0):
@@ -230,7 +230,7 @@ def test_stress_des_couts():
                            "funding_r": [0.01] * 4})
     s = robustesse.stress_couts(trades)
     assert s["multiple_mort"] == pytest.approx(2.5)
-    par = {l["multiple"]: l["r_moyen"] for l in s["par_multiple"]}
+    par = {x["multiple"]: x["r_moyen"] for x in s["par_multiple"]}
     assert par[1.0] == pytest.approx(0.15) and par[3.0] == pytest.approx(-0.05)
     assert s["detail_couts_r"]["frais_r"] == pytest.approx(0.08)
     assert "raison" in robustesse.stress_couts(pd.DataFrame({"r": [1.0, 2.0]}))
@@ -242,7 +242,7 @@ def test_par_annee():
                                      "2023-01-05"], utc=True),
         "r": [5.0, 1.0, -1.0, -1.0, 0.5]})
     p = robustesse.par_annee(trades)
-    assert [l["annee"] for l in p["annees"]] == [2021, 2022, 2023]
+    assert [x["annee"] for x in p["annees"]] == [2021, 2022, 2023]
     assert p["annees_positives"] == 2 and p["meilleure_annee"] == 2021
     assert p["part_meilleure_annee"] == pytest.approx(6.0 / 4.5)
     assert p["r_total_sans_meilleure_annee"] == pytest.approx(-1.5)

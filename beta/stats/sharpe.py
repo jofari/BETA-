@@ -156,7 +156,8 @@ def _apparies(a, b) -> tuple[np.ndarray, np.ndarray]:
 def difference_memmel(a, b) -> dict:
     """Test de Jobson-Korkie corrige par Memmel : H0, les deux Sharpe sont egaux.
 
-    z = (SR_a - SR_b) / racine(V), V = [2 (1 - rho) + (SR_a^2 + SR_b^2 - 2 SR_a SR_b rho^2) / 2] / n.
+    z = (SR_a - SR_b) / racine(V),
+    V = [2 (1 - rho) + (SR_a^2 + SR_b^2 - 2 SR_a SR_b rho^2) / 2] / n.
     Suppose des rendements NORMAUX et INDEPENDANTS dans le temps : sur des series a queues
     epaisses ou autocorrelees, lire `difference_bootstrap` a cote. p unilaterale (H1 : a > b).
     """

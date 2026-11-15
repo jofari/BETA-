@@ -171,7 +171,8 @@ def markdown(fiche: dict, titre: str) -> str:
     lignes += ["", "## Queues (P&L journalier en R)", "", "| Mesure | Valeur |", "|---|---|",
                f"| Sortino annuel | {_n(q['sortino_annuel'], 2, True)} |",
                f"| Omega (seuil 0) | {_n(q['omega'], 3)} |",
-               f"| Rapport des queues des R par trade (centile 95 / centile 5) | {_n(q['ratio_des_queues'], 2)} |"]
+               f"| Rapport des queues des R par trade (centile 95 / centile 5) | "
+               f"{_n(q['ratio_des_queues'], 2)} |"]
     for niveau in (95, 99):
         v = q[f"var_cvar_{niveau}"]
         lignes.append(f"| Perte d'un mauvais jour à {niveau} % (VaR), moyenne des pires (CVaR) | "
@@ -250,8 +251,8 @@ def markdown(fiche: dict, titre: str) -> str:
     if "raison" in st:
         lignes.append(f"- Stress des coûts non calculé : {st['raison']}.")
     else:
-        par = ", ".join(f"× {_n(l['multiple'], 1)} : {_n(l['r_moyen'], 4, True)} R"
-                        for l in st["par_multiple"])
+        par = ", ".join(f"× {_n(x['multiple'], 1)} : {_n(x['r_moyen'], 4, True)} R"
+                        for x in st["par_multiple"])
         lignes += [f"- R moyen brut {_n(st['r_brut_moyen'], 4, True)}, coût moyen "
                    f"{_n(st['cout_moyen_r'], 4)} R par trade. R moyen selon le multiple des "
                    f"coûts du modèle — {par}.",
@@ -261,7 +262,8 @@ def markdown(fiche: dict, titre: str) -> str:
     sp = fiche["sans_une_paire"]
     if sp.get("paires"):
         lignes.append(f"- Sans {sp['pire']} (la paire qui porte le plus) : R moyen "
-                      f"{_n(sp['r_moyen_sans_pire'], 4, True)} contre {_n(sp['r_moyen'], 4, True)} ; "
+                      f"{_n(sp['r_moyen_sans_pire'], 4, True)} contre "
+                      f"{_n(sp['r_moyen'], 4, True)} ; "
                       f"le signe {'tient' if sp['signe_tient'] else 'ne tient pas'}.")
     pa = fiche["par_annee"]
     if pa["annees"]:
@@ -269,6 +271,6 @@ def markdown(fiche: dict, titre: str) -> str:
                    f"meilleure année {pa['meilleure_annee']}, R total sans elle : "
                    f"{_n(pa['r_total_sans_meilleure_annee'], 1, True)}.", "",
                    "| Année | Trades | R moyen | R total | MDE (R) |", "|---|---|---|---|---|"]
-        lignes += [f"| {l['annee']} | {l['n']} | {_n(l['r_moyen'], 4, True)} | "
-                   f"{_n(l['r_total'], 1, True)} | {_n(l['mde_r'], 4)} |" for l in pa["annees"]]
+        lignes += [f"| {x['annee']} | {x['n']} | {_n(x['r_moyen'], 4, True)} | "
+                   f"{_n(x['r_total'], 1, True)} | {_n(x['mde_r'], 4)} |" for x in pa["annees"]]
     return "\n".join(lignes) + "\n"

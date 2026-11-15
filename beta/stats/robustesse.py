@@ -118,10 +118,10 @@ def par_annee(trades: pd.DataFrame, colonne_date: str = "ts_entree") -> dict:
                        # Sous 10 trades, l'ecart-type lui-meme n'est pas estime : pas de MDE.
                        "mde_r": (descriptif.mde(len(r), sigma, n_eff=descriptif.n_effectif(r))
                                  if len(r) >= N_MIN_MDE else float("nan"))})
-    total = sum(l["r_total"] for l in lignes)
-    meilleure = max(lignes, key=lambda l: l["r_total"]) if lignes else None
+    total = sum(x["r_total"] for x in lignes)
+    meilleure = max(lignes, key=lambda x: x["r_total"]) if lignes else None
     return {"annees": lignes, "n_annees": len(lignes),
-            "annees_positives": sum(l["r_total"] > 0 for l in lignes),
+            "annees_positives": sum(x["r_total"] > 0 for x in lignes),
             "meilleure_annee": meilleure["annee"] if meilleure else None,
             "part_meilleure_annee": (meilleure["r_total"] / total
                                      if meilleure and total > 0 else float("nan")),
@@ -148,7 +148,7 @@ def sans_une_paire(trades: pd.DataFrame) -> dict:
         lignes.append({"sans": paire, "n": int(len(reste)),
                        "n_retires": int(len(t) - len(reste)),
                        "r_moyen": float(reste.mean()) if len(reste) else float("nan")})
-    pire = min(lignes, key=lambda l: l["r_moyen"])
+    pire = min(lignes, key=lambda x: x["r_moyen"])
     return {"r_moyen": ensemble, "paires": lignes, "pire": pire["sans"],
             "r_moyen_sans_pire": pire["r_moyen"],
             "signe_tient": bool(np.sign(pire["r_moyen"]) == np.sign(ensemble))}

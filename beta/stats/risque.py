@@ -111,7 +111,7 @@ def var_cornish_fisher(rendements, niveau: float = NIVEAU) -> dict:
 
 
 def ratio_des_queues(rendements) -> float:
-    """|centile 95| / |centile 5| : sous 1, les mauvaises periodes sont plus grosses que les bonnes."""
+    """|centile 95| / |centile 5| : sous 1, les mauvaises periodes pesent plus que les bonnes."""
     x = _propre(rendements)
     if len(x) < 20:
         return float("nan")
