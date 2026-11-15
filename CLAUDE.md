@@ -4,7 +4,10 @@
 Objectif : tester **plusieurs** hypothèses d'edge sur les mêmes données, avec une batterie
 statistique qui les tue quand elles ne valent rien — et le dire.
 
-Lire ce fichier + `README.md` en début de session.
+**Début de session (famille 2)** : ce fichier, puis `DECISIONS.md` en entier (décisions
+ouvertes). Tout le reste se lit sur appel — tableau « À ouvrir seulement si besoin » en bas.
+Les règles communes à tous les projets de Jonas sont, sur le PC, dans
+`C:\Users\jofar\.claude\CLAUDE.md`.
 
 ---
 
@@ -88,7 +91,9 @@ d'edge.
     `RUNS.jsonl` et `IDEES.jsonl`. Un compteur qu'un nettoyage remet à zéro est un compteur
     qui ment, et une idée perdue par un nettoyage est une idée qu'on n'aura pas deux fois.
     ⚠️ Les deux premiers ne mesurent pas la même chose — hypothèses d'un côté, mesures de
-    l'autre — et l'écart est un arbitrage ouvert (`DECISIONS.md` § A1).
+    l'autre. **Tranché par Jonas le 20/08 (A1, option b) : N porte les mesures** —
+    `N = base + mesures distinctes (RUNS.jsonl) + hypothèses préenregistrées sans mesure`,
+    appliqué dans `experiences.compteur()`.
 11. **Noter une idée est GRATUIT ; la promouvoir COÛTE.** `IDEES.jsonl` n'a aucune forme
     imposée et n'avance pas le compteur ; `promouvoir()` écrit le préenregistrement et
     avance le compteur d'un cran, donc durcit le seuil de toutes les autres hypothèses.
@@ -134,7 +139,8 @@ et embargo, corrélation des courbes d'équity entre candidates, PBO du choix da
 - Dépendances pip autorisées (décision du 18/08), mais chacune doit se justifier.
   Aujourd'hui : pandas, pyarrow, duckdb, numpy, scipy, freqtrade, **yfinance** (14/09 : seule
   source libre fiable pour indices/ETF en quotidien ; stooq bloque les robots).
-- BETA vit **hors OneDrive** (`C:\Users\jofar\BETA`), comme ALPHA — OneDrive a déjà vidé des
+- BETA vit **hors OneDrive** (`C:\Users\jofar\BETA-` ; `C:\Users\jofar\BETA` est un ancien
+  clone périmé du même dépôt, à ne pas utiliser), comme ALPHA — OneDrive a déjà vidé des
   fichiers sur ce poste.
 
 ## Le VPS — ce qui tourne sans personne (depuis début octobre)
@@ -251,3 +257,14 @@ avec le lake (test) : `SP500`, `NASDAQ` et `XAUUSD` gardent leur sens ci-dessus.
 - Modèles locaux : Ollama sur 11434, LM Studio sur 1234. `python beta.py atelier modeles`
   dit lequel répond. **Rien ne sort de la machine.**
 - Git : branche `main`, **push après chaque commit**. Repo **privé**.
+
+## À ouvrir seulement si besoin (famille 3)
+
+| Besoin | Fichier |
+|---|---|
+| Ce que BETA ne sait pas encore faire, état d'avancement (fait foi) | `CHANTIERS.md` (append-only, barré en place) |
+| Mode d'emploi, commandes, architecture | `README.md` |
+| Rapport d'une mesure | `rapports/<ids>/RAPPORT.md` (écrit par le programme) |
+| Dossiers d'une voie ou d'un labo | `VC6_V1/`, `VC6_V2/`, `temps1*/`, `pbo_*/`, `MOMENTUM30_BTC/` |
+| Ce qui est clos | `archives/` |
+| Décisions qui portent sur AritV1 en production | `C:\Users\jofar\ARIT2.0\DECISIONS.md` |

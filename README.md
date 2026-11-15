@@ -368,7 +368,7 @@ outils. Un pont ne casse pas dans sa logique, il casse dans son branchement.
 
 ## L'univers
 
-6 perpétuels Binance, `beta/univers.py` comme source unique :
+6 perpétuels Binance, `beta/lake/univers.py` comme source unique :
 
 | Paire | Origine | Historique |
 |---|---|---|
@@ -481,10 +481,9 @@ décale la série et fabrique du look-ahead en silence).
   `CLAUDE.md`.
 - **L'atelier n'est pas un bac à sable, et il ne raccourcit rien.** Il abaisse le coût
   d'écrire une candidate ; préenregistrement, compteur et batterie restent devant elle.
-- ⚠️ **Le compteur compte les hypothèses, pas les mesures.** Tant qu'il y a une candidate
-  par hypothèse c'est la même chose ; l'atelier peut casser l'égalité. `RUNS.jsonl` mesure
-  l'écart et `beta.py doctor` l'affiche, mais **aucun seuil n'a bougé** : c'est un arbitrage
-  ouvert (`DECISIONS.md` § A1), pas un correctif à glisser dans un commit.
+- **Le compteur compte les mesures** (A1, tranchée par Jonas le 20/08) : dix candidates sous
+  une même hypothèse comptent pour dix. Détail et compteurs par famille : `CLAUDE.md`,
+  invariants 4 et 10.
 - Il ne génère pas de stratégie depuis une vidéo (P4, reporté) : une vidéo est une source
   d'hypothèses, jamais d'edge — exactement comme un modèle local.
 - ⚠️ **Il ne peut aujourd'hui CONFIRMER aucune candidate.** S1 n'est jamais exécutée par le
