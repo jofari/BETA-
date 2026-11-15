@@ -201,7 +201,7 @@ def macro_globales() -> pd.DataFrame:
         morceaux.append(df.set_index("date"))
     if not morceaux:
         return pd.DataFrame()
-    out = pd.concat(morceaux, axis=1)
+    out = pd.concat(morceaux, axis=1, sort=True)
     out.index = pd.to_datetime(out.index, utc=True)
     return out.sort_index()
 

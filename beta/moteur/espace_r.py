@@ -382,6 +382,13 @@ def _bloc(positions, hauts, bas, clotures, dates, sens_tout, entree_tout, risque
     cloture_fin = f_cloture[lignes, i_fin]
     r_horizon = sens * (cloture_fin - entree) / risque
     r_brut = np.where(np.isnan(r_brut), r_horizon, r_brut)
+    # Prix de sortie = le prix de la BARRIERE touchee (cible ou stop), la cloture seulement a
+    # l'horizon. Jusqu'au 15/11/2026, `prix_sortie` et `rendement_pct` prenaient la cloture
+    # de la bougie de sortie dans les trois cas : un stop touche dans une bougie qui
+    # recloture au-dessus de l'entree valait -1 R et un rendement POSITIF. Le R (donc toutes
+    # les portes) n'etait pas touche ; le profit factor et le rendement moyen, lus sur
+    # `rendement_pct`, ne decrivaient pas les memes trades que le R.
+    prix_sortie = np.where(tp_gagne, cible, np.where(sl_gagne, stop, cloture_fin))
 
     masque = np.arange(horizon)[None, :] <= i_fin[:, None]   # les bougies TENUES, sortie incluse
 
@@ -425,13 +432,13 @@ def _bloc(positions, hauts, bas, clotures, dates, sens_tout, entree_tout, risque
     return pd.DataFrame({
         "ts_entree": ts_entree, "ts_sortie": ts_sortie,
         "sens": np.where(sens > 0, "long", "short"),
-        "prix_entree": entree, "prix_sortie": cloture_fin,
+        "prix_entree": entree, "prix_sortie": prix_sortie,
         "stop": stop, "cible": cible, "risque": risque,
         "r": r_net, "r_brut": r_brut, "cout_r": cout_r,
         # Le detail a cote du total : sans lui, on ne peut pas dire si une candidate meurt
         # de trader trop souvent ou de tenir trop longtemps — deux maladies opposees.
         "frais_r": frais_r, "spread_r": spread_r, "funding_r": funding_r,
-        "rendement_pct": sens * (cloture_fin / entree - 1.0) * 100.0 - total_pct,
+        "rendement_pct": sens * (prix_sortie / entree - 1.0) * 100.0 - total_pct,
         "mfe_r": np.where(np.isfinite(mfe_r), mfe_r, np.nan),
         "mae_r": np.where(np.isfinite(mae_r), mae_r, np.nan),
         "duree_h": duree_h, "duree_bougies": i_fin + 1,

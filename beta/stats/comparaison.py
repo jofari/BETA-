@@ -80,7 +80,13 @@ def _serie_journaliere(equity: pd.DataFrame) -> pd.Series:
         return pd.Series(dtype=float)
     courbe = (equity.set_index(pd.to_datetime(equity["ts"], utc=True))["equity"]
               .resample("1D").last().ffill().dropna())
-    return courbe.pct_change().dropna()
+    # P&L du jour rapporte au capital INITIAL, pas `pct_change` : la courbe du moteur est a
+    # risque fixe (non composee) et peut passer sous zero, ou un pourcentage de la veille
+    # change de signe. Meme correction que S8 (15/10/2026) et S9 (05/11/2026), qui manquait
+    # ici jusqu'au 15/11/2026. AritV1 et les candidates partent du meme capital
+    # (`pipeline.CAPITAL`) : les deux series sont sur la meme echelle.
+    from beta.moteur import pipeline
+    return courbe.diff().dropna() / pipeline.CAPITAL
 
 
 def _ecart_contre(equity: pd.DataFrame, temoin: pd.Series) -> dict:
@@ -102,7 +108,8 @@ def _ecart_contre(equity: pd.DataFrame, temoin: pd.Series) -> dict:
     a, b = mienne.loc[commun], temoin.loc[commun]
     return {
         "n_jours_communs": len(commun),
-        "ecart_rendement_pct": float(100 * ((1 + a).prod() - (1 + b).prod())),
+        # Sans composition, le rendement de la periode est la SOMME des P&L journaliers.
+        "ecart_rendement_pct": float(100 * (a.sum() - b.sum())),
         "ecart_sharpe": float(reference.sharpe_annuel(a) - reference.sharpe_annuel(b)),
         "correlation": float(a.corr(b)) if a.std() > 0 and b.std() > 0 else float("nan"),
     }

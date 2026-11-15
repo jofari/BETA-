@@ -138,7 +138,9 @@ def hold(series: dict[str, pd.DataFrame], cout_aller_retour_pct: float = 0.0, *,
 
 def _cagr(courbe: pd.Series) -> float:
     jours = (courbe.index[-1] - courbe.index[0]).days
-    if jours <= 0 or courbe.iloc[0] <= 0:
+    # Courbe finie a zero ou sous zero (risque fixe, non compose) : pas de CAGR, et pas de
+    # puissance fractionnaire d'un nombre negatif.
+    if jours <= 0 or courbe.iloc[0] <= 0 or courbe.iloc[-1] <= 0:
         return float("nan")
     return float((courbe.iloc[-1] / courbe.iloc[0]) ** (JOURS_AN / jours) - 1.0) * 100.0
 
