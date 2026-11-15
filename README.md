@@ -195,7 +195,7 @@ mean_reversion_z (R2) : INFIRMEE
 
 ## La batterie
 
-Neuf portes, dans `beta/stats/`. **Aucune ne peut améliorer un résultat** — elles ne savent
+Dix portes, dans `beta/stats/`. **Aucune ne peut améliorer un résultat** — elles ne savent
 que le dégrader. Une candidate qui les franchit toutes n'est pas prouvée : elle est
 seulement *pas encore tuée*.
 
@@ -210,6 +210,25 @@ seulement *pas encore tuée*.
 | S7 | Reality check de White / SPA | le meilleur d'un lot, quand le lot est du bruit |
 | S8 | Buy-and-hold | ce qui mesure le marché plutôt qu'un edge |
 | S9 | Corrélation des équity | ce qui répète une candidate déjà retenue |
+| S10 | PBO par CSCV (depuis le 26/10) | la meilleure d'un lot, quand la choisir est du surapprentissage |
+
+Seuils, modules et règles du dossier : `beta/stats/CLAUDE.md`.
+
+### Les outils informatifs — ni porte ni verdict (15/11)
+
+À côté des portes, quatre modules donnent des chiffres **sans seuil et sans verdict** :
+`sharpe` (erreur-type, PSR, longueur et durée minimales, écart de deux Sharpe), `risque`
+(queues, table des drawdowns, drawdown rejoué par blocs, alpha et bêta contre le hold,
+volatilité égale), `robustesse` (concentration des gains, stress des coûts, par année, sans
+une paire), `selection` (SPA de Hansen, Romano-Wolf).
+
+```powershell
+python scripts/fiche_robustesse.py <run_id>              # la fiche d'un run enregistré
+python scripts/fiche_robustesse.py --lot <run> <run> ... # + SPA et Romano-Wolf sur le lot
+```
+
+La fiche relit `data/runs/<run_id>/` : rien n'est rejoué, aucun essai n'est consommé,
+`verdict.json` n'est pas touché. Elle s'écrit à côté (`robustesse.md`, `robustesse.json`).
 
 ## Suggérer une idée
 

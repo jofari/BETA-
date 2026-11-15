@@ -4,10 +4,15 @@
 Objectif : tester **plusieurs** hypothèses d'edge sur les mêmes données, avec une batterie
 statistique qui les tue quand elles ne valent rien — et le dire.
 
-**Début de session (famille 2)** : ce fichier, puis `DECISIONS.md` en entier (décisions
-ouvertes). Tout le reste se lit sur appel — tableau « À ouvrir seulement si besoin » en bas.
-Les règles communes à tous les projets de Jonas sont, sur le PC, dans
-`C:\Users\jofar\.claude\CLAUDE.md`.
+**Les consignes sont rangées en trois familles** (15/11/2026) :
+1. **Obligatoire à toute session** — ce fichier, puis `DECISIONS.md` en entier (décisions
+   ouvertes, ~160 lignes). Les règles communes à tous les projets de Jonas sont dans le
+   `CLAUDE.md` global de la machine (`C:\Users\jofar\.claude\CLAUDE.md` sur le PC,
+   `/root/.claude/CLAUDE.md` sur le VPS).
+2. **Utile dans tel dossier** — un `CLAUDE.md` par dossier, chargé seulement quand on y travaille :
+   `beta/stats/` (portes et outils), `beta/lake/` (univers), `beta/marches/` (vrais marchés),
+   `deploy/` (VPS, timers).
+3. **À ouvrir seulement si besoin** — tableau en bas de ce fichier.
 
 ---
 
@@ -58,7 +63,7 @@ d'edge.
    famille (`experiences.n_essais_pour`). Par défaut un essai compte en trading actif : un
    test invest le déclare (`famille_compteur="invest"`). Jamais remis à zéro. Les ~7 150
    configurations essayées HORS protocole par les voies A, B et C (sept.-oct.) ne sont
-   comptées dans aucun des deux : **A3 tranchée par Jonas le 23/10** (`DECISIONS.md`).
+   comptées dans aucun des deux : **A3 tranchée par Jonas le 23/10** (archives des décisions).
    Un **diagnostic** (`diagnostic=True`, Jonas 24/10, T1F) est journalisé au registre sans
    avancer le compteur : il re-mesure contre un modèle nul des signaux déjà comptés.
 5. **Hold-out scellé.** Aucune donnée postérieure à la date de scellement ne sert à choisir
@@ -129,6 +134,11 @@ et embargo, corrélation des courbes d'équity entre candidates, PBO du choix da
 > Ces outils ne peuvent que rendre un résultat **pire**, jamais meilleur. Leur seul usage
 > honnête est de **tuer** un candidat, pas de le sacrer.
 
+**Portes et outils ne sont pas la même chose** (15/11/2026). Les dix portes S1-S10
+(`beta/stats/batterie.py`) rendent l'issue ; leurs seuils ne changent que par décision de Jonas.
+Les outils informatifs (`sharpe`, `risque`, `robustesse`, `selection`, `fiche`) donnent des
+chiffres à lire à côté, sans seuil et sans verdict. Détail : `beta/stats/CLAUDE.md`.
+
 ## Contexte machine — le PC
 
 - Windows 11, 16 Go de RAM, RTX 5060. **Jamais de `read_parquet` global en pandas** : le
@@ -143,92 +153,30 @@ et embargo, corrélation des courbes d'équity entre candidates, PBO du choix da
   clone du même dépôt, supprimé le 15/11/2026), comme ALPHA — OneDrive a déjà vidé des
   fichiers sur ce poste.
 
-## Le VPS — ce qui tourne sans personne (depuis début octobre)
+## Le VPS
 
-Le même dépôt vit aussi sur un VPS Linux (`/root/BETA-`, venv `/root/venvs/arit`, unités
-systemd dans `deploy/`). Le PC et le VPS poussent sur le même `main` : **`git pull --ff-only`
-avant de coder**.
-
-- **Timers (UTC)** : `beta-maj` 00:20 (lake) · `beta-suivi` 00:45 (voie C) ·
-  `beta-suivi-vc2`…`vc5` 00:50 · `beta-paper` 01:00 (cinq voies) · `beta-journaux` 01:15
-  (commit + push des journaux) · `beta-vision` 03:30 (historique public Binance) ·
-  `beta-vc4-sessions` (08:02 Londres, 09:32 New York, en semaine) · `beta-paper-direct`
-  (chaque minute) · `beta-marches` 23:10 (vrais marchés, quotidien) · `beta-marches-direct`
-  (toutes les 5 min, intraday) · `beta-marches-histo` (toutes les heures, rattrapage de l'or
-  intraday depuis 2003) · `beta-vc6-paper` 00:40 (paper de plomberie de VC6 V2, non jugé,
-  depuis le 03/11/2026 → `PAPER_VC6.jsonl`) · `beta-vc6-rejeu` (lundi 02:00, rejeu du backtest
-  → `PAPER_VC6_REJEU.jsonl`).
-- **Journaux forward**, à la racine, en ajout seul : `SUIVI_*.jsonl`, `CONSIGNES_VC4.jsonl`,
-  `PAPER_*.jsonl` (poussés chaque nuit) ; `DIRECT_PAPER.jsonl` (relevé minute, hors git).
-- **Dashboard** `beta-web` en lecture seule sur `127.0.0.1:7474`, ouvert depuis le PC par
-  le tunnel `VPS.cmd`. Après un changement de son code : `systemctl restart beta-web`.
-- **Alertes** : toute unité `beta-*` en échec — alarme du dry-run comprise (sorties 4 et 5) —
-  part sur le salon Discord BETA (drop-in `deploy/notif.conf`).
-- Tests sur le VPS : `cd /root/BETA- && /root/venvs/arit/bin/python -m pytest -q`.
+Le même dépôt vit sur un VPS Linux (`/root/BETA-`, venv `/root/venvs/arit`). Le PC et le VPS
+poussent sur le même `main` : **`git pull --ff-only` avant de coder**. Une quinzaine de timers
+`beta-*` y tournent sans personne (lake, suivi et paper des voies C, journaux poussés chaque nuit,
+vrais marchés) et alertent le salon Discord BETA en cas d'échec ; le dashboard `beta-web` est en
+lecture seule sur `127.0.0.1:7474`. Horaires, journaux et règles d'exploitation :
+`deploy/CLAUDE.md`. ⚠️ Sur le VPS, ne jamais changer de branche dans `/root/BETA-` (les timers
+exécutent ce dossier) : travailler dans un worktree.
 
 ## Univers
 
-**6 paires**, perpétuels Binance : `BTC` `ETH` `SOL` `BNB` (déjà téléchargées par ARIT :
-leurs feathers **amorcent** la copie de BETA, qui est ensuite **complétée** chaque jour —
-jamais re-téléchargée en entier, cf. `beta/lake/maj.py`) + `LINK` `XRP` (ajoutées le 18/08, les deux
-perpétuels les plus anciens après les majors — c'est l'historique qui commande, puisque le
-N est le goulot). Source unique : `beta/lake/univers.py`.
+Source unique : `beta/lake/univers.py`. `data.load(nom, timeframe)` lit tout.
+- **6 paires** (perpétuels Binance) : `BTC` `ETH` `SOL` `BNB` `LINK` `XRP`, en `5m` `1h` `4h` `1d`
+  (les autres multiples de 5 min sont dérivés à la volée).
+- **3 perpétuels TradFi** (`univers.TRADFI`, hors de `PAIRES`) : `XAU` `QQQ` `SPY`.
+- **5 indices quotidiens** (`univers.INDICES`, `1d` seulement) : `SP500` `NASDAQ` `CAC40`
+  `MSCIWORLD` `XAUUSD`.
+- **Historique public Binance** (`lecture.vision`) : `metrics`, `bookDepth`, `aggTrades`.
+- **Vrais marchés** (`beta/marches`, structure parallèle) : `SPX` `NDX` `VIX` `XAU_LBMA`
+  `DEXJPUS` `VIXCLS` `BTC_DS1` en quotidien, `SPX` `NDX` `XAU_SPOT` en intraday.
 
-**3 perpétuels TradFi** (Jonas, 20/10) : `XAU` (or, XAUUSDT, coté depuis le 11/12/2025),
-`QQQ` (NASDAQ-100 par son ETF) et `SPY` (S&P 500 par son ETF), cotés depuis le 06/04/2026,
-24/24 7/7 sur Binance USDⓈ-M. Mêmes timeframes et même porte que les 6 paires (freqtrade →
-parquet → catalogue, funding compris), historique complet depuis la cotation, complétés chaque
-nuit APRÈS le reste (`maj.mettre_a_jour_tradfi`). Ils sont dans `univers.TRADFI`, **hors** de
-`univers.PAIRES` : rien de ce qui parcourt l'univers crypto ne les ramasse sans le dire.
-`data.load("XAU", "1h")`. ⚠️ `SPXUSDT` chez Binance est le jeton mème SPX6900, pas le S&P 500.
-DS1 collecte aussi leur carnet et leur bookTicker en live (services `ds1-*-tradfi`).
-
-**Historique public Binance** (10/10, `beta/lake/vision.py`) : `metrics` (OI, ratios
-long/short, 5 min), `bookDepth` (profondeur cumulée ±0,2-5 %, 30 s, depuis 2023) et
-`aggTrades` agrégés à la minute (flux acheteur/vendeur taker), mêmes 6 paires, hors du
-catalogue OHLCV : `lecture.vision("bookDepth", "BTC")`, couverture par `scripts/vision.py --etat`.
-
-Timeframes stockés : `5m` `1h` `4h` `1d`. Tout autre timeframe multiple de 5 min est
-**dérivé à la volée** par resampling — on ne télécharge pas ce qu'on peut calculer.
-
-**5 indices quotidiens** (spike du 14/09, structure parallèle `univers.INDICES`) : `SP500`
-`NASDAQ` `CAC40` `MSCIWORLD` `XAUUSD` — yfinance, **`1d` seulement**, depuis 2010, même
-schéma parquet et même catalogue que les paires (audit en jours **ouvrés**, jours fériés
-tolérés, trou > 7 jours = suspect). Sans funding ni Fear & Greed (crypto-only) ; les séries
-macro globales FRED se joignent normalement. `data.load("SP500", "1d")`, et rien d'autre :
-demander un `4h` sur un indice est une `DataError`, pas un resampling.
-
-**Les vrais marchés** (Jonas, 20-21/10 : « pas la version de Binance », « sortir de freqtrade »).
-Le paquet `beta/marches` est une structure **parallèle** au lake, comme `vision`. Fichiers dans
-`data/marches/` : `<NOM>-<tf>.parquet`, plus `etat.json` et `etat_intraday.json`. Rien de ce
-qui tourne ne la lit ; seuls les labos `beta/temps1` (T1A) et `beta/temps1_justesse` (T1J,
-test de justesse du 24/10) l'utilisent. Noms **neufs**, sans collision
-avec le lake (test) : `SP500`, `NASDAQ` et `XAUUSD` gardent leur sens ci-dessus.
-- Quotidien (`collecte.lire("SPX")`, timer `beta-marches`, 23:10 UTC) :
-  - `SPX` : S&P 500 `^GSPC`, Yahoo, depuis 1927 ;
-  - `NDX` : Nasdaq-100 `^NDX`, Yahoo, depuis 1985 ;
-  - `VIX` : `^VIX`, Yahoo, depuis 1990 ;
-  - `XAU_LBMA` : or comptant au fixing LBMA PM, via l'API du World Gold Council, à requêter
-    **par année** (une plage courte rend un autre prix, 7 jours sur 7), depuis 1970 ;
-  - `DEXJPUS` : USD/JPY H.10, FRED, hebdomadaire ; colonne `publie_le` = première publication
-    ALFRED.
-  - `VIXCLS` : le VIX tel que publié par FRED (T1J, 24/10), à côté de `^VIX` ;
-  - `BTC_DS1` : clôture journalière BTC/USD Bitstamp, lue dans la base souveraine DS1 (table
-    `bougies_1d`, lot DS1 de 00:15 UTC) par `docker exec psql`, en lecture seule, depuis 2011.
-  - Règles : la séance du jour n'est jamais écrite avant sa clôture, et une réécriture du passé
-    par la source part dans `revisions.jsonl`.
-- Intraday (`intraday.lire("SPX", "5m")`, avec un 4h dérivé du 1h sur la grille UTC) :
-  - `SPX`, `NDX` : Yahoo 5m (60 jours à la source, s'allonge à chaque passage) et 1h (730 jours),
-    timer `beta-marches-direct` toutes les 5 min ;
-  - `XAU_SPOT` : or comptant XAU/USD, bougies BID Dukascopy à la minute agrégées en 5m/1h/1d. La
-    journée en cours vient des ticks horaires (retard ≤ ~1 h) ; l'historique depuis 2003 est
-    rattrapé par `beta-marches-histo`. ⚠️ Dukascopy bride : une requête à la fois, 4 s entre deux,
-    arrêt propre après trois 503 et reprise à l'heure suivante.
-- Qualité, vérifiée le 21/10 :
-  - `SP500` du lake = `SPX`, à l'identique ;
-  - **FRED `NASDAQ100` (vote du socle) est faux sur 407 séances de 2003-2005** (31/12/2003 : 1 459,06
-    contre 1 467,92 officiel) : Yahoo `^NDX` est juste. Le socle ne lit que 2019+ ;
-  - FRED `VIXCLS` et `^VIX` diffèrent sur 11 séances, mais jamais de part et d'autre de 25.
+Dates de cotation, sources, pièges et qualité : `beta/lake/CLAUDE.md` et
+`beta/marches/CLAUDE.md` (chargés quand on travaille dans ces dossiers).
 
 ## Conventions
 
@@ -264,7 +212,9 @@ avec le lake (test) : `SP500`, `NASDAQ` et `XAUUSD` gardent leur sens ci-dessus.
 |---|---|
 | Ce que BETA ne sait pas encore faire, état d'avancement (fait foi) | `CHANTIERS.md` (append-only, barré en place) |
 | Mode d'emploi, commandes, architecture | `README.md` |
+| Une décision déjà tranchée et son motif (voies C, compteurs, hold-out, coûts, S6, S8, S10, TI1, Temps 1, R13 et R14) | `archives/DECISIONS_closes_2026-11-15.md` |
 | Rapport d'une mesure | `rapports/<ids>/RAPPORT.md` (écrit par le programme) |
-| Dossiers d'une voie ou d'un labo | `VC6_V1/`, `VC6_V2/`, `temps1*/`, `pbo_*/`, `MOMENTUM30_BTC/` |
-| Ce qui est clos | `archives/` |
-| Décisions qui portent sur AritV1 en production | `C:\Users\jofar\ARIT2.0\DECISIONS.md` |
+| Fiche de robustesse d'un run (informative) | `python scripts/fiche_robustesse.py <run_id>` → `data/runs/<run_id>/robustesse.md` |
+| Dossiers d'une voie ou d'un labo | `VC6_V1/`, `VC6_V2/`, `temps1*/`, `pbo_*/`, `MOMENTUM30_BTC/` — **textes figés** (préenregistrements, spécifications) : ne jamais les réécrire ni les déplacer |
+| Ce qui est clos | `archives/` (son `README.md`) |
+| Décisions qui portent sur AritV1 en production | `DECISIONS.md` du dépôt `ARIT2.0` |

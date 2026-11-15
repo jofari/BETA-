@@ -61,3 +61,10 @@ plus : ils ne tournent pas tels quels. 15 importent `beta`. `RAPPORT.md`, `ADDEN
 
 Ce qui reste à sa place, parce que c'est un enregistrement du protocole : `intentions/R7.txt`
 (les intentions de R7 déclarées avant génération, relues par `CHANTIERS.md`).
+
+## `DECISIONS_closes_2026-11-15.md`
+
+Les sections de `DECISIONS.md` déjà tranchées et appliquées, sorties le 15/11/2026, mot pour
+mot : F1, A1, A2 et les voies C (config figée, VC2 à VC5, paper, critères d'arrêt), audit du
+13/10, S6, S8, TI1, Temps 1, compteurs séparés, diagnostics, ménage des runs, S10, R13 et R14,
+rapport écrit par le programme. `DECISIONS.md` ne garde que ce qui attend une réponse.
