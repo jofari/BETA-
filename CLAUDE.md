@@ -140,7 +140,7 @@ et embargo, corrélation des courbes d'équity entre candidates, PBO du choix da
   Aujourd'hui : pandas, pyarrow, duckdb, numpy, scipy, freqtrade, **yfinance** (14/09 : seule
   source libre fiable pour indices/ETF en quotidien ; stooq bloque les robots).
 - BETA vit **hors OneDrive** (`C:\Users\jofar\BETA-` ; `C:\Users\jofar\BETA` est un ancien
-  clone périmé du même dépôt, à ne pas utiliser), comme ALPHA — OneDrive a déjà vidé des
+  clone du même dépôt, supprimé le 15/11/2026), comme ALPHA — OneDrive a déjà vidé des
   fichiers sur ce poste.
 
 ## Le VPS — ce qui tourne sans personne (depuis début octobre)
