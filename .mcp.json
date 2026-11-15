@@ -7,7 +7,7 @@
         "beta.mcp.serveur"
       ],
       "env": {
-        "PYTHONPATH": "C:/Users/jofar/BETA"
+        "PYTHONPATH": "C:/Users/jofar/BETA-"
       }
     }
   }
