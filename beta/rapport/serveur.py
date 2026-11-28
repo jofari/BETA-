@@ -216,6 +216,16 @@ def donnees_invest_run(params: dict) -> dict:
     return invest.run(params)
 
 
+def donnees_sentiment(params: dict) -> dict:
+    from beta.rapport import sentiment
+    return sentiment.vue(params)
+
+
+def donnees_sentiment_detail(params: dict) -> dict:
+    from beta.rapport import sentiment
+    return sentiment.detail(params)
+
+
 _ROUTES_BRUTES = {
     "/api/lake": lambda p: donnees_lake(),
     "/api/strategie": lambda p: donnees_strategie(bool(p.get("holdout"))),
@@ -231,6 +241,9 @@ _ROUTES_BRUTES = {
     # Onglet Test invest (TI1, 20/10) : lecture seule, le calcul passe par la ligne de commande.
     "/api/invest": lambda p: donnees_invest(),
     "/api/invest/run": donnees_invest_run,
+    # Onglet Sentiment (DS2, 28/11) : relit la base de DS2 en lecture seule, ne classe rien.
+    "/api/sentiment": donnees_sentiment,
+    "/api/sentiment/detail": donnees_sentiment_detail,
 }
 
 # Toutes les routes passent par `propre` : aucune ne peut renvoyer de NaN au navigateur,

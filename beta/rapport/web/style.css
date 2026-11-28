@@ -425,3 +425,28 @@ body.lecture-seule #idee-form { display: none; }
 .choix-voies .chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .choix-voies .lien-choix { background: none; border: 0; color: var(--accent); cursor: pointer;
                            padding: 0; font: inherit; text-decoration: underline; }
+
+/* ---------- onglet Sentiment (DS2, 28/11) ---------- */
+.sentiment-etat { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px;
+  font-size: 12.5px; color: var(--text-secondary); align-items: center; }
+.sentiment-outils { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  font-size: 12.5px; color: var(--text-secondary); }
+#onglet-sentiment { grid-template-columns: minmax(0, 1fr); }
+#sentiment-message:empty { display: none; }
+.sentiment-fenetres { display: inline-flex; gap: 4px; }
+.sentiment-fenetres .btn.is-active { background: var(--accent-doux); border-color: var(--accent); }
+.sentiment-barre { display: inline-flex; width: 110px; height: 9px; border-radius: 3px;
+  overflow: hidden; background: var(--grid); vertical-align: middle; }
+.sentiment-barre i { display: block; height: 100%; }
+.sentiment-barre .h { background: var(--status-good); }
+.sentiment-barre .n { background: var(--series-neutre); }
+.sentiment-barre .b { background: var(--status-critical); }
+#onglet-sentiment tr.cliquable { cursor: pointer; }
+#onglet-sentiment tr.cliquable:hover td { background: var(--raised); }
+#onglet-sentiment tr.choisi td { background: var(--accent-doux); }
+.sentiment-titre { white-space: normal; min-width: 280px; }
+.sentiment-titre a { color: var(--text-primary); text-decoration: none; }
+.sentiment-titre a:hover { text-decoration: underline; }
+#sentiment-articles td, #sentiment-articles th { text-align: left; }
+#sentiment-marches td:first-child, #sentiment-marches th:first-child,
+#sentiment-actifs td:nth-child(-n+2), #sentiment-actifs th:nth-child(-n+2) { text-align: left; }

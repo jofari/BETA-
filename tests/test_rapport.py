@@ -66,6 +66,8 @@ def _params(route: str) -> dict | None:
         from beta.moteur import registre
         modules = sorted(registre.toutes())
         return {"module": [modules[0]]} if modules else None
+    if route == "/api/sentiment/detail":
+        return {"groupe": ["BTC"]}           # sans DS2 branche, la route le dit en JSON
     return {}
 
 
@@ -89,7 +91,7 @@ def _refuser(constante):
 
 def test_chaque_id_utilise_par_le_js_existe_dans_le_html():
     js = "\n".join((WEB / f).read_text(encoding="utf-8")
-                    for f in ("app.js", "fiche.js", "invest.js"))
+                    for f in ("app.js", "fiche.js", "invest.js", "sentiment.js"))
     html = (WEB / "index.html").read_text(encoding="utf-8")
     utilises = set(re.findall(r'[$q]\("#([^"]+)"\)', js))
     declares = set(re.findall(r'id="([^"]+)"', html))

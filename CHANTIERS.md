@@ -732,3 +732,22 @@ Ce qui reste ouvert :
 | **AU7** | **R7 jamais testée telle qu'écrite** : `auto_r7_01` à découvert sur 99,99 % des bougies (min/max sur toute la série, T13), `auto_r7_03` mesure une clôture et pas une mèche (T12) | 🟠 ouverte | la même intuition que R12 ; son « infirmée » ne dit rien de l'hypothèse écrite |
 | **AU8** | **Les mesures VC3-VC5 gardent leur maxDD « depuis le premier jour »** (les suivis partent du capital initial depuis le 10/10) | 🟡 assumée | écart borné par la perte du premier jour ; garder la convention rend les verdicts reproductibles |
 
+
+## SE — onglet Sentiment du dashboard (DS2, 28/11/2026)
+
+Demande de Jonas (28/11) : « une interface graphique dans les données de BETA qui permet
+d'avoir le sentiment par actif et par marché », à partir de DS2 (son dépôt `jofari/DS2` :
+FinBERT sur les news de DS1, détection d'actifs, `ds2.clasifications`, vue `ds2.v_score_jour`).
+
+Fait sur la branche `ds2-sentiment` : `beta/rapport/sentiment.py` (lecture seule, rien n'est
+classé ni recalculé à la place de DS2), routes `/api/sentiment` et `/api/sentiment/detail`,
+onglet `web/sentiment.js` (tableaux par marché et par actif sur 24 h / 7 j / 30 j, barres
+quotidiennes, derniers articles), `tests/test_sentiment_ds2.py` (sans base vivante).
+Nouvelle dépendance : **psycopg** (lire la base de DS2). Connexion : `/root/.config/beta/ds2.env`
+hors dépôt (ou `BETA_DS2_ENV`), rôle Postgres en lecture seule ; sans ce fichier, l'onglet dit
+« DS2 non branché ».
+
+| # | Reste | Statut |
+|---|---|---|
+| **SE1** | Brancher sur la vraie base DS2 : où DS2 est déployé (schéma `ds2` dans la base DS1, ou base à part) | 🔴 décision de Jonas |
+| **SE2** | Le sentiment n'est relié aux prix par aucun test : ce n'est pas un signal. Tout usage en stratégie passe par un préenregistrement (invariant n° 4) | 🟠 ouverte |
